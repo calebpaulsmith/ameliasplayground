@@ -28,6 +28,25 @@ https://calebpaulsmith.github.io/ameliasplayground/
 
 On Android/desktop Chrome, use the **Install** icon in the address bar.
 
+## Play on a TV / Apple TV (game controller)
+
+Every game is fully playable without touch, using a **game controller**
+(Xbox, PlayStation or MFi) or a **keyboard** — so it works on the big screen:
+
+1. Pair a Bluetooth controller to an iPhone, iPad or Mac.
+2. Open the site there and **AirPlay / mirror** the screen to the Apple TV
+   (or connect the Mac to the TV).
+3. Sit back and play with the controller from the couch.
+
+Controls: **d-pad / left stick** moves the highlight (and steers in Catch,
+slides in Planet Merge, moves the cursor in Wind Garden); **A / Enter**
+selects, plants, or drops; **B / Esc** goes back. Connecting a controller
+switches the UI into a TV-safe (overscan-aware) layout automatically. On a
+keyboard: **arrows/WASD**, **Enter/Space**, **Esc**.
+
+> Note: tvOS has no web browser, so this runs on the TV via screen
+> mirroring rather than as a native Apple TV app.
+
 ## Enabling GitHub Pages (one-time)
 
 This repo deploys automatically via GitHub Actions on every push to `main`.
