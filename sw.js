@@ -1,6 +1,6 @@
 /* Service worker for Aventura Espacial de Amelia.
    Bump CACHE when files change to push updates to installed devices. */
-const CACHE = 'amelia-v6';
+const CACHE = 'amelia-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -9,7 +9,20 @@ const ASSETS = [
   './icons/icon-512.png',
   './icons/icon-512-maskable.png',
   './icons/apple-touch-icon.png',
-  './icons/favicon-32.png'
+  './icons/favicon-32.png',
+  // Amelia el Autobús — 3D driving adventure
+  './drive/',
+  './drive/index.html',
+  './drive/main.js',
+  './drive/world.js',
+  './drive/bus.js',
+  './drive/npc.js',
+  './drive/missions.js',
+  './drive/controls.js',
+  './drive/hud.js',
+  './drive/voice.js',
+  './drive/i18n.js',
+  './vendor/three.module.min.js'
 ];
 
 self.addEventListener('install', (e) => {

@@ -11,6 +11,26 @@ expanding rings that sing in a pentatonic scale, à la *Frost*) — plus a
 prize shelf, star rewards and adaptive difficulty. Works offline once
 loaded.
 
+## 🚌 Amelia el Autobús (3D driving adventure)
+
+A heavier, longer-term project lives in [`drive/`](drive/): a **3D driving
+game** where Amelia is a talking blue bus (à la *Tayo the Little Bus*). She
+lives at a **mechanic's workshop** home base and learns to drive around a
+small city — teaching **red-light/green-light**, **left & right**, reading
+**road signs**, and **stopping at bus stops** to pick up passengers.
+
+- **Story mode** — follow the GPS minimap and turn-by-turn arrows through a
+  pick-up → drop-off → home adventure, with a talking bus, traffic lights and
+  star rewards.
+- **Free Drive** — cruise around the whole city with no objectives.
+- Built with **Three.js** (vendored in `vendor/` for offline play) from
+  primitive models, so it needs no downloaded assets. Bilingual ES/EN with
+  spoken voice. Playable by touch, keyboard (arrows/WASD) or game controller.
+
+See [`drive/MODELS.md`](drive/MODELS.md) for the long-term roadmap and
+ready-to-paste **AI prompts** to generate high-fidelity GLB models that drop
+straight into `drive/models/`.
+
 ## Play it
 
 Once GitHub Pages is enabled (see below), the game lives at:
@@ -59,6 +79,8 @@ This repo deploys automatically via GitHub Actions on every push to `main`.
 ## Project layout
 
 - `index.html` — the whole game (HTML/CSS/JS, no build step).
+- `drive/` — Amelia el Autobús, the 3D driving adventure (ES modules + Three.js).
+- `vendor/` — Three.js (vendored locally for offline play).
 - `manifest.webmanifest` — PWA metadata (name, icons, colors, standalone).
 - `sw.js` — service worker; precaches the app shell for offline play.
 - `icons/` — app icons (any + maskable) and the Apple touch icon.
