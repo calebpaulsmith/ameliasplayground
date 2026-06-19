@@ -166,6 +166,30 @@
   .pad:active{transform:translateY(5px);box-shadow:0 2px 0 rgba(0,0,0,.3);}
   #pads.lock .pad{cursor:default;}
   @media(min-height:700px){#songStatus{font-size:1.8rem;} #songSinger{font-size:3.8rem;} .pad{font-size:4rem;}}
+  /* PLANET MERGE (2048) */
+  .menubtn.merge{background:linear-gradient(180deg,#5fd0ff,#1f7fd0);box-shadow:0 8px 0 #14598f,0 12px 24px rgba(0,0,0,.4);}
+  .menubtn.merge:active{box-shadow:0 2px 0 #14598f;}
+  #merge{position:absolute;inset:0;z-index:30;display:none;flex-direction:column;}
+  #merge.show{display:flex;}
+  #mergeHUD{position:relative;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;gap:6px;}
+  #mergeWrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:0 12px 16px;min-height:0;}
+  #mergeScores{display:flex;gap:10px;}
+  #mergeBoard{position:relative;width:min(92vw,56vh,440px);aspect-ratio:1;background:rgba(0,0,0,.3);
+    border-radius:22px;box-shadow:inset 0 0 0 3px rgba(255,255,255,.06);touch-action:none;flex:none;}
+  .mcell{position:absolute;border-radius:14px;background:rgba(255,255,255,.05);}
+  .mtile{position:absolute;display:flex;align-items:center;justify-content:center;border-radius:14px;
+    will-change:transform;transition:transform .13s ease;box-shadow:0 5px 12px rgba(0,0,0,.35);overflow:hidden;}
+  .mtile .em{line-height:1;display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.35));}
+  #mergeBoard.notrans .mtile{transition:none;}
+  .mtile.pop .em{animation:mpop .2s ease;}
+  .mtile.born .em{animation:mborn .18s ease;}
+  @keyframes mpop{0%{transform:scale(1)}45%{transform:scale(1.26)}100%{transform:scale(1)}}
+  @keyframes mborn{0%{transform:scale(.1);opacity:0}100%{transform:scale(1);opacity:1}}
+  #mergeEnd{position:absolute;inset:0;z-index:8;display:none;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;background:radial-gradient(circle,rgba(58,31,110,.93),rgba(13,8,38,.97));}
+  #mergeEnd.show{display:flex;}
+  #mergeEndTitle{font-size:2rem;font-weight:700;text-align:center;line-height:1.2;}
+  #mergeEndSub{font-size:1.2rem;opacity:.85;text-align:center;}
 </style>
 </head>
 <body>
@@ -180,6 +204,7 @@
     <button class="playbtn menubtn catch" id="catchBtn">⭐ <span id="b_catch">Atrapar estrellas</span></button>
     <button class="playbtn menubtn tower" id="towerBtn">🏗️ <span id="b_tower">Torre de cohetes</span></button>
     <button class="playbtn menubtn song" id="songBtn">🎶 <span id="b_song">Canción de estrellas</span></button>
+    <button class="playbtn menubtn merge" id="mergeBtn">🪐 <span id="b_merge">Fusión de planetas</span></button>
   </div>
   <div class="langtoggle" id="langStart"><button data-l="es">Español</button><button data-l="en">English</button></div>
 </div>
@@ -242,6 +267,28 @@
   </div>
 </div>
 
+<div id="merge">
+  <div id="mergeHUD">
+    <button class="topbtn" id="mergeBack">🏠</button>
+    <div id="mergeScores">
+      <div class="pill">🏆 <span id="mergeScore">0</span></div>
+      <div class="pill">👑 <span id="mergeBest">0</span></div>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <div class="pill">⭐ <span id="mergeStars">0</span></div>
+      <button class="topbtn" id="mergeNew">🔄</button>
+    </div>
+  </div>
+  <div id="mergeWrap">
+    <div id="mergeBoard"></div>
+  </div>
+  <div id="mergeEnd">
+    <div id="mergeEndTitle">🏆</div>
+    <div id="mergeEndSub"></div>
+    <button class="playbtn" id="mergeAgain">¡Otra vez! 🔁</button>
+  </div>
+</div>
+
 <div id="celebrate"><div id="celebEmoji">🚀</div><h2 id="celebText">¡Lo lograste! 🌈</h2></div>
 
 <div id="shelf">
@@ -266,6 +313,12 @@ const UI={
   towerGo:{es:'¡Apila bien alto!',en:'Stack it high!'},
   towerTip:{es:'Toca para soltar 👆',en:'Tap to drop 👆'},
   song:{es:'Canción de estrellas',en:'Star Song'},
+  merge:{es:'Fusión de planetas',en:'Planet Merge'},
+  mergeGo:{es:'¡Desliza para juntar planetas iguales!',en:'Swipe to join matching planets!'},
+  mergeWin:{es:'¡Hiciste una galaxia! 🌌',en:'You made a galaxy! 🌌'},
+  mergeOver:{es:'¡Tablero lleno!',en:'Board full!'},
+  score:{es:'Puntos',en:'Score'},
+  bestScore:{es:'Mejor',en:'Best'},
   songGo:{es:'¡Escucha la canción y repítela!',en:'Listen to the song and repeat it!'},
   songListen:{es:'¡Escucha! 👂',en:'Listen! 👂'},
   songYourTurn:{es:'¡Tu turno! 👆',en:'Your turn! 👆'},
@@ -497,7 +550,8 @@ function answer(correct,el){
 function nextPrizeStars(){ const k=prizesWon; return 5*(k+1)+k*(k+1); }
 function refreshCounters(){
   [['starCount',stars],['prizeCount',prizesWon],['catchStars',stars],['catchPrize',prizesWon],
-   ['stackStars',stars],['stackPrize',prizesWon],['songStars',stars],['songPrize',prizesWon]].forEach(([id,v])=>{const el=$(id);if(el)el.textContent=v;});
+   ['stackStars',stars],['stackPrize',prizesWon],['songStars',stars],['songPrize',prizesWon],
+   ['mergeStars',stars]].forEach(([id,v])=>{const el=$(id);if(el)el.textContent=v;});
 }
 function givePrize(after){
   const idx=prizesWon%PRIZES.length, p=PRIZES[idx];
@@ -518,7 +572,7 @@ function burstConfetti(){for(let i=0;i<14;i++)confettiPiece();}
 /* ===== LANGUAGE TOGGLE ===== */
 function setLang(l){LANG=l;document.documentElement.lang=l;
   $('s_title').innerHTML=UI.title[l];$('s_sub').textContent=UI.sub[l];
-  $('b_learn').textContent=UI.learn[l];$('b_catch').textContent=UI.catch[l];$('b_tower').textContent=UI.tower[l];$('b_song').textContent=UI.song[l];
+  $('b_learn').textContent=UI.learn[l];$('b_catch').textContent=UI.catch[l];$('b_tower').textContent=UI.tower[l];$('b_song').textContent=UI.song[l];$('b_merge').textContent=UI.merge[l];
   $('catchHint').textContent=UI.catchHint[l];
   $('stackTip').textContent=UI.towerTip[l]; $('stackAgain').innerHTML=UI.again[l];
   $('shelfTitle').innerHTML=UI.shelfTitle[l];$('shelfHint').innerHTML=UI.shelfHint[l];$('shelfClose').innerHTML=UI.shelfClose[l];
@@ -564,7 +618,7 @@ $('playBtn').addEventListener('click',()=>{initAudio();if(AC&&AC.state==='suspen
 $('repeatBtn').addEventListener('click',()=>{ if(current) showPrompt(); });
 mascot.addEventListener('click',()=>{ tapSound(); if(current) showPrompt(); });
 function goHome(){ $('top').style.visibility='hidden'; $('game').style.visibility='hidden';
-  stopCatch(); stopStack(); stopSong(); $('start').style.display='flex'; }
+  stopCatch(); stopStack(); stopSong(); stopMerge(); $('start').style.display='flex'; }
 $('homeBtn').addEventListener('click',()=>{ tapSound(); goHome(); });
 
 /* ===== CATCH GAME ===== */
@@ -869,6 +923,159 @@ function stopSong(){ songRunning=false; songInput=false; clearSongTimers();
 $('songBtn').addEventListener('click',()=>{ tapSound(); startSong(); });
 $('songBack').addEventListener('click',()=>{ tapSound(); goHome(); });
 $('songShelf').addEventListener('click',()=>{ tapSound(); openShelf(); });
+
+/* ===== PLANET MERGE (2048-style) ===== */
+const mergeView=$('merge'), mergeBoard=$('mergeBoard');
+/* the cosmic growth chain: spark → ... → galaxy */
+const CHAIN=['✨','☄️','🌙','🪐','🌍','🌕','⭐','🌟','🛸','🚀','🌞','🌌'];
+const CHAIN_BG=[
+  'linear-gradient(160deg,#7e6bd6,#4b3aa0)','linear-gradient(160deg,#9b8cff,#5a47c4)',
+  'linear-gradient(160deg,#9aa7c7,#5b6789)','linear-gradient(160deg,#ffb14d,#d97a1f)',
+  'linear-gradient(160deg,#4d9bff,#2360c4)','linear-gradient(160deg,#e9e2c4,#b9ac7d)',
+  'linear-gradient(160deg,#ffe06b,#f4b41a)','linear-gradient(160deg,#ffd23f,#ff9e1f)',
+  'linear-gradient(160deg,#2ee6d6,#16a99b)','linear-gradient(160deg,#ff7e8a,#e23d5a)',
+  'linear-gradient(160deg,#ffcf4d,#ff7a18)','linear-gradient(160deg,#c77bff,#7a2fd6)'];
+const TOP=CHAIN.length-1;
+let mg=[], mgTiles=[], mgCells=[], mgId=0;
+let mgScore=0, mgBest=0, mgRunning=false, mgLock=false, mgOver=false, mgWon=false;
+let mP=0, mGap=0, mCell=0;
+function emptyGrid(){ return [0,1,2,3].map(()=>[null,null,null,null]); }
+
+function computeGeom(){ const W=mergeBoard.clientWidth||300;
+  mP=Math.round(W*0.035); mGap=mP; mCell=(W-2*mP-3*mGap)/4; }
+function ensureCells(){ if(mgCells.length)return;
+  for(let i=0;i<16;i++){ const el=document.createElement('div'); el.className='mcell'; mergeBoard.appendChild(el); mgCells.push(el); } }
+function posXY(r,c){ return [mP+c*(mCell+mGap), mP+r*(mCell+mGap)]; }
+function setPos(t){ const [x,y]=posXY(t.r,t.c); t.el.style.transform=`translate(${x}px,${y}px)`; }
+function sizeTile(t){ t.el.style.width=t.el.style.height=mCell+'px'; t.em.style.fontSize=(mCell*0.5)+'px'; }
+function relayout(){ computeGeom();
+  mergeBoard.classList.add('notrans');
+  mgCells.forEach((el,i)=>{ const r=(i/4|0),c=i%4,[x,y]=posXY(r,c);
+    el.style.width=el.style.height=mCell+'px'; el.style.transform=`translate(${x}px,${y}px)`; });
+  for(const t of mgTiles){ sizeTile(t); setPos(t); }
+  void mergeBoard.offsetWidth; mergeBoard.classList.remove('notrans'); }
+
+function updateTileVisual(t){ t.em.textContent=CHAIN[t.lvl]; t.el.style.background=CHAIN_BG[t.lvl]; }
+function makeTile(r,c,lvl,born){
+  const el=document.createElement('div'); el.className='mtile'+(born?' born':'');
+  const em=document.createElement('span'); em.className='em'; el.appendChild(em);
+  mergeBoard.appendChild(el);
+  const t={id:++mgId,lvl,r,c,el,em}; updateTileVisual(t); sizeTile(t); setPos(t);
+  mgTiles.push(t); mg[r][c]=t;
+  if(born) setTimeout(()=>el.classList.remove('born'),200);
+  return t;
+}
+function clearTiles(){ mgTiles.forEach(t=>t.el.remove()); mgTiles=[]; mg=emptyGrid(); }
+function spawnTile(){ const empt=[];
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++) if(!mg[r][c]) empt.push([r,c]);
+  if(!empt.length)return null; const [r,c]=empt[Math.floor(Math.random()*empt.length)];
+  return makeTile(r,c, Math.random()<0.88?0:1, true); }
+function updateMergeLabels(){ $('mergeScore').textContent=mgScore; $('mergeBest').textContent=mgBest; }
+
+function saveMerge(){ try{ localStorage.setItem('amelia_merge',
+  JSON.stringify({grid:mg.map(row=>row.map(t=>t?t.lvl:-1)),score:mgScore,best:mgBest})); }catch(e){} }
+function loadMerge(){ let d=null; try{ d=JSON.parse(localStorage.getItem('amelia_merge')||'null'); }catch(e){}
+  mgBest=(d&&d.best)||0;
+  const hasGame=d&&d.grid&&d.grid.some(row=>row.some(v=>v>=0));
+  clearTiles();
+  if(hasGame){ mgScore=d.score||0; mgWon=false;
+    for(let r=0;r<4;r++)for(let c=0;c<4;c++){ const v=d.grid[r][c]; if(v>=0){ makeTile(r,c,v,false); if(v>=TOP)mgWon=true; } } }
+  else { newMergeGame(true); }
+  updateMergeLabels();
+}
+function newMergeGame(skipSave){ clearTiles(); mgScore=0; mgWon=false; mgOver=false; mgLock=false;
+  $('mergeEnd').classList.remove('show');
+  spawnTile(); spawnTile(); updateMergeLabels(); if(!skipSave)saveMerge(); }
+
+function mergeLineCells(dir){ const lines=[];
+  if(dir==='left'||dir==='right'){ for(let r=0;r<4;r++){ const ln=[];
+    for(let i=0;i<4;i++) ln.push({r,c:dir==='left'?i:3-i}); lines.push(ln); } }
+  else { for(let c=0;c<4;c++){ const ln=[];
+    for(let i=0;i<4;i++) ln.push({r:dir==='up'?i:3-i,c}); lines.push(ln); } }
+  return lines; }
+
+function mergeSound(n){ for(let i=0;i<n;i++) tone(330+Math.min(i,4)*90,0.15,'triangle',i*0.05,0.22); }
+
+function move(dir){
+  if(!mgRunning||mgLock||mgOver)return;
+  const lines=mergeLineCells(dir);
+  let moved=false, gained=0; const survivors=[], removing=[];
+  for(const cells of lines){
+    const tiles=[]; for(const {r,c} of cells){ if(mg[r][c]) tiles.push(mg[r][c]); }
+    const groups=[]; let i=0;
+    while(i<tiles.length){
+      if(i+1<tiles.length && tiles[i].lvl===tiles[i+1].lvl){ groups.push([tiles[i],tiles[i+1]]); i+=2; }
+      else { groups.push([tiles[i]]); i++; }
+    }
+    for(let k=0;k<groups.length;k++){
+      const {r,c}=cells[k], g=groups[k], keep=g[0];
+      if(keep.r!==r||keep.c!==c) moved=true;
+      keep.tr=r; keep.tc=c;
+      if(g[1]){ moved=true; const m=g[1]; m.tr=r; m.tc=c; removing.push(m);
+        keep.willLvl=keep.lvl+1; survivors.push(keep); gained+=Math.pow(2,keep.willLvl+1); }
+    }
+  }
+  if(!moved)return;
+  mgLock=true; mg=emptyGrid();
+  for(const t of mgTiles){ t.r=t.tr; t.c=t.tc; setPos(t); }
+  setTimeout(()=>{
+    for(const m of removing) m.el.remove();
+    mgTiles=mgTiles.filter(t=>!removing.includes(t));
+    for(const t of survivors){ t.lvl=t.willLvl; updateTileVisual(t);
+      t.el.classList.add('pop'); setTimeout(()=>t.el.classList.remove('pop'),220); }
+    for(const t of mgTiles) mg[t.r][t.c]=t;
+    const merges=survivors.length;
+    mgScore+=gained; if(mgScore>mgBest)mgBest=mgScore;
+    if(merges>0){ stars+=merges; saveProgress(); }
+    updateMergeLabels(); refreshCounters();
+    if(merges>0) mergeSound(merges); else tapSound();
+    const reachedTop=survivors.some(t=>t.lvl>=TOP);
+    if(reachedTop && !mgWon){ mgWon=true; blastSound(); for(let i=0;i<40;i++)confettiPiece();
+      say(UI.mergeWin[LANG]); floatText('🌌','#c77bff',innerWidth/2-16,140); }
+    spawnTile(); saveMerge();
+    const done=()=>{ if(!movesLeft()) endMerge(); else mgLock=false; };
+    if(stars>=nextPrizeStars()){ givePrize(()=>{ refreshCounters(); done(); }); }
+    else done();
+  },140);
+}
+function movesLeft(){
+  for(let r=0;r<4;r++)for(let c=0;c<4;c++){ const t=mg[r][c]; if(!t)return true;
+    if(c<3&&mg[r][c+1]&&mg[r][c+1].lvl===t.lvl)return true;
+    if(r<3&&mg[r+1][c]&&mg[r+1][c].lvl===t.lvl)return true; }
+  return false;
+}
+function endMerge(){ mgOver=true; mgLock=true; nopeSound(); tone(150,0.3,'sawtooth',0.05,0.16);
+  $('mergeEndTitle').innerHTML='🏆 '+mgScore;
+  $('mergeEndSub').textContent=UI.bestScore[LANG]+': '+mgBest;
+  $('mergeEnd').classList.add('show'); saveMerge(); }
+
+function startMerge(){
+  initAudio(); if(AC&&AC.state==='suspended')AC.resume();
+  loadProgress();
+  $('start').style.display='none'; mergeView.classList.add('show');
+  ensureCells(); computeGeom();
+  loadMerge();
+  mgRunning=true; mgOver=false; mgLock=false; refreshCounters();
+  say(UI.mergeGo[LANG]);
+}
+function stopMerge(){ mgRunning=false; mergeView.classList.remove('show'); $('mergeEnd').classList.remove('show'); }
+
+/* input: swipe + arrow keys */
+let msx=0,msy=0,msw=false;
+mergeBoard.addEventListener('pointerdown',e=>{ msx=e.clientX; msy=e.clientY; msw=true; });
+window.addEventListener('pointerup',e=>{ if(!msw)return; msw=false;
+  const dx=e.clientX-msx, dy=e.clientY-msy;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;
+  if(Math.abs(dx)>Math.abs(dy)) move(dx>0?'right':'left'); else move(dy>0?'down':'up'); });
+window.addEventListener('pointercancel',()=>{ msw=false; });
+window.addEventListener('keydown',e=>{ if(!mgRunning||!mergeView.classList.contains('show'))return;
+  const k={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'}[e.key];
+  if(k){ e.preventDefault(); move(k); } });
+window.addEventListener('resize',()=>{ if(mgRunning) relayout(); });
+$('mergeBtn').addEventListener('click',()=>{ tapSound(); startMerge(); });
+$('mergeBack').addEventListener('click',()=>{ tapSound(); goHome(); });
+$('mergeNew').addEventListener('click',()=>{ tapSound(); newMergeGame(); say(UI.mergeGo[LANG]); });
+$('mergeAgain').addEventListener('click',()=>{ tapSound(); newMergeGame(); });
 
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&AC&&AC.state==='suspended')AC.resume(); });
 setLang('es');
