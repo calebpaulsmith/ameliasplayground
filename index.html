@@ -190,6 +190,9 @@
   #mergeEnd.show{display:flex;}
   #mergeEndTitle{font-size:2rem;font-weight:700;text-align:center;line-height:1.2;}
   #mergeEndSub{font-size:1.2rem;opacity:.85;text-align:center;}
+  /* AMELIA THE BUS (3D driving adventure — lives in /drive/) */
+  .menubtn.bus{background:linear-gradient(180deg,#5fb0ff,#2f7fd0);box-shadow:0 8px 0 #1f5fa0,0 12px 24px rgba(0,0,0,.4);}
+  .menubtn.bus:active{box-shadow:0 2px 0 #1f5fa0;}
   /* WIND GARDEN (calming generative chime game) */
   .menubtn.garden{background:linear-gradient(180deg,#7ad7c8,#33899a);box-shadow:0 8px 0 #20636f,0 12px 24px rgba(0,0,0,.4);}
   .menubtn.garden:active{box-shadow:0 2px 0 #20636f;}
@@ -227,6 +230,7 @@
   <h1 id="s_title">Aventura Espacial<br>de Amelia</h1>
   <div class="sub" id="s_sub">¡Elige un juego!</div>
   <div class="menu">
+    <button class="playbtn menubtn bus" id="busBtn">🚌 <span id="b_bus">Amelia el Autobús</span></button>
     <button class="playbtn menubtn" id="playBtn">🧠 <span id="b_learn">Aprender</span></button>
     <button class="playbtn menubtn catch" id="catchBtn">⭐ <span id="b_catch">Atrapar estrellas</span></button>
     <button class="playbtn menubtn tower" id="towerBtn">🏗️ <span id="b_tower">Torre de cohetes</span></button>
@@ -347,6 +351,7 @@ const UI={
   title:{es:'Aventura Espacial<br>de Amelia',en:"Amelia's Space<br>Adventure"},
   sub:{es:'¡Elige un juego!',en:'Choose a game!'},
   play:{es:'¡Jugar! 🌟',en:'Play! 🌟'},
+  bus:{es:'Amelia el Autobús',en:'Amelia the Bus'},
   learn:{es:'Aprender',en:'Learn'},
   catch:{es:'Atrapar estrellas',en:'Catch stars'},
   catchGo:{es:'¡Atrapa las estrellas!',en:'Catch the stars!'},
@@ -618,7 +623,7 @@ function burstConfetti(){for(let i=0;i<14;i++)confettiPiece();}
 /* ===== LANGUAGE TOGGLE ===== */
 function setLang(l){LANG=l;document.documentElement.lang=l;
   $('s_title').innerHTML=UI.title[l];$('s_sub').textContent=UI.sub[l];
-  $('b_learn').textContent=UI.learn[l];$('b_catch').textContent=UI.catch[l];$('b_tower').textContent=UI.tower[l];$('b_song').textContent=UI.song[l];$('b_merge').textContent=UI.merge[l];$('b_garden').textContent=UI.garden[l];
+  $('b_bus').textContent=UI.bus[l];$('b_learn').textContent=UI.learn[l];$('b_catch').textContent=UI.catch[l];$('b_tower').textContent=UI.tower[l];$('b_song').textContent=UI.song[l];$('b_merge').textContent=UI.merge[l];$('b_garden').textContent=UI.garden[l];
   $('gardenHint').innerHTML=UI.gardenHint[l];
   $('catchHint').textContent=UI.catchHint[l];
   $('stackTip').textContent=UI.towerTip[l]; $('stackAgain').innerHTML=UI.again[l];
@@ -656,6 +661,7 @@ function openShelf(){ buildShelf(); $('shelf').classList.add('show');
   Input._resume=Input.mode; Input.mode='menu'; if(Input.active) setTimeout(focusFirst,0); }
 function closeShelf(){ $('shelf').classList.remove('show'); Input.mode=Input._resume||'menu';
   setFocus(null); if(Input.mode==='menu'&&Input.active) setTimeout(focusFirst,0); }
+$('busBtn').addEventListener('click',()=>{ tapSound(); location.href='./drive/'; });
 $('shelfBtn').addEventListener('click',()=>{ tapSound(); openShelf(); });
 $('shelfClose').addEventListener('click',()=>{ tapSound(); closeShelf(); });
 
