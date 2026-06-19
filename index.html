@@ -190,6 +190,21 @@
   #mergeEnd.show{display:flex;}
   #mergeEndTitle{font-size:2rem;font-weight:700;text-align:center;line-height:1.2;}
   #mergeEndSub{font-size:1.2rem;opacity:.85;text-align:center;}
+  /* WIND GARDEN (calming generative chime game) */
+  .menubtn.garden{background:linear-gradient(180deg,#7ad7c8,#33899a);box-shadow:0 8px 0 #20636f,0 12px 24px rgba(0,0,0,.4);}
+  .menubtn.garden:active{box-shadow:0 2px 0 #20636f;}
+  #garden{position:absolute;inset:0;z-index:30;display:none;background:radial-gradient(circle at 50% 30%,#241a52,#120b34 60%,#080518);}
+  #garden.show{display:block;}
+  #gardenCanvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;z-index:1;}
+  #gardenHUD{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:space-between;
+    padding:12px 14px;gap:8px;pointer-events:none;}
+  #gardenHUD .topbtn,#gardenHUD .pill,#gardenHUD .pillbtn{pointer-events:auto;}
+  #gardenHUD .pill{background:rgba(0,0,0,.22);}
+  #gardenHint{position:absolute;left:0;right:0;bottom:32px;z-index:4;text-align:center;font-weight:600;font-size:1.05rem;
+    opacity:.85;pointer-events:none;transition:opacity 1.3s;text-shadow:0 2px 10px rgba(0,0,0,.8);padding:0 18px;}
+  #gardenHint.hide{opacity:0;}
+  /* the start menu now holds six games — let it scroll gracefully on short screens */
+  #start{justify-content:safe center;overflow-y:auto;}
 </style>
 </head>
 <body>
@@ -205,6 +220,7 @@
     <button class="playbtn menubtn tower" id="towerBtn">🏗️ <span id="b_tower">Torre de cohetes</span></button>
     <button class="playbtn menubtn song" id="songBtn">🎶 <span id="b_song">Canción de estrellas</span></button>
     <button class="playbtn menubtn merge" id="mergeBtn">🪐 <span id="b_merge">Fusión de planetas</span></button>
+    <button class="playbtn menubtn garden" id="gardenBtn">🎐 <span id="b_garden">Jardín de viento</span></button>
   </div>
   <div class="langtoggle" id="langStart"><button data-l="es">Español</button><button data-l="en">English</button></div>
 </div>
@@ -289,6 +305,18 @@
   </div>
 </div>
 
+<div id="garden">
+  <canvas id="gardenCanvas"></canvas>
+  <div id="gardenHUD">
+    <button class="topbtn" id="gardenBack">🏠</button>
+    <div style="display:flex;gap:8px;">
+      <div class="pill">⭐ <span id="gardenStars">0</span></div>
+      <button class="pill pillbtn" id="gardenShelf">🎒 <span id="gardenPrize">0</span></button>
+    </div>
+  </div>
+  <div id="gardenHint">Dibuja el viento ✨ · Toca para campanas 🎐</div>
+</div>
+
 <div id="celebrate"><div id="celebEmoji">🚀</div><h2 id="celebText">¡Lo lograste! 🌈</h2></div>
 
 <div id="shelf">
@@ -314,6 +342,9 @@ const UI={
   towerTip:{es:'Toca para soltar 👆',en:'Tap to drop 👆'},
   song:{es:'Canción de estrellas',en:'Star Song'},
   merge:{es:'Fusión de planetas',en:'Planet Merge'},
+  garden:{es:'Jardín de viento',en:'Wind Garden'},
+  gardenGo:{es:'Respira... y dibuja el viento.',en:'Breathe... and draw the wind.'},
+  gardenHint:{es:'Dibuja el viento ✨ · Toca para campanas 🎐',en:'Draw the wind ✨ · Tap for chimes 🎐'},
   mergeGo:{es:'¡Desliza para juntar planetas iguales!',en:'Swipe to join matching planets!'},
   mergeWin:{es:'¡Hiciste una galaxia! 🌌',en:'You made a galaxy! 🌌'},
   mergeOver:{es:'¡Tablero lleno!',en:'Board full!'},
@@ -551,7 +582,7 @@ function nextPrizeStars(){ const k=prizesWon; return 5*(k+1)+k*(k+1); }
 function refreshCounters(){
   [['starCount',stars],['prizeCount',prizesWon],['catchStars',stars],['catchPrize',prizesWon],
    ['stackStars',stars],['stackPrize',prizesWon],['songStars',stars],['songPrize',prizesWon],
-   ['mergeStars',stars]].forEach(([id,v])=>{const el=$(id);if(el)el.textContent=v;});
+   ['mergeStars',stars],['gardenStars',stars],['gardenPrize',prizesWon]].forEach(([id,v])=>{const el=$(id);if(el)el.textContent=v;});
 }
 function givePrize(after){
   const idx=prizesWon%PRIZES.length, p=PRIZES[idx];
@@ -572,7 +603,8 @@ function burstConfetti(){for(let i=0;i<14;i++)confettiPiece();}
 /* ===== LANGUAGE TOGGLE ===== */
 function setLang(l){LANG=l;document.documentElement.lang=l;
   $('s_title').innerHTML=UI.title[l];$('s_sub').textContent=UI.sub[l];
-  $('b_learn').textContent=UI.learn[l];$('b_catch').textContent=UI.catch[l];$('b_tower').textContent=UI.tower[l];$('b_song').textContent=UI.song[l];$('b_merge').textContent=UI.merge[l];
+  $('b_learn').textContent=UI.learn[l];$('b_catch').textContent=UI.catch[l];$('b_tower').textContent=UI.tower[l];$('b_song').textContent=UI.song[l];$('b_merge').textContent=UI.merge[l];$('b_garden').textContent=UI.garden[l];
+  $('gardenHint').innerHTML=UI.gardenHint[l];
   $('catchHint').textContent=UI.catchHint[l];
   $('stackTip').textContent=UI.towerTip[l]; $('stackAgain').innerHTML=UI.again[l];
   $('shelfTitle').innerHTML=UI.shelfTitle[l];$('shelfHint').innerHTML=UI.shelfHint[l];$('shelfClose').innerHTML=UI.shelfClose[l];
@@ -618,7 +650,7 @@ $('playBtn').addEventListener('click',()=>{initAudio();if(AC&&AC.state==='suspen
 $('repeatBtn').addEventListener('click',()=>{ if(current) showPrompt(); });
 mascot.addEventListener('click',()=>{ tapSound(); if(current) showPrompt(); });
 function goHome(){ $('top').style.visibility='hidden'; $('game').style.visibility='hidden';
-  stopCatch(); stopStack(); stopSong(); stopMerge(); $('start').style.display='flex'; }
+  stopCatch(); stopStack(); stopSong(); stopMerge(); stopGarden(); $('start').style.display='flex'; }
 $('homeBtn').addEventListener('click',()=>{ tapSound(); goHome(); });
 
 /* ===== CATCH GAME ===== */
@@ -1076,6 +1108,167 @@ $('mergeBtn').addEventListener('click',()=>{ tapSound(); startMerge(); });
 $('mergeBack').addEventListener('click',()=>{ tapSound(); goHome(); });
 $('mergeNew').addEventListener('click',()=>{ tapSound(); newMergeGame(); say(UI.mergeGo[LANG]); });
 $('mergeAgain').addEventListener('click',()=>{ tapSound(); newMergeGame(); });
+
+/* ===== WIND GARDEN (calming generative chime garden, à la "Frost") ===== */
+const gardenView=$('garden'), gcv=$('gardenCanvas');
+let gctx=null, gW=0, gH=0, gdpr=1;
+let motes=[], ribbons=[], rings=[], blooms=[], sparks=[];
+let gRunning=false, gLastT=0, gIdle=0, ringSeq=0;
+/* a single pentatonic scale → nothing can ever sound wrong. Pitch & colour move together. */
+const PENT =[392.00,440.00,523.25,587.33,659.25,783.99,880.00,1046.50,1174.66];
+const PHUES=[170,   188,   206,   232,   262,   300,   330,   38,     50];
+
+/* --- ambient audio: soft drone pad + bell-like chimes through a feedback delay --- */
+let wgGain=null, wgBus=null, wgDelay=null, wgPad=[], wgAudioReady=false;
+function wgInitAudio(){ if(!AC||wgAudioReady)return;
+  wgGain=AC.createGain(); wgGain.gain.value=0.0; wgGain.connect(AC.destination);
+  wgDelay=AC.createDelay(1.0); wgDelay.delayTime.value=0.34;
+  const fb=AC.createGain(); fb.gain.value=0.36; wgDelay.connect(fb); fb.connect(wgDelay);
+  const wet=AC.createGain(); wet.gain.value=0.5; wgDelay.connect(wet); wet.connect(wgGain);
+  wgBus=AC.createGain(); wgBus.gain.value=0.9; wgBus.connect(wgGain); wgBus.connect(wgDelay);
+  wgAudioReady=true;
+}
+function wgStartPad(){ if(!AC||!wgAudioReady)return; wgStopPad();
+  const t0=AC.currentTime;
+  wgGain.gain.cancelScheduledValues(t0); wgGain.gain.setValueAtTime(Math.max(wgGain.gain.value,0.0001),t0);
+  wgGain.gain.linearRampToValueAtTime(0.5,t0+2.5);
+  [130.81,196.00,261.63].forEach((f,i)=>{
+    const o=AC.createOscillator(); o.type='sine'; o.frequency.value=f;
+    const o2=AC.createOscillator(); o2.type='sine'; o2.frequency.value=f*1.006;
+    const g=AC.createGain(); g.gain.value=0.04;
+    const lfo=AC.createOscillator(); lfo.frequency.value=0.04+i*0.017;
+    const lg=AC.createGain(); lg.gain.value=0.03; lfo.connect(lg); lg.connect(g.gain);
+    o.connect(g); o2.connect(g); g.connect(wgGain);
+    o.start(t0); o2.start(t0); lfo.start(t0); wgPad.push(o,o2,lfo);
+  });
+}
+function wgStopPad(){ wgPad.forEach(o=>{try{o.stop();}catch(e){}}); wgPad=[]; }
+function wgChime(idx,vel){ if(!AC||!wgBus)return; const f=PENT[Math.max(0,Math.min(PENT.length-1,idx))], t0=AC.currentTime;
+  [[1,0.5,2.6],[2,0.17,1.9],[3,0.08,1.3]].forEach(([mult,amp,dur])=>{
+    const o=AC.createOscillator(); o.type='sine'; o.frequency.value=f*mult*(1+(Math.random()-0.5)*0.004);
+    const g=AC.createGain(); const peak=Math.max(0.0005,amp*vel);
+    g.gain.setValueAtTime(0.0001,t0); g.gain.linearRampToValueAtTime(peak,t0+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0005,t0+dur);
+    o.connect(g); g.connect(wgBus); o.start(t0); o.stop(t0+dur+0.1);
+  });
+}
+
+/* --- canvas + particles --- */
+function wgSize(){ gdpr=Math.min(window.devicePixelRatio||1,2);
+  gW=gardenView.clientWidth; gH=gardenView.clientHeight;
+  gcv.width=Math.round(gW*gdpr); gcv.height=Math.round(gH*gdpr);
+  gctx=gcv.getContext('2d'); gctx.setTransform(gdpr,0,0,gdpr,0,0); }
+function wgSpawnMotes(){ motes=[]; const n=Math.max(70,Math.min(180,Math.round(gW*gH/8200)));
+  for(let i=0;i<n;i++){ const idx=Math.floor(Math.random()*PHUES.length);
+    motes.push({x:Math.random()*gW,y:Math.random()*gH,vx:0,vy:0,hue:PHUES[idx],
+      sz:1.4+Math.random()*2.2,br:0.5+Math.random()*0.4,cool:0}); } }
+function flowAng(x,y,t){ return (Math.sin(x*0.004+t*0.00031)+Math.sin(y*0.005-t*0.00022)+Math.sin((x+y)*0.0026+t*0.00015))*1.15; }
+
+function wgAddRing(x,y,idx,soft){ const maxR=Math.min(gW,gH)*(0.16+Math.random()*0.12);
+  rings.push({x,y,idx,hue:PHUES[idx%PHUES.length],r:0,maxR,life:5.5,maxLife:5.5,hits:0,bloomed:false});
+  wgChime(idx, soft?0.3:0.42); if(rings.length>8)rings.shift(); }
+function wgAutoRing(){ if(rings.length>5)return;
+  wgAddRing(60+Math.random()*(gW-120), 90+Math.random()*(gH-180), Math.floor(Math.random()*PENT.length), true); }
+function wgBloom(rg){ blooms.push({x:rg.x,y:rg.y,hue:rg.hue,life:1.6,maxLife:1.6});
+  wgChime(rg.idx,0.4); wgChime(rg.idx+2,0.3); wgChime(rg.idx+4,0.22);
+  stars+=1; saveProgress(); refreshCounters(); }
+
+function wgStep(dt,now){
+  gIdle+=dt; if(gIdle>7){ wgAutoRing(); gIdle=0; }
+  for(let i=ribbons.length-1;i>=0;i--){ const rb=ribbons[i]; if(!rb.active){ rb.life-=dt; if(rb.life<=0)ribbons.splice(i,1); } }
+  for(let i=rings.length-1;i>=0;i--){ const rg=rings[i]; rg.life-=dt; rg.r=rg.maxR*(1-(rg.life/rg.maxLife)); if(rg.life<=0)rings.splice(i,1); }
+  for(let i=blooms.length-1;i>=0;i--){ blooms[i].life-=dt; if(blooms[i].life<=0)blooms.splice(i,1); }
+  for(let i=sparks.length-1;i>=0;i--){ const s=sparks[i]; s.x+=s.vx*dt; s.y+=s.vy*dt; s.vx*=0.94; s.vy*=0.94; s.life-=dt; if(s.life<=0)sparks.splice(i,1); }
+  for(const p of motes){
+    const a=flowAng(p.x,p.y,now); p.vx+=Math.cos(a)*8*dt; p.vy+=Math.sin(a)*8*dt;
+    for(const rb of ribbons){ const lf=rb.active?1:Math.max(0,rb.life/rb.maxLife); if(lf<=0||rb.pts.length<2)continue;
+      const pts=rb.pts; let best=1e9,bi=-1;
+      for(let k=0;k<pts.length;k++){ const dx=pts[k].x-p.x,dy=pts[k].y-p.y,d=dx*dx+dy*dy; if(d<best){best=d;bi=k;} }
+      if(bi>=0 && best<110*110){ const d=Math.sqrt(best)||1, inf=(1-d/110)*lf;
+        const pa=pts[Math.min(bi+1,pts.length-1)], pb=pts[Math.max(bi-1,0)];
+        let tx=pa.x-pb.x, ty=pa.y-pb.y; const tl=Math.hypot(tx,ty)||1; tx/=tl; ty/=tl;
+        p.vx+=tx*300*inf*dt; p.vy+=ty*300*inf*dt;
+        p.vx+=(pts[bi].x-p.x)*2.0*inf*dt; p.vy+=(pts[bi].y-p.y)*2.0*inf*dt;
+      }
+    }
+    p.vx*=0.94; p.vy*=0.94; const sp=Math.hypot(p.vx,p.vy); if(sp>120){ p.vx=p.vx/sp*120; p.vy=p.vy/sp*120; }
+    p.x+=p.vx*dt; p.y+=p.vy*dt;
+    if(p.x<-20)p.x=gW+20; else if(p.x>gW+20)p.x=-20;
+    if(p.y<-20)p.y=gH+20; else if(p.y>gH+20)p.y=-20;
+    if(p.cool>0)p.cool-=dt; if(p.br>0.5)p.br=Math.max(0.5,p.br-dt*0.7);
+    for(const rg of rings){ if(rg.r<8)continue; const dx=p.x-rg.x,dy=p.y-rg.y,d=Math.hypot(dx,dy);
+      if(Math.abs(d-rg.r)<10 && p.cool<=0){
+        p.cool=0.9; p.hue=rg.hue; p.br=1.5; wgChime(rg.idx,0.5+Math.random()*0.2);
+        sparks.push({x:p.x,y:p.y,vx:(Math.random()-0.5)*60,vy:(Math.random()-0.5)*60,life:0.6,hue:rg.hue});
+        rg.hits++; if(rg.hits===4 && !rg.bloomed){ rg.bloomed=true; wgBloom(rg); }
+      }
+    }
+  }
+}
+function wgPath(pts){ gctx.beginPath(); gctx.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++)gctx.lineTo(pts[i].x,pts[i].y); }
+function wgDraw(){
+  if(!gctx)return;
+  gctx.globalCompositeOperation='source-over'; gctx.fillStyle='rgba(13,8,38,0.18)'; gctx.fillRect(0,0,gW,gH);
+  gctx.globalCompositeOperation='lighter';
+  gctx.lineCap='round'; gctx.lineJoin='round';
+  for(const rb of ribbons){ const lf=rb.active?1:Math.max(0,rb.life/rb.maxLife); if(lf<=0||rb.pts.length<2)continue;
+    gctx.strokeStyle='hsla(200,80%,82%,'+(0.09*lf)+')'; gctx.lineWidth=20*lf; wgPath(rb.pts); gctx.stroke();
+    gctx.strokeStyle='hsla(188,92%,90%,'+(0.22*lf)+')'; gctx.lineWidth=6*lf; wgPath(rb.pts); gctx.stroke(); }
+  for(const rg of rings){ const lf=Math.max(0,rg.life/rg.maxLife);
+    gctx.strokeStyle='hsla('+rg.hue+',85%,70%,'+(0.5*lf)+')'; gctx.lineWidth=2.5;
+    gctx.beginPath(); gctx.arc(rg.x,rg.y,rg.r,0,7); gctx.stroke();
+    gctx.fillStyle='hsla('+rg.hue+',90%,72%,'+(0.55*lf)+')'; gctx.beginPath(); gctx.arc(rg.x,rg.y,3.2,0,7); gctx.fill(); }
+  for(const p of motes){ const r=p.sz*(0.6+p.br);
+    gctx.fillStyle='hsla('+p.hue+',85%,65%,'+(0.16*p.br)+')'; gctx.beginPath(); gctx.arc(p.x,p.y,r*3.4,0,7); gctx.fill();
+    gctx.fillStyle='hsla('+p.hue+',95%,'+(60+p.br*18)+'%,0.92)'; gctx.beginPath(); gctx.arc(p.x,p.y,r,0,7); gctx.fill(); }
+  for(const s of sparks){ const a=Math.max(0,s.life/0.6);
+    gctx.fillStyle='hsla('+s.hue+',90%,78%,'+a+')'; gctx.beginPath(); gctx.arc(s.x,s.y,2.2*a+0.5,0,7); gctx.fill(); }
+  for(const b of blooms){ const k=1-b.life/b.maxLife, a=Math.max(0,b.life/b.maxLife), R=10+k*46;
+    for(let i=0;i<8;i++){ const ang=i/8*Math.PI*2+k*0.6, px=b.x+Math.cos(ang)*R, py=b.y+Math.sin(ang)*R;
+      gctx.fillStyle='hsla('+b.hue+',90%,74%,'+(a*0.7)+')'; gctx.beginPath(); gctx.arc(px,py,6*a+1,0,7); gctx.fill(); }
+    gctx.fillStyle='hsla('+b.hue+',95%,82%,'+a+')'; gctx.beginPath(); gctx.arc(b.x,b.y,4*a+1,0,7); gctx.fill(); }
+  gctx.globalCompositeOperation='source-over';
+}
+function wgLoop(ts){ if(!gRunning)return; const now=ts||performance.now();
+  const dt=Math.min((now-gLastT)/1000||0,0.05); gLastT=now; wgStep(dt,now); wgDraw(); requestAnimationFrame(wgLoop); }
+
+/* --- input: drag = wind current, tap = chime ring --- */
+let gDown=false, gMoved=false, gStartX=0, gStartY=0, gActiveRb=null, gLastAddX=0, gLastAddY=0;
+function gPos(e){ const r=gcv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+gcv.addEventListener('pointerdown',e=>{ gDown=true; gMoved=false; gIdle=0; const p=gPos(e);
+  gStartX=p.x; gStartY=p.y; gLastAddX=p.x; gLastAddY=p.y;
+  gActiveRb={pts:[{x:p.x,y:p.y}],active:true,life:2.2,maxLife:2.2}; ribbons.push(gActiveRb); if(ribbons.length>5)ribbons.shift(); });
+gcv.addEventListener('pointermove',e=>{ if(!gDown||!gActiveRb)return; const p=gPos(e); gIdle=0;
+  const dx=p.x-gLastAddX, dy=p.y-gLastAddY;
+  if(dx*dx+dy*dy>14*14){ gActiveRb.pts.push({x:p.x,y:p.y}); if(gActiveRb.pts.length>44)gActiveRb.pts.shift(); gLastAddX=p.x; gLastAddY=p.y; }
+  if(Math.hypot(p.x-gStartX,p.y-gStartY)>12)gMoved=true; });
+function gEnd(e){ if(!gDown)return; gDown=false; const p=gPos(e);
+  if(gActiveRb){ gActiveRb.active=false; gActiveRb.life=gActiveRb.maxLife; }
+  if(!gMoved){ if(gActiveRb){ const i=ribbons.indexOf(gActiveRb); if(i>=0)ribbons.splice(i,1); }
+    wgAddRing(p.x,p.y, ringSeq++ % PENT.length); }
+  gActiveRb=null; }
+window.addEventListener('pointerup',e=>{ if(gDown)gEnd(e); });
+window.addEventListener('pointercancel',()=>{ gDown=false; gActiveRb=null; });
+window.addEventListener('resize',()=>{ if(gRunning) wgSize(); });
+
+function startGarden(){
+  initAudio(); if(AC&&AC.state==='suspended')AC.resume(); wgInitAudio();
+  loadProgress();
+  $('start').style.display='none'; gardenView.classList.add('show');
+  wgSize(); wgSpawnMotes();
+  ribbons=[]; rings=[]; blooms=[]; sparks=[]; ringSeq=0; gIdle=4; gRunning=true; gLastT=performance.now();
+  refreshCounters();
+  $('gardenHint').classList.remove('hide'); setTimeout(()=>$('gardenHint').classList.add('hide'),5200);
+  wgStartPad(); say(UI.gardenGo[LANG]);
+  setTimeout(()=>{ if(gRunning) wgAddRing(gW*0.5,gH*0.42,2,true); },900);
+  requestAnimationFrame(wgLoop);
+}
+function stopGarden(){ gRunning=false; gardenView.classList.remove('show'); wgStopPad();
+  if(wgGain&&AC){ try{ const t0=AC.currentTime; wgGain.gain.cancelScheduledValues(t0);
+    wgGain.gain.setValueAtTime(Math.max(wgGain.gain.value,0.0001),t0); wgGain.gain.linearRampToValueAtTime(0.0001,t0+0.6); }catch(e){} } }
+$('gardenBtn').addEventListener('click',()=>{ tapSound(); startGarden(); });
+$('gardenBack').addEventListener('click',()=>{ tapSound(); goHome(); });
+$('gardenShelf').addEventListener('click',()=>{ tapSound(); openShelf(); });
 
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&AC&&AC.state==='suspended')AC.resume(); });
 setLang('es');
