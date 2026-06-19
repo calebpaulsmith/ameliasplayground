@@ -206,6 +206,17 @@
   #gardenHint.hide{opacity:0;}
   /* the start menu now holds six games — let it scroll gracefully on short screens */
   #start{justify-content:safe center;overflow-y:auto;}
+  /* TV / game-controller mode: spatial focus ring + overscan-safe padding */
+  .usepad .kbfocus{outline:4px solid #ffd23f!important;outline-offset:3px;}
+  #cxToast{position:fixed;left:50%;bottom:6%;transform:translateX(-50%);z-index:95;background:rgba(0,0,0,.58);
+    color:var(--white);font-family:var(--font);font-weight:600;font-size:1.05rem;padding:10px 20px;border-radius:30px;
+    opacity:0;transition:opacity .4s;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.6);max-width:90vw;text-align:center;}
+  #cxToast.show{opacity:1;}
+  body.tv #top,body.tv #catchHUD,body.tv #stackHUD,body.tv #mergeHUD,body.tv #gardenHUD,body.tv #songHUD{
+    padding-left:max(14px,3.6vw);padding-right:max(14px,3.6vw);padding-top:max(12px,3vh);}
+  body.tv #start{padding:max(24px,4.5vh) max(24px,4.5vw);}
+  body.tv #shelf{padding-top:max(18px,4vh);}
+  body.tv #gardenHint,body.tv #catchHint{bottom:max(32px,7vh);}
 </style>
 </head>
 <body>
@@ -326,6 +337,8 @@
   <div id="shelfGrid"></div>
   <button class="playbtn" id="shelfClose">¡Seguir jugando! 🎮</button>
 </div>
+
+<div id="cxToast"></div>
 
 <script>
 /* ===== LANGUAGE ===== */
@@ -461,7 +474,8 @@ function pool(){ return level===1?EASY: level===2?MED: HARD; }
 function newRound(){ board.innerHTML='';board.style.flexDirection='row'; revealing=false;
   ({count:rCount,color:rColor,shape:rShape,add:rAdd,bigger:rBigger,more:rMore,
     pattern:rPattern,letter:rLetter,match:rMatch,peek:rPeek}[rand(pool())])();
-  if(!current.custom) showPrompt(); }
+  if(!current.custom) showPrompt();
+  if(Input.active) setTimeout(focusBoardFirst,0); }
 function showPrompt(){ prompt.innerHTML=current.text[LANG]; say(current.voice[LANG]); }
 
 /* ROUNDS (ranges scale with level) */
@@ -638,8 +652,10 @@ function buildShelf(){
     grid.appendChild(slot);
   });
 }
-function openShelf(){ buildShelf(); $('shelf').classList.add('show'); }
-function closeShelf(){ $('shelf').classList.remove('show'); }
+function openShelf(){ buildShelf(); $('shelf').classList.add('show');
+  Input._resume=Input.mode; Input.mode='menu'; if(Input.active) setTimeout(focusFirst,0); }
+function closeShelf(){ $('shelf').classList.remove('show'); Input.mode=Input._resume||'menu';
+  setFocus(null); if(Input.mode==='menu'&&Input.active) setTimeout(focusFirst,0); }
 $('shelfBtn').addEventListener('click',()=>{ tapSound(); openShelf(); });
 $('shelfClose').addEventListener('click',()=>{ tapSound(); closeShelf(); });
 
@@ -647,11 +663,13 @@ $('shelfClose').addEventListener('click',()=>{ tapSound(); closeShelf(); });
 $('playBtn').addEventListener('click',()=>{initAudio();if(AC&&AC.state==='suspended')AC.resume();say(UI.welcome[LANG]);
   loadProgress(); mascot.textContent=currentMascot;
   $('starCount').textContent=stars; $('prizeCount').textContent=prizesWon;
+  Input.mode='menu'; setFocus(null);
   $('start').style.display='none';$('top').style.visibility='visible';$('game').style.visibility='visible';newRound();});
 $('repeatBtn').addEventListener('click',()=>{ if(current) showPrompt(); });
 mascot.addEventListener('click',()=>{ tapSound(); if(current) showPrompt(); });
 function goHome(){ $('top').style.visibility='hidden'; $('game').style.visibility='hidden';
-  stopCatch(); stopStack(); stopSong(); stopMerge(); stopGarden(); $('start').style.display='flex'; }
+  stopCatch(); stopStack(); stopSong(); stopMerge(); stopGarden(); $('start').style.display='flex';
+  Input.mode='menu'; setFocus(null); if(Input.active) setTimeout(focusFirst,0); }
 $('homeBtn').addEventListener('click',()=>{ tapSound(); goHome(); });
 
 /* ===== CATCH GAME ===== */
@@ -679,6 +697,7 @@ function startCatch(){
   catchView.classList.add('show');
   sizeCanvas();
   items=[];particles=[];spawnAcc=0;dizzyUntil=0;rocketX=cw/2;catchPaused=false;catchRunning=true;lastT=0;
+  Input.mode='play-catch'; setFocus(null);
   updateCatchHUD();
   $('catchHint').classList.remove('hide');
   setTimeout(()=>$('catchHint').classList.add('hide'),3500);
@@ -704,6 +723,7 @@ function catchLoop(t){
 }
 function step(dt){
   const {rate}=diff();
+  if(Input.ax) rocketX=Math.max(34,Math.min(cw-34, rocketX+Input.ax*470*dt));
   spawnAcc+=dt*rate;
   while(spawnAcc>=0.6){ spawnAcc-=0.6; spawnItem(); }
   const dizzy=performance.now()<dizzyUntil;
@@ -794,6 +814,7 @@ function startStack(){
   loadProgress(); mascot.textContent=currentMascot;
   $('start').style.display='none'; stackView.classList.add('show'); $('stackEnd').classList.remove('show');
   sizeStackCanvas(); beginRound(); stackRunning=true; refreshCounters();
+  Input.mode='play-tower'; setFocus(null);
   $('stackFloors').textContent='0';
   $('stackTip').classList.remove('hide'); setTimeout(()=>$('stackTip').classList.add('hide'),2600);
   say(UI.towerGo[LANG]);
@@ -867,6 +888,7 @@ function endStack(){
   $('stackEndTitle').innerHTML=(LANG==='es'?'🏆 ¡'+sFloors+' '+UI.floorsWord[LANG]+'!':'🏆 '+sFloors+' '+UI.floorsWord[LANG]+'!');
   $('stackEndBest').textContent=UI.best[LANG]+': '+sBest+' '+UI.floorsWord[LANG];
   $('stackEnd').classList.add('show');
+  Input.mode='menu'; if(Input.active) setTimeout(focusFirst,0);
 }
 scv.addEventListener('pointerdown',()=>dropBlock());
 window.addEventListener('resize',()=>{ if(stackRunning) sizeStackCanvas(); });
@@ -893,7 +915,7 @@ function buildPads(){
   padsEl.innerHTML=''; songPadEls=[];
   PADS.forEach((p,i)=>{
     const b=document.createElement('button');
-    b.className='pad'; b.textContent=p.emoji;
+    b.className='pad'; b.textContent=p.emoji; b.dataset.idx=i;
     b.style.background=p.color; b.style.color=p.color;  // currentColor used for glow
     b.addEventListener('pointerdown',()=>onPadTap(i));
     padsEl.appendChild(b); songPadEls.push(b);
@@ -948,6 +970,7 @@ function startSong(){
   $('start').style.display='none'; songView.classList.add('show');
   buildPads(); refreshCounters();
   songSeq=[]; songStep=0; songRunning=true; clearSongTimers();
+  Input.mode='menu'; if(Input.active) setTimeout(focusFirst,0);
   say(UI.songGo[LANG]);
   later(()=>{ if(songRunning){ nextNote(); playSequence(); } }, 1200);
 }
@@ -1017,6 +1040,7 @@ function loadMerge(){ let d=null; try{ d=JSON.parse(localStorage.getItem('amelia
   updateMergeLabels();
 }
 function newMergeGame(skipSave){ clearTiles(); mgScore=0; mgWon=false; mgOver=false; mgLock=false;
+  Input.mode='play-merge'; setFocus(null);
   $('mergeEnd').classList.remove('show');
   spawnTile(); spawnTile(); updateMergeLabels(); if(!skipSave)saveMerge(); }
 
@@ -1080,7 +1104,8 @@ function movesLeft(){
 function endMerge(){ mgOver=true; mgLock=true; nopeSound(); tone(150,0.3,'sawtooth',0.05,0.16);
   $('mergeEndTitle').innerHTML='🏆 '+mgScore;
   $('mergeEndSub').textContent=UI.bestScore[LANG]+': '+mgBest;
-  $('mergeEnd').classList.add('show'); saveMerge(); }
+  $('mergeEnd').classList.add('show'); saveMerge();
+  Input.mode='menu'; if(Input.active) setTimeout(focusFirst,0); }
 
 function startMerge(){
   initAudio(); if(AC&&AC.state==='suspended')AC.resume();
@@ -1089,6 +1114,7 @@ function startMerge(){
   ensureCells(); computeGeom();
   loadMerge();
   mgRunning=true; mgOver=false; mgLock=false; refreshCounters();
+  Input.mode='play-merge'; setFocus(null);
   say(UI.mergeGo[LANG]);
 }
 function stopMerge(){ mgRunning=false; mergeView.classList.remove('show'); $('mergeEnd').classList.remove('show'); }
@@ -1101,9 +1127,7 @@ window.addEventListener('pointerup',e=>{ if(!msw)return; msw=false;
   if(Math.max(Math.abs(dx),Math.abs(dy))<24)return;
   if(Math.abs(dx)>Math.abs(dy)) move(dx>0?'right':'left'); else move(dy>0?'down':'up'); });
 window.addEventListener('pointercancel',()=>{ msw=false; });
-window.addEventListener('keydown',e=>{ if(!mgRunning||!mergeView.classList.contains('show'))return;
-  const k={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'}[e.key];
-  if(k){ e.preventDefault(); move(k); } });
+/* arrow/d-pad merge moves are handled by the central Input layer (onNav → move) */
 window.addEventListener('resize',()=>{ if(mgRunning) relayout(); });
 $('mergeBtn').addEventListener('click',()=>{ tapSound(); startMerge(); });
 $('mergeBack').addEventListener('click',()=>{ tapSound(); goHome(); });
@@ -1118,6 +1142,8 @@ const gardenView=$('garden'), gcv=$('gardenCanvas');
 let gctx=null, gW=0, gH=0, gdpr=1;
 let flowers=[], pollen=[], ripples=[], seeds=[], skyStars=[], bgStars=[];
 let gRunning=false, gLastT=0, gIdle=0, breeze=0;
+let gCur={x:0,y:0,show:false,lpx:0,lpy:0};   // controller cursor (Apple TV / gamepad)
+function gardenPlant(){ if(!gRunning)return; plantFlower(gCur.x,gCur.y,true); gCur.lpx=gCur.x; gCur.lpy=gCur.y; gCur.show=true; }
 /* C-major pentatonic over three octaves — every note belongs, nothing clashes */
 const PENT=[130.81,146.83,164.81,196.00,220.00, 261.63,293.66,329.63,392.00,440.00,
             523.25,587.33,659.25,783.99,880.00, 1046.50,1174.66,1318.51];
@@ -1224,6 +1250,10 @@ function releaseSeed(f){ seeds.push({x:f.x,y:f.y,vy:-26,hue:f.hue,life:4,idx:f.i
 
 function wgStep(dt,now){
   breeze=Math.sin(now*0.00018)*0.6+Math.sin(now*0.00007)*0.45;
+  if(Input.mode==='play-garden' && (Math.abs(Input.ax)>0.02||Math.abs(Input.ay)>0.02)){
+    gCur.x=Math.max(6,Math.min(gW-6,gCur.x+Input.ax*440*dt));
+    gCur.y=Math.max(6,Math.min(gH-6,gCur.y+Input.ay*440*dt)); gCur.show=true; gIdle=0;
+    if(Input.confirmHeld && Math.hypot(gCur.x-gCur.lpx,gCur.y-gCur.lpy)>40){ plantFlower(gCur.x,gCur.y,false); gCur.lpx=gCur.x; gCur.lpy=gCur.y; } }
   gIdle+=dt; if(gIdle>4.5){ gIdle=0; if(flowers.length<7) plantFlower(40+Math.random()*(gW-80),gH*0.35+Math.random()*gH*0.4,false); }
   for(let i=flowers.length-1;i>=0;i--){ const f=flowers[i]; f.age+=dt; f.grow+=(1-f.grow)*Math.min(1,dt*2.6);
     if(f.mature){ f.fade-=dt*0.7; if(f.fade<=0)flowers.splice(i,1); }
@@ -1251,6 +1281,9 @@ function wgDraw(now){
     const sway=Math.sin(now*0.001+f.phase)*6*f.grow;
     gctx.globalAlpha=Math.max(0,f.fade); gctx.drawImage(flowerSprite(f.hue), f.x-s/2+sway, f.y-s/2, s, s); gctx.globalAlpha=1; }
   for(const s of seeds){ const a=Math.max(0,Math.min(1,s.life/1.5)); softDot(s.x,s.y,2.6,s.hue,90,a); }
+  if(gCur.show && Input.mode==='play-garden'){ gctx.save(); gctx.shadowBlur=12; gctx.shadowColor='rgba(255,246,224,0.85)';
+    gctx.strokeStyle='rgba(255,250,235,0.9)'; gctx.lineWidth=2; gctx.beginPath(); gctx.arc(gCur.x,gCur.y,15,0,7); gctx.stroke();
+    gctx.fillStyle='rgba(255,250,235,0.95)'; gctx.beginPath(); gctx.arc(gCur.x,gCur.y,2.4,0,7); gctx.fill(); gctx.restore(); }
 }
 function wgLoop(ts){ if(!gRunning)return; const now=ts||performance.now();
   const dt=Math.min((now-gLastT)/1000||0,0.05); gLastT=now; wgStep(dt,now); wgDraw(now); requestAnimationFrame(wgLoop); }
@@ -1271,6 +1304,7 @@ function startGarden(){
   $('start').style.display='none'; gardenView.classList.add('show');
   wgSize(); wgInitBg();
   flowers=[]; pollen=[]; ripples=[]; seeds=[]; skyStars=[]; gIdle=3; gRunning=true; gLastT=performance.now();
+  gCur={x:gW/2,y:gH/2,show:false,lpx:gW/2,lpy:gH/2}; Input.mode='play-garden'; setFocus(null);
   refreshCounters();
   $('gardenHint').classList.remove('hide'); setTimeout(()=>$('gardenHint').classList.add('hide'),5200);
   wgStartPad(); wgStartWind(); say(UI.gardenGo[LANG]);
@@ -1283,6 +1317,79 @@ function stopGarden(){ gRunning=false; gardenView.classList.remove('show'); wgSt
 $('gardenBtn').addEventListener('click',()=>{ tapSound(); startGarden(); });
 $('gardenBack').addEventListener('click',()=>{ tapSound(); goHome(); });
 $('gardenShelf').addEventListener('click',()=>{ tapSound(); openShelf(); });
+
+/* ===== INPUT: game controllers + keyboard (couch / Apple TV play) =====
+   Realtime games read Input.ax / Input.ay (analog, -1..1). Menus use spatial
+   focus navigation: a highlight you move with the d-pad/stick, A/Enter to pick. */
+const Input={mode:'menu',active:false,ax:0,ay:0,confirmHeld:false,_resume:'menu'};
+const FOCUS_SEL='.menubtn,.playbtn,.topbtn,.pillbtn,.tile,.groupbox,.pad,.slot.vehicle.got,.langtoggle button';
+let focusEl=null;
+function isVisible(el){ const rs=el.getClientRects(); if(!rs.length)return false;
+  const cs=getComputedStyle(el); if(cs.visibility==='hidden'||cs.display==='none'||cs.opacity==='0')return false;
+  if(el.disabled)return false; const r=rs[0];
+  return r.width>2&&r.height>2&&r.right>0&&r.bottom>0&&r.left<innerWidth&&r.top<innerHeight; }
+function focusables(){ return [...document.querySelectorAll(FOCUS_SEL)].filter(isVisible); }
+function setFocus(el){ if(focusEl&&focusEl!==el)focusEl.classList.remove('kbfocus');
+  focusEl=el||null; if(focusEl&&Input.active){ focusEl.classList.add('kbfocus'); try{focusEl.scrollIntoView({block:'nearest'});}catch(e){} } }
+function focusFirst(){ const it=focusables(); if(it.length)setFocus(it[0]); }
+function focusBoardFirst(){ const t=board.querySelector('.tile,.groupbox'); if(t)setFocus(t); else focusFirst(); }
+function markActive(){ if(!Input.active){ Input.active=true; document.body.classList.add('usepad'); }
+  if(focusEl)focusEl.classList.add('kbfocus'); }
+function navigate(dir){ const D={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}[dir]; if(!D)return;
+  const items=focusables(); if(!items.length)return;
+  if(!focusEl||!isVisible(focusEl)||items.indexOf(focusEl)<0){ setFocus(items[0]); return; }
+  const fr=focusEl.getBoundingClientRect(), fx=fr.left+fr.width/2, fy=fr.top+fr.height/2;
+  let best=null, bs=1e12;
+  for(const el of items){ if(el===focusEl)continue; const r=el.getBoundingClientRect();
+    const ox=(r.left+r.width/2)-fx, oy=(r.top+r.height/2)-fy;
+    const along=D[0]?ox*D[0]:oy*D[1]; if(along<=2)continue;
+    const perp=D[0]?Math.abs(oy):Math.abs(ox); const score=along+perp*2.2;
+    if(score<bs){bs=score;best=el;} }
+  if(best)setFocus(best); }
+function activateFocus(){ if(!focusEl||!isVisible(focusEl))return;
+  if(focusEl.classList.contains('pad')) onPadTap(+focusEl.dataset.idx); else focusEl.click(); }
+
+function onNav(d){ const M=Input.mode;
+  if(M==='menu') navigate(d);
+  else if(M==='play-merge') move(d); }
+function onConfirm(){ const M=Input.mode;
+  if(M==='menu') activateFocus();
+  else if(M==='play-tower') dropBlock();
+  else if(M==='play-garden') gardenPlant(); }
+function onBack(){ if($('shelf').classList.contains('show')){ tapSound(); closeShelf(); return; }
+  if($('start').style.display!=='none')return; tapSound(); goHome(); }
+
+const KEYMAP={ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',ArrowLeft:'left',KeyA:'left',
+  ArrowRight:'right',KeyD:'right',Enter:'confirm',Space:'confirm',NumpadEnter:'confirm',Escape:'back',Backspace:'back'};
+const keyState={};
+addEventListener('keydown',e=>{ const a=KEYMAP[e.code]; if(!a)return; e.preventDefault(); keyState[a]=true; markActive(); });
+addEventListener('keyup',e=>{ const a=KEYMAP[e.code]; if(a)keyState[a]=false; });
+
+function readRaw(){ let cf=!!keyState.confirm, bk=!!keyState.back, ax=0, ay=0;
+  if(keyState.left)ax-=1; if(keyState.right)ax+=1; if(keyState.up)ay-=1; if(keyState.down)ay+=1;
+  const pads=navigator.getGamepads?navigator.getGamepads():[];
+  for(const gp of pads){ if(!gp)continue; const b=gp.buttons, A=gp.axes, pr=i=>b[i]&&b[i].pressed;
+    if(pr(0))cf=true; if(pr(1)||pr(9))bk=true;
+    if(pr(14))ax-=1; if(pr(15))ax+=1; if(pr(12))ay-=1; if(pr(13))ay+=1;
+    if(A&&A.length>=2){ if(Math.abs(A[0])>0.28)ax+=A[0]; if(Math.abs(A[1])>0.28)ay+=A[1]; } }
+  return {cf,bk,ax:Math.max(-1,Math.min(1,ax)),ay:Math.max(-1,Math.min(1,ay))}; }
+
+const NAV=['up','down','left','right']; let prevNav={}, prevCf=false, prevBk=false, navHeld={}, lastPoll=0;
+function pollInput(ts){ const now=ts||performance.now(); const dt=Math.min((now-lastPoll)/1000||0,0.05); lastPoll=now;
+  const r=readRaw(); Input.ax=r.ax; Input.ay=r.ay; Input.confirmHeld=r.cf;
+  if(r.ax||r.ay||r.cf||r.bk) markActive();
+  const nav={up:r.ay<-0.5,down:r.ay>0.5,left:r.ax<-0.5,right:r.ax>0.5};
+  for(const d of NAV){ if(nav[d]){ if(!prevNav[d]){navHeld[d]=0;onNav(d);} else {navHeld[d]+=dt; if(navHeld[d]>0.42){navHeld[d]-=0.13;onNav(d);}} } }
+  if(r.cf&&!prevCf) onConfirm();
+  if(r.bk&&!prevBk) onBack();
+  prevNav=nav; prevCf=r.cf; prevBk=r.bk; requestAnimationFrame(pollInput); }
+requestAnimationFrame(pollInput);
+
+function cxToast(msg){ const t=$('cxToast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2600); }
+addEventListener('gamepadconnected',()=>{ markActive(); document.body.classList.add('tv');
+  if(Input.mode==='menu') focusFirst();
+  cxToast(LANG==='es'?'🎮 ¡Control conectado!':'🎮 Controller connected!'); });
 
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&AC&&AC.state==='suspended')AC.resume(); });
 setLang('es');
