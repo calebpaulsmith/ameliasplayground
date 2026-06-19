@@ -193,7 +193,8 @@
   /* WIND GARDEN (calming generative chime game) */
   .menubtn.garden{background:linear-gradient(180deg,#7ad7c8,#33899a);box-shadow:0 8px 0 #20636f,0 12px 24px rgba(0,0,0,.4);}
   .menubtn.garden:active{box-shadow:0 2px 0 #20636f;}
-  #garden{position:absolute;inset:0;z-index:30;display:none;background:radial-gradient(circle at 50% 30%,#241a52,#120b34 60%,#080518);}
+  #garden{position:absolute;inset:0;z-index:30;display:none;
+    background:linear-gradient(180deg,#1b1640 0%,#34245f 45%,#5a3168 72%,#7d4063 100%);}
   #garden.show{display:block;}
   #gardenCanvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;z-index:1;}
   #gardenHUD{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:space-between;
@@ -314,7 +315,7 @@
       <button class="pill pillbtn" id="gardenShelf">🎒 <span id="gardenPrize">0</span></button>
     </div>
   </div>
-  <div id="gardenHint">Dibuja el viento ✨ · Toca para campanas 🎐</div>
+  <div id="gardenHint">Toca para sembrar luz 🌸 · Arrastra una melodía</div>
 </div>
 
 <div id="celebrate"><div id="celebEmoji">🚀</div><h2 id="celebText">¡Lo lograste! 🌈</h2></div>
@@ -343,8 +344,8 @@ const UI={
   song:{es:'Canción de estrellas',en:'Star Song'},
   merge:{es:'Fusión de planetas',en:'Planet Merge'},
   garden:{es:'Jardín de viento',en:'Wind Garden'},
-  gardenGo:{es:'Respira... y dibuja el viento.',en:'Breathe... and draw the wind.'},
-  gardenHint:{es:'Dibuja el viento ✨ · Toca para campanas 🎐',en:'Draw the wind ✨ · Tap for chimes 🎐'},
+  gardenGo:{es:'Toca para hacer crecer un jardín de luz.',en:'Touch to grow a garden of light.'},
+  gardenHint:{es:'Toca para sembrar luz 🌸 · Arrastra una melodía',en:'Touch to plant light 🌸 · Drag a melody'},
   mergeGo:{es:'¡Desliza para juntar planetas iguales!',en:'Swipe to join matching planets!'},
   mergeWin:{es:'¡Hiciste una galaxia! 🌌',en:'You made a galaxy! 🌌'},
   mergeOver:{es:'¡Tablero lleno!',en:'Board full!'},
@@ -1109,163 +1110,176 @@ $('mergeBack').addEventListener('click',()=>{ tapSound(); goHome(); });
 $('mergeNew').addEventListener('click',()=>{ tapSound(); newMergeGame(); say(UI.mergeGo[LANG]); });
 $('mergeAgain').addEventListener('click',()=>{ tapSound(); newMergeGame(); });
 
-/* ===== WIND GARDEN (calming generative chime garden, à la "Frost") ===== */
+/* ===== WIND GARDEN (a calm musical light-garden) =====
+   Touch to plant a glowing flower that blooms with a warm chord; it grows,
+   sways on the breeze, then matures and lets a seed drift up to become a
+   star in your sky. Drag to trail a melody of blooms. Soft, no fail. */
 const gardenView=$('garden'), gcv=$('gardenCanvas');
 let gctx=null, gW=0, gH=0, gdpr=1;
-let motes=[], ribbons=[], rings=[], blooms=[], sparks=[];
-let gRunning=false, gLastT=0, gIdle=0, ringSeq=0;
-/* a single pentatonic scale → nothing can ever sound wrong. Pitch & colour move together. */
-const PENT =[392.00,440.00,523.25,587.33,659.25,783.99,880.00,1046.50,1174.66];
-const PHUES=[170,   188,   206,   232,   262,   300,   330,   38,     50];
+let flowers=[], pollen=[], ripples=[], seeds=[], skyStars=[], bgStars=[];
+let gRunning=false, gLastT=0, gIdle=0, breeze=0;
+/* C-major pentatonic over three octaves — every note belongs, nothing clashes */
+const PENT=[130.81,146.83,164.81,196.00,220.00, 261.63,293.66,329.63,392.00,440.00,
+            523.25,587.33,659.25,783.99,880.00, 1046.50,1174.66,1318.51];
+function hueFor(idx){ return (256+idx*7)%360; }
+function pitchFromY(y){ return Math.max(2,Math.min(PENT.length-5, Math.round(2+(1-y/gH)*(PENT.length-8)))); }
 
-/* --- ambient audio: soft drone pad + bell-like chimes through a feedback delay --- */
-let wgGain=null, wgBus=null, wgDelay=null, wgPad=[], wgAudioReady=false;
+/* ---------- audio: warm chords, a soft pad and a wind bed, through reverb ---------- */
+let wgMaster=null, wgBus=null, wgDelay=null, wgPad=[], wgWind=null, wgAudioReady=false;
 function wgInitAudio(){ if(!AC||wgAudioReady)return;
-  wgGain=AC.createGain(); wgGain.gain.value=0.0; wgGain.connect(AC.destination);
-  wgDelay=AC.createDelay(1.0); wgDelay.delayTime.value=0.34;
-  const fb=AC.createGain(); fb.gain.value=0.36; wgDelay.connect(fb); fb.connect(wgDelay);
-  const wet=AC.createGain(); wet.gain.value=0.5; wgDelay.connect(wet); wet.connect(wgGain);
-  wgBus=AC.createGain(); wgBus.gain.value=0.9; wgBus.connect(wgGain); wgBus.connect(wgDelay);
+  wgMaster=AC.createGain(); wgMaster.gain.value=0.0001; wgMaster.connect(AC.destination);
+  wgDelay=AC.createDelay(1.0); wgDelay.delayTime.value=0.30;
+  const damp=AC.createBiquadFilter(); damp.type='lowpass'; damp.frequency.value=2400;
+  const fb=AC.createGain(); fb.gain.value=0.40;
+  wgDelay.connect(damp); damp.connect(fb); fb.connect(wgDelay);
+  const wet=AC.createGain(); wet.gain.value=0.45; wgDelay.connect(wet); wet.connect(wgMaster);
+  wgBus=AC.createGain(); wgBus.gain.value=1.0; wgBus.connect(wgMaster); wgBus.connect(wgDelay);
   wgAudioReady=true;
 }
 function wgStartPad(){ if(!AC||!wgAudioReady)return; wgStopPad();
   const t0=AC.currentTime;
-  wgGain.gain.cancelScheduledValues(t0); wgGain.gain.setValueAtTime(Math.max(wgGain.gain.value,0.0001),t0);
-  wgGain.gain.linearRampToValueAtTime(0.5,t0+2.5);
-  [130.81,196.00,261.63].forEach((f,i)=>{
+  wgMaster.gain.cancelScheduledValues(t0); wgMaster.gain.setValueAtTime(Math.max(wgMaster.gain.value,0.0001),t0);
+  wgMaster.gain.linearRampToValueAtTime(0.9,t0+2.5);
+  [130.81,164.81,196.00].forEach((f,i)=>{                       // soft C-major drone
     const o=AC.createOscillator(); o.type='sine'; o.frequency.value=f;
-    const o2=AC.createOscillator(); o2.type='sine'; o2.frequency.value=f*1.006;
-    const g=AC.createGain(); g.gain.value=0.04;
-    const lfo=AC.createOscillator(); lfo.frequency.value=0.04+i*0.017;
+    const o2=AC.createOscillator(); o2.type='triangle'; o2.frequency.value=f*1.005;
+    const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=700;
+    const g=AC.createGain(); g.gain.value=0.05;
+    const lfo=AC.createOscillator(); lfo.frequency.value=0.05+i*0.013;
     const lg=AC.createGain(); lg.gain.value=0.03; lfo.connect(lg); lg.connect(g.gain);
-    o.connect(g); o2.connect(g); g.connect(wgGain);
+    o.connect(lp); o2.connect(lp); lp.connect(g); g.connect(wgMaster);
     o.start(t0); o2.start(t0); lfo.start(t0); wgPad.push(o,o2,lfo);
   });
 }
 function wgStopPad(){ wgPad.forEach(o=>{try{o.stop();}catch(e){}}); wgPad=[]; }
-function wgChime(idx,vel){ if(!AC||!wgBus)return; const f=PENT[Math.max(0,Math.min(PENT.length-1,idx))], t0=AC.currentTime;
-  [[1,0.5,2.6],[2,0.17,1.9],[3,0.08,1.3]].forEach(([mult,amp,dur])=>{
-    const o=AC.createOscillator(); o.type='sine'; o.frequency.value=f*mult*(1+(Math.random()-0.5)*0.004);
-    const g=AC.createGain(); const peak=Math.max(0.0005,amp*vel);
-    g.gain.setValueAtTime(0.0001,t0); g.gain.linearRampToValueAtTime(peak,t0+0.01);
-    g.gain.exponentialRampToValueAtTime(0.0005,t0+dur);
-    o.connect(g); g.connect(wgBus); o.start(t0); o.stop(t0+dur+0.1);
-  });
+function wgStartWind(){ if(!AC||!wgAudioReady)return; wgStopWind();
+  const len=Math.floor(AC.sampleRate*2), buf=AC.createBuffer(1,len,AC.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*0.5;
+  const src=AC.createBufferSource(); src.buffer=buf; src.loop=true;
+  const bp=AC.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=520; bp.Q.value=0.6;
+  const g=AC.createGain(); g.gain.value=0.05;
+  const lfo=AC.createOscillator(); lfo.frequency.value=0.07; const lg=AC.createGain(); lg.gain.value=0.045;
+  lfo.connect(lg); lg.connect(g.gain);
+  const lf2=AC.createOscillator(); lf2.frequency.value=0.05; const lg2=AC.createGain(); lg2.gain.value=170;
+  lf2.connect(lg2); lg2.connect(bp.frequency);
+  src.connect(bp); bp.connect(g); g.connect(wgMaster);
+  src.start(); lfo.start(); lf2.start(); wgWind=[src,lfo,lf2];
 }
+function wgStopWind(){ if(wgWind){ wgWind.forEach(n=>{try{n.stop();}catch(e){}}); wgWind=null; } }
+function wgNote(idx,vel){ if(!AC||!wgBus)return; idx=Math.max(0,Math.min(PENT.length-1,idx));
+  const f=PENT[idx], t0=AC.currentTime, peak=Math.max(0.0008,vel*0.22);
+  const lp=AC.createBiquadFilter(); lp.type='lowpass';
+  lp.frequency.setValueAtTime(2400,t0); lp.frequency.exponentialRampToValueAtTime(640,t0+1.0);
+  const g=AC.createGain(); g.gain.setValueAtTime(0.0001,t0);
+  g.gain.linearRampToValueAtTime(peak,t0+0.02); g.gain.exponentialRampToValueAtTime(0.0007,t0+2.2);
+  const o1=AC.createOscillator(); o1.type='triangle'; o1.frequency.value=f;
+  const o2=AC.createOscillator(); o2.type='sine'; o2.frequency.value=f*2; const g2=AC.createGain(); g2.gain.value=0.35;
+  o1.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g); g.connect(wgBus);
+  o1.start(t0); o2.start(t0); o1.stop(t0+2.4); o2.stop(t0+2.4);
+}
+function wgChord(idx,vel){ wgNote(idx,vel); setTimeout(()=>wgNote(idx+2,vel*0.8),70); setTimeout(()=>wgNote(idx+4,vel*0.62),150); }
 
-/* --- canvas + particles --- */
+/* ---------- pre-rendered soft flower sprites (cheap to draw, gentle to look at) ---------- */
+const flowerSprites={};
+function flowerSprite(hue){ const key=Math.round(hue/8)*8; if(flowerSprites[key])return flowerSprites[key];
+  const S=148, c=document.createElement('canvas'); c.width=S; c.height=S; const x=c.getContext('2d');
+  const cx=S/2, cy=S/2;
+  let g=x.createRadialGradient(cx,cy,0,cx,cy,S*0.5);
+  g.addColorStop(0,'hsla('+key+',65%,82%,0.40)'); g.addColorStop(1,'hsla('+key+',65%,82%,0)');
+  x.fillStyle=g; x.fillRect(0,0,S,S);
+  const petals=6, pr=S*0.19;
+  for(let i=0;i<petals;i++){ const a=i/petals*Math.PI*2, px=cx+Math.cos(a)*pr, py=cy+Math.sin(a)*pr;
+    const pg=x.createRadialGradient(px,py,0,px,py,S*0.21);
+    pg.addColorStop(0,'hsla('+((key+8)%360)+',78%,90%,0.96)');
+    pg.addColorStop(0.55,'hsla('+key+',70%,80%,0.55)');
+    pg.addColorStop(1,'hsla('+key+',70%,80%,0)');
+    x.fillStyle=pg; x.beginPath(); x.arc(px,py,S*0.2,0,7); x.fill(); }
+  const cg=x.createRadialGradient(cx,cy,0,cx,cy,S*0.15);
+  cg.addColorStop(0,'hsla(46,96%,92%,1)'); cg.addColorStop(0.7,'hsla(42,90%,82%,0.85)'); cg.addColorStop(1,'hsla(42,90%,82%,0)');
+  x.fillStyle=cg; x.beginPath(); x.arc(cx,cy,S*0.15,0,7); x.fill();
+  flowerSprites[key]=c; return c;
+}
+function softDot(x,y,r,hue,light,a){ gctx.save(); gctx.shadowBlur=r*2.4; gctx.shadowColor='hsla('+hue+',80%,'+light+'%,'+a+')';
+  gctx.fillStyle='hsla('+hue+',82%,'+light+'%,'+a+')'; gctx.beginPath(); gctx.arc(x,y,r,0,7); gctx.fill(); gctx.restore(); }
+
 function wgSize(){ gdpr=Math.min(window.devicePixelRatio||1,2);
   gW=gardenView.clientWidth; gH=gardenView.clientHeight;
   gcv.width=Math.round(gW*gdpr); gcv.height=Math.round(gH*gdpr);
   gctx=gcv.getContext('2d'); gctx.setTransform(gdpr,0,0,gdpr,0,0); }
-function wgSpawnMotes(){ motes=[]; const n=Math.max(70,Math.min(180,Math.round(gW*gH/8200)));
-  for(let i=0;i<n;i++){ const idx=Math.floor(Math.random()*PHUES.length);
-    motes.push({x:Math.random()*gW,y:Math.random()*gH,vx:0,vy:0,hue:PHUES[idx],
-      sz:1.4+Math.random()*2.2,br:0.5+Math.random()*0.4,cool:0}); } }
-function flowAng(x,y,t){ return (Math.sin(x*0.004+t*0.00031)+Math.sin(y*0.005-t*0.00022)+Math.sin((x+y)*0.0026+t*0.00015))*1.15; }
+function wgInitBg(){ bgStars=[]; const n=Math.round(gW*gH/14000);
+  for(let i=0;i<n;i++) bgStars.push({x:Math.random()*gW,y:Math.random()*gH,r:Math.random()*1.1+0.4,p:Math.random()*6.28,s:0.6+Math.random()}); }
 
-function wgAddRing(x,y,idx,soft){ const maxR=Math.min(gW,gH)*(0.16+Math.random()*0.12);
-  rings.push({x,y,idx,hue:PHUES[idx%PHUES.length],r:0,maxR,life:5.5,maxLife:5.5,hits:0,bloomed:false});
-  wgChime(idx, soft?0.3:0.42); if(rings.length>8)rings.shift(); }
-function wgAutoRing(){ if(rings.length>5)return;
-  wgAddRing(60+Math.random()*(gW-120), 90+Math.random()*(gH-180), Math.floor(Math.random()*PENT.length), true); }
-function wgBloom(rg){ blooms.push({x:rg.x,y:rg.y,hue:rg.hue,life:1.6,maxLife:1.6});
-  wgChime(rg.idx,0.4); wgChime(rg.idx+2,0.3); wgChime(rg.idx+4,0.22);
+function plantFlower(x,y,big){
+  const idx=pitchFromY(y), hue=hueFor(idx);
+  flowers.push({x,y,hue,idx,grow:0,age:0,phase:Math.random()*6.28,
+    base:(big?60:34)+Math.random()*(big?26:14),mature:false,fade:1});
+  if(flowers.length>34){ const f=flowers.shift(); if(!f.mature) releaseSeed(f); }
+  ripples.push({x,y,r:5,maxR:(big?118:66),hue,life:1.1,maxLife:1.1});
+  for(let i=0;i<(big?5:2);i++) pollen.push({x,y,vx:(Math.random()-0.5)*24,vy:-8-Math.random()*16,
+    hue,r:1.6+Math.random()*1.8,life:3+Math.random()*2,maxLife:5,tw:Math.random()*6.28});
+  if(big) wgChord(idx,0.55); else wgNote(idx,0.42);
+}
+function releaseSeed(f){ seeds.push({x:f.x,y:f.y,vy:-26,hue:f.hue,life:4,idx:f.idx});
   stars+=1; saveProgress(); refreshCounters(); }
 
 function wgStep(dt,now){
-  gIdle+=dt; if(gIdle>7){ wgAutoRing(); gIdle=0; }
-  for(let i=ribbons.length-1;i>=0;i--){ const rb=ribbons[i]; if(!rb.active){ rb.life-=dt; if(rb.life<=0)ribbons.splice(i,1); } }
-  for(let i=rings.length-1;i>=0;i--){ const rg=rings[i]; rg.life-=dt; rg.r=rg.maxR*(1-(rg.life/rg.maxLife)); if(rg.life<=0)rings.splice(i,1); }
-  for(let i=blooms.length-1;i>=0;i--){ blooms[i].life-=dt; if(blooms[i].life<=0)blooms.splice(i,1); }
-  for(let i=sparks.length-1;i>=0;i--){ const s=sparks[i]; s.x+=s.vx*dt; s.y+=s.vy*dt; s.vx*=0.94; s.vy*=0.94; s.life-=dt; if(s.life<=0)sparks.splice(i,1); }
-  for(const p of motes){
-    const a=flowAng(p.x,p.y,now); p.vx+=Math.cos(a)*8*dt; p.vy+=Math.sin(a)*8*dt;
-    for(const rb of ribbons){ const lf=rb.active?1:Math.max(0,rb.life/rb.maxLife); if(lf<=0||rb.pts.length<2)continue;
-      const pts=rb.pts; let best=1e9,bi=-1;
-      for(let k=0;k<pts.length;k++){ const dx=pts[k].x-p.x,dy=pts[k].y-p.y,d=dx*dx+dy*dy; if(d<best){best=d;bi=k;} }
-      if(bi>=0 && best<110*110){ const d=Math.sqrt(best)||1, inf=(1-d/110)*lf;
-        const pa=pts[Math.min(bi+1,pts.length-1)], pb=pts[Math.max(bi-1,0)];
-        let tx=pa.x-pb.x, ty=pa.y-pb.y; const tl=Math.hypot(tx,ty)||1; tx/=tl; ty/=tl;
-        p.vx+=tx*300*inf*dt; p.vy+=ty*300*inf*dt;
-        p.vx+=(pts[bi].x-p.x)*2.0*inf*dt; p.vy+=(pts[bi].y-p.y)*2.0*inf*dt;
-      }
-    }
-    p.vx*=0.94; p.vy*=0.94; const sp=Math.hypot(p.vx,p.vy); if(sp>120){ p.vx=p.vx/sp*120; p.vy=p.vy/sp*120; }
-    p.x+=p.vx*dt; p.y+=p.vy*dt;
-    if(p.x<-20)p.x=gW+20; else if(p.x>gW+20)p.x=-20;
-    if(p.y<-20)p.y=gH+20; else if(p.y>gH+20)p.y=-20;
-    if(p.cool>0)p.cool-=dt; if(p.br>0.5)p.br=Math.max(0.5,p.br-dt*0.7);
-    for(const rg of rings){ if(rg.r<8)continue; const dx=p.x-rg.x,dy=p.y-rg.y,d=Math.hypot(dx,dy);
-      if(Math.abs(d-rg.r)<10 && p.cool<=0){
-        p.cool=0.9; p.hue=rg.hue; p.br=1.5; wgChime(rg.idx,0.5+Math.random()*0.2);
-        sparks.push({x:p.x,y:p.y,vx:(Math.random()-0.5)*60,vy:(Math.random()-0.5)*60,life:0.6,hue:rg.hue});
-        rg.hits++; if(rg.hits===4 && !rg.bloomed){ rg.bloomed=true; wgBloom(rg); }
-      }
-    }
-  }
+  breeze=Math.sin(now*0.00018)*0.6+Math.sin(now*0.00007)*0.45;
+  gIdle+=dt; if(gIdle>4.5){ gIdle=0; if(flowers.length<7) plantFlower(40+Math.random()*(gW-80),gH*0.35+Math.random()*gH*0.4,false); }
+  for(let i=flowers.length-1;i>=0;i--){ const f=flowers[i]; f.age+=dt; f.grow+=(1-f.grow)*Math.min(1,dt*2.6);
+    if(f.mature){ f.fade-=dt*0.7; if(f.fade<=0)flowers.splice(i,1); }
+    else { if(f.age>13){ f.mature=true; releaseSeed(f); }
+      else if(Math.random()<dt*0.7) pollen.push({x:f.x+(Math.random()-0.5)*f.base,y:f.y+(Math.random()-0.5)*f.base,
+        vx:(Math.random()-0.5)*10,vy:-6-Math.random()*10,hue:f.hue,r:1.3+Math.random()*1.5,life:3+Math.random()*2,maxLife:5,tw:Math.random()*6.28}); } }
+  for(let i=pollen.length-1;i>=0;i--){ const p=pollen[i]; p.vx+=breeze*9*dt; p.vy+=-2*dt;
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt; p.tw+=dt*3; if(p.life<=0||p.y<-20)pollen.splice(i,1); }
+  for(let i=ripples.length-1;i>=0;i--){ const r=ripples[i]; r.r+=(r.maxR-r.r)*Math.min(1,dt*3.2); r.life-=dt; if(r.life<=0)ripples.splice(i,1); }
+  for(let i=seeds.length-1;i>=0;i--){ const s=seeds[i]; s.vy-=24*dt; s.y+=s.vy*dt; s.x+=breeze*16*dt; s.life-=dt;
+    if(s.y<gH*0.16||s.life<=0){ skyStars.push({x:s.x,y:Math.max(14,s.y),r:1.3+Math.random()*1.2,hue:s.hue,p:Math.random()*6.28});
+      if(skyStars.length>90)skyStars.shift(); wgNote(Math.min(PENT.length-1,s.idx+5),0.18); seeds.splice(i,1); } }
 }
-function wgPath(pts){ gctx.beginPath(); gctx.moveTo(pts[0].x,pts[0].y); for(let i=1;i<pts.length;i++)gctx.lineTo(pts[i].x,pts[i].y); }
-function wgDraw(){
+function wgDraw(now){
   if(!gctx)return;
-  gctx.globalCompositeOperation='source-over'; gctx.fillStyle='rgba(13,8,38,0.18)'; gctx.fillRect(0,0,gW,gH);
-  gctx.globalCompositeOperation='lighter';
-  gctx.lineCap='round'; gctx.lineJoin='round';
-  for(const rb of ribbons){ const lf=rb.active?1:Math.max(0,rb.life/rb.maxLife); if(lf<=0||rb.pts.length<2)continue;
-    gctx.strokeStyle='hsla(200,80%,82%,'+(0.09*lf)+')'; gctx.lineWidth=20*lf; wgPath(rb.pts); gctx.stroke();
-    gctx.strokeStyle='hsla(188,92%,90%,'+(0.22*lf)+')'; gctx.lineWidth=6*lf; wgPath(rb.pts); gctx.stroke(); }
-  for(const rg of rings){ const lf=Math.max(0,rg.life/rg.maxLife);
-    gctx.strokeStyle='hsla('+rg.hue+',85%,70%,'+(0.5*lf)+')'; gctx.lineWidth=2.5;
-    gctx.beginPath(); gctx.arc(rg.x,rg.y,rg.r,0,7); gctx.stroke();
-    gctx.fillStyle='hsla('+rg.hue+',90%,72%,'+(0.55*lf)+')'; gctx.beginPath(); gctx.arc(rg.x,rg.y,3.2,0,7); gctx.fill(); }
-  for(const p of motes){ const r=p.sz*(0.6+p.br);
-    gctx.fillStyle='hsla('+p.hue+',85%,65%,'+(0.16*p.br)+')'; gctx.beginPath(); gctx.arc(p.x,p.y,r*3.4,0,7); gctx.fill();
-    gctx.fillStyle='hsla('+p.hue+',95%,'+(60+p.br*18)+'%,0.92)'; gctx.beginPath(); gctx.arc(p.x,p.y,r,0,7); gctx.fill(); }
-  for(const s of sparks){ const a=Math.max(0,s.life/0.6);
-    gctx.fillStyle='hsla('+s.hue+',90%,78%,'+a+')'; gctx.beginPath(); gctx.arc(s.x,s.y,2.2*a+0.5,0,7); gctx.fill(); }
-  for(const b of blooms){ const k=1-b.life/b.maxLife, a=Math.max(0,b.life/b.maxLife), R=10+k*46;
-    for(let i=0;i<8;i++){ const ang=i/8*Math.PI*2+k*0.6, px=b.x+Math.cos(ang)*R, py=b.y+Math.sin(ang)*R;
-      gctx.fillStyle='hsla('+b.hue+',90%,74%,'+(a*0.7)+')'; gctx.beginPath(); gctx.arc(px,py,6*a+1,0,7); gctx.fill(); }
-    gctx.fillStyle='hsla('+b.hue+',95%,82%,'+a+')'; gctx.beginPath(); gctx.arc(b.x,b.y,4*a+1,0,7); gctx.fill(); }
-  gctx.globalCompositeOperation='source-over';
+  gctx.clearRect(0,0,gW,gH);   // the CSS twilight gradient shows through
+  for(const b of bgStars){ const a=0.25+0.3*(0.5+0.5*Math.sin(now*0.001*b.s+b.p));
+    gctx.fillStyle='rgba(255,250,240,'+a+')'; gctx.beginPath(); gctx.arc(b.x,b.y,b.r,0,7); gctx.fill(); }
+  for(const s of skyStars){ const a=0.55+0.4*(0.5+0.5*Math.sin(now*0.0015+s.p)); softDot(s.x,s.y,s.r,s.hue,88,a); }
+  for(const r of ripples){ const a=Math.max(0,r.life/r.maxLife);
+    gctx.save(); gctx.globalAlpha=a*0.5; gctx.shadowBlur=10; gctx.shadowColor='hsla('+r.hue+',80%,85%,'+a+')';
+    gctx.strokeStyle='hsla('+r.hue+',75%,86%,'+(a*0.8)+')'; gctx.lineWidth=2; gctx.beginPath(); gctx.arc(r.x,r.y,r.r,0,7); gctx.stroke(); gctx.restore(); }
+  for(const p of pollen){ const a=Math.max(0,Math.min(1,p.life/1.2))*(0.5+0.5*Math.sin(p.tw))*0.7; if(a>0.02) softDot(p.x,p.y,p.r,p.hue,86,a); }
+  for(const f of flowers){ const s=f.base*2*f.grow*(0.96+0.04*Math.sin(now*0.0022+f.phase));
+    const sway=Math.sin(now*0.001+f.phase)*6*f.grow;
+    gctx.globalAlpha=Math.max(0,f.fade); gctx.drawImage(flowerSprite(f.hue), f.x-s/2+sway, f.y-s/2, s, s); gctx.globalAlpha=1; }
+  for(const s of seeds){ const a=Math.max(0,Math.min(1,s.life/1.5)); softDot(s.x,s.y,2.6,s.hue,90,a); }
 }
 function wgLoop(ts){ if(!gRunning)return; const now=ts||performance.now();
-  const dt=Math.min((now-gLastT)/1000||0,0.05); gLastT=now; wgStep(dt,now); wgDraw(); requestAnimationFrame(wgLoop); }
+  const dt=Math.min((now-gLastT)/1000||0,0.05); gLastT=now; wgStep(dt,now); wgDraw(now); requestAnimationFrame(wgLoop); }
 
-/* --- input: drag = wind current, tap = chime ring --- */
-let gDown=false, gMoved=false, gStartX=0, gStartY=0, gActiveRb=null, gLastAddX=0, gLastAddY=0;
+/* --- input: touch plants a bloom; drag trails a melody of blooms --- */
+let gDown=false, gLastX=0, gLastY=0;
 function gPos(e){ const r=gcv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
-gcv.addEventListener('pointerdown',e=>{ gDown=true; gMoved=false; gIdle=0; const p=gPos(e);
-  gStartX=p.x; gStartY=p.y; gLastAddX=p.x; gLastAddY=p.y;
-  gActiveRb={pts:[{x:p.x,y:p.y}],active:true,life:2.2,maxLife:2.2}; ribbons.push(gActiveRb); if(ribbons.length>5)ribbons.shift(); });
-gcv.addEventListener('pointermove',e=>{ if(!gDown||!gActiveRb)return; const p=gPos(e); gIdle=0;
-  const dx=p.x-gLastAddX, dy=p.y-gLastAddY;
-  if(dx*dx+dy*dy>14*14){ gActiveRb.pts.push({x:p.x,y:p.y}); if(gActiveRb.pts.length>44)gActiveRb.pts.shift(); gLastAddX=p.x; gLastAddY=p.y; }
-  if(Math.hypot(p.x-gStartX,p.y-gStartY)>12)gMoved=true; });
-function gEnd(e){ if(!gDown)return; gDown=false; const p=gPos(e);
-  if(gActiveRb){ gActiveRb.active=false; gActiveRb.life=gActiveRb.maxLife; }
-  if(!gMoved){ if(gActiveRb){ const i=ribbons.indexOf(gActiveRb); if(i>=0)ribbons.splice(i,1); }
-    wgAddRing(p.x,p.y, ringSeq++ % PENT.length); }
-  gActiveRb=null; }
-window.addEventListener('pointerup',e=>{ if(gDown)gEnd(e); });
-window.addEventListener('pointercancel',()=>{ gDown=false; gActiveRb=null; });
-window.addEventListener('resize',()=>{ if(gRunning) wgSize(); });
+gcv.addEventListener('pointerdown',e=>{ gDown=true; gIdle=0; const p=gPos(e); gLastX=p.x; gLastY=p.y; plantFlower(p.x,p.y,true); });
+gcv.addEventListener('pointermove',e=>{ if(!gDown)return; const p=gPos(e); gIdle=0;
+  if(Math.hypot(p.x-gLastX,p.y-gLastY)>36){ plantFlower(p.x,p.y,false); gLastX=p.x; gLastY=p.y; } });
+window.addEventListener('pointerup',()=>{ gDown=false; });
+window.addEventListener('pointercancel',()=>{ gDown=false; });
+window.addEventListener('resize',()=>{ if(gRunning){ wgSize(); wgInitBg(); } });
 
 function startGarden(){
   initAudio(); if(AC&&AC.state==='suspended')AC.resume(); wgInitAudio();
   loadProgress();
   $('start').style.display='none'; gardenView.classList.add('show');
-  wgSize(); wgSpawnMotes();
-  ribbons=[]; rings=[]; blooms=[]; sparks=[]; ringSeq=0; gIdle=4; gRunning=true; gLastT=performance.now();
+  wgSize(); wgInitBg();
+  flowers=[]; pollen=[]; ripples=[]; seeds=[]; skyStars=[]; gIdle=3; gRunning=true; gLastT=performance.now();
   refreshCounters();
   $('gardenHint').classList.remove('hide'); setTimeout(()=>$('gardenHint').classList.add('hide'),5200);
-  wgStartPad(); say(UI.gardenGo[LANG]);
-  setTimeout(()=>{ if(gRunning) wgAddRing(gW*0.5,gH*0.42,2,true); },900);
+  wgStartPad(); wgStartWind(); say(UI.gardenGo[LANG]);
+  setTimeout(()=>{ if(gRunning) plantFlower(gW*0.5,gH*0.45,true); },700);
   requestAnimationFrame(wgLoop);
 }
-function stopGarden(){ gRunning=false; gardenView.classList.remove('show'); wgStopPad();
-  if(wgGain&&AC){ try{ const t0=AC.currentTime; wgGain.gain.cancelScheduledValues(t0);
-    wgGain.gain.setValueAtTime(Math.max(wgGain.gain.value,0.0001),t0); wgGain.gain.linearRampToValueAtTime(0.0001,t0+0.6); }catch(e){} } }
+function stopGarden(){ gRunning=false; gardenView.classList.remove('show'); wgStopPad(); wgStopWind();
+  if(wgMaster&&AC){ try{ const t0=AC.currentTime; wgMaster.gain.cancelScheduledValues(t0);
+    wgMaster.gain.setValueAtTime(Math.max(wgMaster.gain.value,0.0001),t0); wgMaster.gain.linearRampToValueAtTime(0.0001,t0+0.6); }catch(e){} } }
 $('gardenBtn').addEventListener('click',()=>{ tapSound(); startGarden(); });
 $('gardenBack').addEventListener('click',()=>{ tapSound(); goHome(); });
 $('gardenShelf').addEventListener('click',()=>{ tapSound(); openShelf(); });
