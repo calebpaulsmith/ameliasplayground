@@ -1,9 +1,10 @@
 # Aventura Espacial de Amelia 🚀
 
 A bilingual (Español / English) space-themed learning game for little kids,
-built as an installable PWA. Three games — **Aprender** (learn), **Atrapar
-estrellas** (catch stars) and **Torre de cohetes** (rocket tower) — plus a
-prize shelf, star rewards and adaptive difficulty. Works offline once loaded.
+built as an installable PWA. Four games — **Aprender** (learn), **Atrapar
+estrellas** (catch stars), **Torre de cohetes** (rocket tower) and **Canción
+de estrellas** (a Simon-says star melody memory game) — plus a prize shelf,
+star rewards and adaptive difficulty. Works offline once loaded.
 
 ## Play it
 

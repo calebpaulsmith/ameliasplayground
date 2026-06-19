@@ -147,6 +147,25 @@
   #stackEnd.show{display:flex;}
   #stackEndTitle{font-size:2.2rem;font-weight:700;text-align:center;line-height:1.2;}
   #stackEndBest{font-size:1.2rem;opacity:.85;}
+  /* STAR SONG (Simon) */
+  .menubtn.song{background:linear-gradient(180deg,#c08bff,#8b4fe0);box-shadow:0 8px 0 #5e2fa6,0 12px 24px rgba(0,0,0,.4);}
+  .menubtn.song:active{box-shadow:0 2px 0 #5e2fa6;}
+  #song{position:absolute;inset:0;z-index:30;display:none;flex-direction:column;}
+  #song.show{display:flex;}
+  #songHUD{position:relative;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;gap:8px;}
+  #songStage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-height:0;padding:0 14px 24px;}
+  #songStatus{font-size:1.5rem;font-weight:700;text-align:center;background:rgba(0,0,0,.2);padding:10px 20px;border-radius:30px;line-height:1.2;min-height:1.2em;}
+  #songSinger{font-size:3rem;animation:hover 2.4s infinite ease-in-out;filter:drop-shadow(0 8px 12px rgba(0,0,0,.4));}
+  #pads{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;width:100%;max-width:380px;}
+  .pad{aspect-ratio:1;border:none;border-radius:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    font-size:3.4rem;color:rgba(255,255,255,.92);box-shadow:0 8px 0 rgba(0,0,0,.3),0 10px 22px rgba(0,0,0,.35);
+    transition:transform .08s,filter .12s,box-shadow .12s;filter:brightness(.72) saturate(.9);
+    text-shadow:0 3px 6px rgba(0,0,0,.4);}
+  .pad.lit{filter:brightness(1.55) saturate(1.2);transform:translateY(-4px) scale(1.05);
+    box-shadow:0 12px 0 rgba(0,0,0,.3),0 0 36px 6px currentColor;}
+  .pad:active{transform:translateY(5px);box-shadow:0 2px 0 rgba(0,0,0,.3);}
+  #pads.lock .pad{cursor:default;}
+  @media(min-height:700px){#songStatus{font-size:1.8rem;} #songSinger{font-size:3.8rem;} .pad{font-size:4rem;}}
 </style>
 </head>
 <body>
@@ -160,6 +179,7 @@
     <button class="playbtn menubtn" id="playBtn">🧠 <span id="b_learn">Aprender</span></button>
     <button class="playbtn menubtn catch" id="catchBtn">⭐ <span id="b_catch">Atrapar estrellas</span></button>
     <button class="playbtn menubtn tower" id="towerBtn">🏗️ <span id="b_tower">Torre de cohetes</span></button>
+    <button class="playbtn menubtn song" id="songBtn">🎶 <span id="b_song">Canción de estrellas</span></button>
   </div>
   <div class="langtoggle" id="langStart"><button data-l="es">Español</button><button data-l="en">English</button></div>
 </div>
@@ -208,6 +228,20 @@
   <div id="catchHint">👆 ¡Mueve el dedo para atrapar!</div>
 </div>
 
+<div id="song">
+  <div id="songHUD">
+    <button class="topbtn" id="songBack">🏠</button>
+    <div class="pill">🎵 <span id="songRound">1</span></div>
+    <div class="pill">⭐ <span id="songStars">0</span></div>
+    <button class="pill pillbtn" id="songShelf">🎒 <span id="songPrize">0</span></button>
+  </div>
+  <div id="songStage">
+    <div id="songSinger">🚀</div>
+    <div id="songStatus">¡Escucha! 👂</div>
+    <div id="pads"></div>
+  </div>
+</div>
+
 <div id="celebrate"><div id="celebEmoji">🚀</div><h2 id="celebText">¡Lo lograste! 🌈</h2></div>
 
 <div id="shelf">
@@ -231,6 +265,12 @@ const UI={
   tower:{es:'Torre de cohetes',en:'Rocket Tower'},
   towerGo:{es:'¡Apila bien alto!',en:'Stack it high!'},
   towerTip:{es:'Toca para soltar 👆',en:'Tap to drop 👆'},
+  song:{es:'Canción de estrellas',en:'Star Song'},
+  songGo:{es:'¡Escucha la canción y repítela!',en:'Listen to the song and repeat it!'},
+  songListen:{es:'¡Escucha! 👂',en:'Listen! 👂'},
+  songYourTurn:{es:'¡Tu turno! 👆',en:'Your turn! 👆'},
+  songNice:{es:'¡Bien! 🎉',en:'Nice! 🎉'},
+  songOops:{es:'¡Casi! Escucha otra vez 👂',en:'Almost! Listen again 👂'},
   floorsWord:{es:'pisos',en:'floors'},
   best:{es:'Mejor',en:'Best'},
   again:{es:'¡Otra vez! 🔁',en:'Again! 🔁'},
@@ -457,7 +497,7 @@ function answer(correct,el){
 function nextPrizeStars(){ const k=prizesWon; return 5*(k+1)+k*(k+1); }
 function refreshCounters(){
   [['starCount',stars],['prizeCount',prizesWon],['catchStars',stars],['catchPrize',prizesWon],
-   ['stackStars',stars],['stackPrize',prizesWon]].forEach(([id,v])=>{const el=$(id);if(el)el.textContent=v;});
+   ['stackStars',stars],['stackPrize',prizesWon],['songStars',stars],['songPrize',prizesWon]].forEach(([id,v])=>{const el=$(id);if(el)el.textContent=v;});
 }
 function givePrize(after){
   const idx=prizesWon%PRIZES.length, p=PRIZES[idx];
@@ -478,7 +518,7 @@ function burstConfetti(){for(let i=0;i<14;i++)confettiPiece();}
 /* ===== LANGUAGE TOGGLE ===== */
 function setLang(l){LANG=l;document.documentElement.lang=l;
   $('s_title').innerHTML=UI.title[l];$('s_sub').textContent=UI.sub[l];
-  $('b_learn').textContent=UI.learn[l];$('b_catch').textContent=UI.catch[l];$('b_tower').textContent=UI.tower[l];
+  $('b_learn').textContent=UI.learn[l];$('b_catch').textContent=UI.catch[l];$('b_tower').textContent=UI.tower[l];$('b_song').textContent=UI.song[l];
   $('catchHint').textContent=UI.catchHint[l];
   $('stackTip').textContent=UI.towerTip[l]; $('stackAgain').innerHTML=UI.again[l];
   $('shelfTitle').innerHTML=UI.shelfTitle[l];$('shelfHint').innerHTML=UI.shelfHint[l];$('shelfClose').innerHTML=UI.shelfClose[l];
@@ -524,7 +564,7 @@ $('playBtn').addEventListener('click',()=>{initAudio();if(AC&&AC.state==='suspen
 $('repeatBtn').addEventListener('click',()=>{ if(current) showPrompt(); });
 mascot.addEventListener('click',()=>{ tapSound(); if(current) showPrompt(); });
 function goHome(){ $('top').style.visibility='hidden'; $('game').style.visibility='hidden';
-  stopCatch(); stopStack(); $('start').style.display='flex'; }
+  stopCatch(); stopStack(); stopSong(); $('start').style.display='flex'; }
 $('homeBtn').addEventListener('click',()=>{ tapSound(); goHome(); });
 
 /* ===== CATCH GAME ===== */
@@ -747,6 +787,88 @@ $('towerBtn').addEventListener('click',()=>{ tapSound(); startStack(); });
 $('stackBack').addEventListener('click',()=>{ tapSound(); goHome(); });
 $('stackShelf').addEventListener('click',()=>{ tapSound(); openShelf(); });
 $('stackAgain').addEventListener('click',()=>{ tapSound(); startStack(); });
+
+/* ===== STAR SONG (Simon memory) ===== */
+const songView=$('song'), padsEl=$('pads'), songStatus=$('songStatus'), songSinger=$('songSinger');
+/* four singing planets — each a color + a note in a happy pentatonic-ish scale */
+const PADS=[
+  {emoji:'🪐',color:'#ff5da2',freq:392},  // G4
+  {emoji:'🌟',color:'#ffd23f',freq:523},  // C5
+  {emoji:'🌙',color:'#2ee6d6',freq:659},  // E5
+  {emoji:'☄️',color:'#a06bff',freq:784},  // G5
+];
+let songSeq=[], songStep=0, songRunning=false, songInput=false, songPadEls=[];
+let songTimers=[];
+function clearSongTimers(){ songTimers.forEach(clearTimeout); songTimers=[]; }
+function later(fn,ms){ const id=setTimeout(fn,ms); songTimers.push(id); return id; }
+
+function buildPads(){
+  padsEl.innerHTML=''; songPadEls=[];
+  PADS.forEach((p,i)=>{
+    const b=document.createElement('button');
+    b.className='pad'; b.textContent=p.emoji;
+    b.style.background=p.color; b.style.color=p.color;  // currentColor used for glow
+    b.addEventListener('pointerdown',()=>onPadTap(i));
+    padsEl.appendChild(b); songPadEls.push(b);
+  });
+}
+function litPad(i,ms){
+  const b=songPadEls[i]; if(!b)return;
+  b.classList.add('lit'); tone(PADS[i].freq,(ms||320)/1000,'triangle',0,0.32);
+  later(()=>b.classList.remove('lit'), Math.max(140,(ms||320)-60));
+}
+function playSequence(){
+  songInput=false; padsEl.classList.add('lock');
+  songStatus.textContent=UI.songListen[LANG];
+  songSinger.style.animationDuration='0.6s';
+  const gap=Math.max(360, 620-songSeq.length*18);  // speeds up gently as it grows
+  songSeq.forEach((idx,n)=>{ later(()=>litPad(idx,Math.min(gap-120,420)), 600+n*gap); });
+  later(()=>{
+    songInput=true; songStep=0; padsEl.classList.remove('lock');
+    songSinger.style.animationDuration='2.4s';
+    songStatus.textContent=UI.songYourTurn[LANG];
+  }, 600+songSeq.length*gap+120);
+}
+function nextNote(){ songSeq.push(Math.floor(Math.random()*PADS.length)); $('songRound').textContent=songSeq.length; }
+function onPadTap(i){
+  if(!songRunning||!songInput)return;
+  litPad(i,300);
+  if(i===songSeq[songStep]){
+    songStep++;
+    if(songStep>=songSeq.length){            // whole melody repeated correctly!
+      songInput=false; padsEl.classList.add('lock');
+      const gain=songSeq.length;             // longer song → more stars
+      stars+=gain; saveProgress(); refreshCounters();
+      happySound(); songStatus.textContent=UI.songNice[LANG];
+      floatText('+'+gain+'⭐','#ffd23f',innerWidth/2-26,140);
+      say(rand(PRAISE[LANG]));
+      if(stars>=nextPrizeStars()){
+        givePrize(()=>{ refreshCounters(); if(songRunning){ nextNote(); playSequence(); } });
+      }else{
+        later(()=>{ if(songRunning){ nextNote(); playSequence(); } }, 1100);
+      }
+    }
+  }else{                                     // gentle miss — never lose, just hear it again
+    songInput=false; padsEl.classList.add('lock');
+    nopeSound(); songStatus.textContent=UI.songOops[LANG];
+    say(UI.songOops[LANG]);
+    later(()=>{ if(songRunning) playSequence(); }, 1300);
+  }
+}
+function startSong(){
+  initAudio(); if(AC&&AC.state==='suspended')AC.resume();
+  loadProgress(); songSinger.textContent=currentMascot;
+  $('start').style.display='none'; songView.classList.add('show');
+  buildPads(); refreshCounters();
+  songSeq=[]; songStep=0; songRunning=true; clearSongTimers();
+  say(UI.songGo[LANG]);
+  later(()=>{ if(songRunning){ nextNote(); playSequence(); } }, 1200);
+}
+function stopSong(){ songRunning=false; songInput=false; clearSongTimers();
+  padsEl.classList.remove('lock'); songView.classList.remove('show'); }
+$('songBtn').addEventListener('click',()=>{ tapSound(); startSong(); });
+$('songBack').addEventListener('click',()=>{ tapSound(); goHome(); });
+$('songShelf').addEventListener('click',()=>{ tapSound(); openShelf(); });
 
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&AC&&AC.state==='suspended')AC.resume(); });
 setLang('es');
