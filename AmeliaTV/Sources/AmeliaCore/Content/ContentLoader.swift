@@ -39,6 +39,16 @@ public enum ContentLoader {
         let passengers: [Passenger] = try decodeArray(at: directory.appendingPathComponent("passengers.json"),
                                                       name: "passengers.json", decoder: decoder)
 
+        // Lights are optional (an episode may not use a traffic light).
+        var lights: [Light] = []
+        let lightsURL = directory.appendingPathComponent("lights.json")
+        if let data = try? Data(contentsOf: lightsURL) {
+            guard let decoded = try? decoder.decode([Light].self, from: data) else {
+                throw LoadError.decodeFailed("lights.json")
+            }
+            lights = decoded
+        }
+
         // Episodes: every *.json in episodes/.
         var episodes: [Episode] = []
         let episodesDir = directory.appendingPathComponent("episodes")
@@ -57,7 +67,7 @@ public enum ContentLoader {
         }
 
         return GameContent(strings: strings, places: places,
-                           passengers: passengers, episodes: episodes)
+                           passengers: passengers, lights: lights, episodes: episodes)
     }
 
     private static func decodeArray<T: Decodable>(at url: URL, name: String,

@@ -22,6 +22,13 @@ public struct Place: Codable, Equatable, Sendable {
     public var beaconColor: String?    // hex like "#57b85a"
 }
 
+/// A traffic light placed in the world, referenced by `lightStop` beats.
+public struct Light: Codable, Equatable, Sendable {
+    public var id: String
+    public var position: Point2D
+    public var phase: Double?
+}
+
 /// A passenger / animal friend.
 public struct Passenger: Codable, Equatable, Sendable {
     public var id: String
@@ -142,17 +149,20 @@ public struct GameContent: Sendable {
     public var strings: [String: [String: String]]
     public var places: [Place]
     public var passengers: [Passenger]
+    public var lights: [Light]
     public var episodes: [Episode]
 
     public init(
         strings: [String: [String: String]] = [:],
         places: [Place] = [],
         passengers: [Passenger] = [],
+        lights: [Light] = [],
         episodes: [Episode] = []
     ) {
         self.strings = strings
         self.places = places
         self.passengers = passengers
+        self.lights = lights
         self.episodes = episodes
     }
 
