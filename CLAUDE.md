@@ -128,7 +128,14 @@ Phases 0–1 are merged to `main`; Phase 2 (the vertical slice) is well underway
 - **HUD**: big GO/STOP, pulsing turn arrow, destination beacon, minimap.
 - **Garage + Mechanic Mom** intro scene and the **reward/sticker** screen.
 - **Splash/language** polish (RootView is minimal today).
-- **Audio**: music themes + SFX (only TTS voice exists).
+- ~~**Audio**: music themes + SFX (only TTS voice exists).~~ **A2-13 done:** a
+  procedural `AVAudioEngine` synth (`App/Audio/ProceduralAudio.swift`) plays
+  garage/driving/reward music beds, a speed-reactive engine hum, and a synthesized
+  SFX set (horn, door, star sparkle, light chime, gentle bump, reward + sticker
+  flourish), mixed below the TTS voice. The Core stays GPU/AV-free: `GameSession`
+  emits `SoundCue`/`MusicTheme` intents through a `SoundPlayer` protocol
+  (spy-tested headlessly). The remaining audio work is the *art-directed* pass
+  (E3-03): real samples / hero voice swapped in behind the same ids.
 - **Human play-test** on the tvOS Simulator / a real Apple TV (see TESTING.md).
 
 ## Next steps (start here next session)
