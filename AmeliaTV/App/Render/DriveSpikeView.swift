@@ -24,7 +24,9 @@ struct DriveSpikeView: View {
             }
             .ignoresSafeArea()
 
-            HUDView(model: engine.hud)
+            HUDView(model: engine.hud,
+                    onTurnLeft: { engine.chooseTurn(.left) },
+                    onTurnRight: { engine.chooseTurn(.right) })
                 .environmentObject(session)
 
             Button(session.string("ui.back")) { dismiss() }
@@ -65,6 +67,13 @@ final class SpikeEngine: ObservableObject {
     private var pickupPos: Vec2?
     private var dropoffPos: Vec2?
     private var riderBoardedOnce = false
+
+    // A turn picked by an on-screen (touch) button, consumed on the next tick.
+    // Lets the fork choice be made without a controller (e.g. on iPad).
+    private var pendingTouchTurn: InputIntents.DiscreteTurn = .none
+
+    /// Called by the HUD's on-screen LEFT/RIGHT buttons.
+    func chooseTurn(_ turn: InputIntents.DiscreteTurn) { pendingTouchTurn = turn }
 
     /// Maps Game Core ground units to RealityKit meters for a couch-scale view.
     private let scale: Float = 0.12
@@ -140,7 +149,12 @@ final class SpikeEngine: ObservableObject {
         lastTick = now
         elapsed += dt
 
-        game.tick(dt: dt, input: input.currentIntents())
+        var intents = input.currentIntents()
+        if intents.discreteTurn == .none, pendingTouchTurn != .none {
+            intents.discreteTurn = pendingTouchTurn
+        }
+        pendingTouchTurn = .none
+        game.tick(dt: dt, input: intents)
 
         let p = game.bus.position
         bus.position = [Float(p.x) * scale, 0.55, Float(p.z) * scale]
@@ -211,6 +225,7 @@ final class SpikeEngine: ObservableObject {
         next.turnCue = game.currentTurnCue
         next.drivePrompt = game.drivePrompt
         next.destinationNameId = game.currentTargetNameId
+        next.awaitingChoice = game.awaitingChoice
         next.finished = game.finished
         next.busX = game.bus.position.x
         next.busZ = game.bus.position.z

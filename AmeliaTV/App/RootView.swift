@@ -42,7 +42,11 @@ struct RootView: View {
                                     }
                                 }
                         }
-                        .buttonStyle(.card)
+                        #if os(tvOS)
+                        .buttonStyle(.card)        // tvOS focus-aware card style
+                        #else
+                        .buttonStyle(.bordered)    // iPad/iOS: tappable bordered button
+                        #endif
                     }
                 }
 
