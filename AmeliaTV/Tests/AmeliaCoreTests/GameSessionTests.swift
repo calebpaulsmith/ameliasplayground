@@ -47,6 +47,30 @@ final class GameSessionTests: XCTestCase {
                        "progress was not persisted on completion")
     }
 
+    func testDrivePromptShowsStopAtRedLightAndGoOtherwise() throws {
+        let content = try ContentLoader.load(from: contentDir)
+        let session = GameSession(content: content,
+                                  save: SaveSlot(language: .en, assistLevel: .auto))
+        session.start(episodeId: "first-day", at: Vec2.zero, heading: 0)
+
+        // Drive until the bus is asked to obey a red light, capturing both states.
+        var sawStop = false
+        var sawGo = false
+        let dt = 1.0 / 60.0
+        var steps = 0
+        while !session.finished && steps < 60 * 240 {
+            session.tick(dt: dt, input: InputIntents(discreteTurn: .right))
+            switch session.drivePrompt {
+            case .stop: sawStop = true
+            case .go:   sawGo = true
+            }
+            steps += 1
+        }
+
+        XCTAssertTrue(sawStop, "HUD never showed STOP while waiting at a red light")
+        XCTAssertTrue(sawGo, "HUD never showed GO during normal driving")
+    }
+
     func testNoTargetDoesNotMoveTheBus() {
         // With no active episode/target, Auto-Drive holds position (no drifting).
         let session = GameSession(content: GameContent(), save: SaveSlot(assistLevel: .auto))

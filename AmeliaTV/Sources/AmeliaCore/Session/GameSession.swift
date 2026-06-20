@@ -33,6 +33,27 @@ public final class GameSession: EpisodeWorld {
 
     public var subtitle: String { dialogue.currentSubtitle }
     public var bus: GameCore.BusState { core.bus }
+
+    /// Big, single-glance guidance for the HUD. `stop` only when the bus is being
+    /// asked to hold at a red light it must obey; `go` otherwise. Derived from core
+    /// state so the HUD stays a thin, testable reflection of the game (A2-10).
+    public enum DrivePrompt: String, Sendable { case go, stop }
+
+    public var drivePrompt: DrivePrompt {
+        guard let target = currentTarget, target.kind == .light, target.requireStop else {
+            return .go
+        }
+        let dist = (target.position - core.bus.position).length
+        if dist <= target.radius + 6, lightState(target.id) == .red { return .stop }
+        return .go
+    }
+
+    /// The string id naming the current destination, for the HUD beacon label.
+    /// Lights have no friendly name, so only places resolve.
+    public var currentTargetNameId: String? {
+        guard let target = currentTarget, target.kind == .place else { return nil }
+        return place(target.id)?.nameId
+    }
     public var language: Language {
         get { dialogue.language }
         set { dialogue.language = newValue; save.language = newValue }
