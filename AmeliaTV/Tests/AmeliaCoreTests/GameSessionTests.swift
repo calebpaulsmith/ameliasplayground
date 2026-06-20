@@ -19,12 +19,12 @@ final class GameSessionTests: XCTestCase {
         var persisted: SaveSlot?
         let session = GameSession(
             content: content,
-            save: SaveSlot(assistLevel: .auto, language: .en),
+            save: SaveSlot(language: .en, assistLevel: .auto),
             speaker: nil,
             persist: { persisted = $0 }
         )
 
-        session.start(episodeId: "first-day", at: .zero, heading: 0)
+        session.start(episodeId: "first-day", at: Vec2.zero, heading: 0)
 
         var boardedPip = false
         let dt = 1.0 / 60.0
