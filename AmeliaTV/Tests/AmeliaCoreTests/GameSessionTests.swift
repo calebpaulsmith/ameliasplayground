@@ -71,6 +71,18 @@ final class GameSessionTests: XCTestCase {
         XCTAssertTrue(sawGo, "HUD never showed GO during normal driving")
     }
 
+    func testPassengerPlanReflectsEpisodeBeats() throws {
+        let content = try ContentLoader.load(from: contentDir)
+        let session = GameSession(content: content, save: SaveSlot(language: .en, assistLevel: .auto))
+        XCTAssertNil(session.passengerPlan, "no plan before an episode starts")
+
+        session.start(episodeId: "first-day")
+        let plan = session.passengerPlan
+        XCTAssertEqual(plan?.passengerId, "pip")
+        XCTAssertEqual(plan?.pickupPlaceId, "stopA")
+        XCTAssertEqual(plan?.dropoffPlaceId, "park")
+    }
+
     func testNoTargetDoesNotMoveTheBus() {
         // With no active episode/target, Auto-Drive holds position (no drifting).
         let session = GameSession(content: GameContent(), save: SaveSlot(assistLevel: .auto))

@@ -59,6 +59,13 @@ final class SpikeEngine: ObservableObject {
     private var lastTick = Date()
     private var elapsed: Double = 0
 
+    // The episode passenger ("rider") who waits at the stop, boards, then exits.
+    private var rider = Entity()
+    private var plan: GameSession.PassengerPlan?
+    private var pickupPos: Vec2?
+    private var dropoffPos: Vec2?
+    private var riderBoardedOnce = false
+
     /// Maps Game Core ground units to RealityKit meters for a couch-scale view.
     private let scale: Float = 0.12
 
@@ -130,6 +137,8 @@ final class SpikeEngine: ObservableObject {
         neighborhood = scene
         root.addChild(scene.root)
 
+        buildPassengers(session: session, game: game)
+
         lastTick = Date()
         let t = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.step() }
@@ -158,10 +167,53 @@ final class SpikeEngine: ObservableObject {
         bus.orientation = simd_quatf(angle: Float(-game.bus.heading), axis: [0, 1, 0])
 
         updateBeacon(target: game.currentTarget)
+        updateRider(game: game)
         let states = Dictionary(uniqueKeysWithValues: game.lightSnapshot().map { ($0.id, $0.state) })
         neighborhood?.updateLights(states)
         positionCamera()
         publishHUD(game)
+    }
+
+    /// Places the ambient NPC friends at their home places, and the episode's
+    /// rider waiting at the pickup stop. The rider is animated in `step`.
+    private func buildPassengers(session: AppSession, game: GameSession) {
+        let plan = game.passengerPlan
+        self.plan = plan
+
+        for p in session.content.passengers where p.id != plan?.passengerId {
+            guard let place = session.content.places.first(where: { $0.id == p.homePlace }) else { continue }
+            let npc = ModelLibrary.character(color: ModelLibrary.color(hex: p.color) ?? .gray)
+            npc.position = groundPos(place.position.vec, offsetX: 1.8)
+            root.addChild(npc)
+        }
+
+        guard let plan,
+              let rp = session.content.passengers.first(where: { $0.id == plan.passengerId }) else { return }
+        pickupPos = game.place(plan.pickupPlaceId)?.position.vec
+        dropoffPos = game.place(plan.dropoffPlaceId)?.position.vec
+        rider = ModelLibrary.character(color: ModelLibrary.color(hex: rp.color) ?? .orange)
+        if let pickupPos { rider.position = groundPos(pickupPos, offsetX: 1.2) }
+        root.addChild(rider)
+    }
+
+    /// Updates the rider: waiting at the stop, hidden while aboard, then standing
+    /// at the drop-off once delivered.
+    private func updateRider(game: GameSession) {
+        guard plan != nil else { return }
+        let aboard = game.currentPassengerId == plan?.passengerId
+        if aboard {
+            riderBoardedOnce = true
+            rider.isEnabled = false
+        } else if riderBoardedOnce {
+            rider.isEnabled = true
+            if let dropoffPos { rider.position = groundPos(dropoffPos, offsetX: 1.2) }
+        } else {
+            rider.isEnabled = true
+        }
+    }
+
+    private func groundPos(_ v: Vec2, offsetX: Float = 0) -> SIMD3<Float> {
+        [Float(v.x) * scale + offsetX, 0, Float(v.z) * scale]
     }
 
     private func updateBeacon(target: EpisodeTarget?) {

@@ -45,6 +45,27 @@ enum ModelLibrary {
         return ModelEntity(mesh: mesh, materials: [material])
     }
 
+    /// A small, friendly NPC figure: a rounded body, a head, and two eyes facing
+    /// forward (+z). Original placeholder geometry; swap a USDZ in later by id.
+    static func character(color: PlatformColor) -> Entity {
+        let node = Entity()
+        let body = placeholderBox(color: color, size: [0.5, 0.7, 0.42])
+        body.position = [0, 0.35, 0]
+        node.addChild(body)
+        let head = sphere(radius: 0.26, color: color)
+        head.position = [0, 0.92, 0]
+        node.addChild(head)
+        for x in [Float(-0.1), 0.1] {
+            let white = sphere(radius: 0.07, color: .white)
+            white.position = [x, 0.96, 0.20]
+            node.addChild(white)
+            let pupil = sphere(radius: 0.032, color: PlatformColor(white: 0.1, alpha: 1))
+            pupil.position = [x, 0.96, 0.25]
+            node.addChild(pupil)
+        }
+        return node
+    }
+
     /// Parses `#rrggbb` (case-insensitive) into a platform color; nil if unparseable.
     static func color(hex: String?) -> PlatformColor? {
         guard let hex else { return nil }

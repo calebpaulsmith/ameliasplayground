@@ -54,6 +54,37 @@ public final class GameSession: EpisodeWorld {
         guard let target = currentTarget, target.kind == .place else { return nil }
         return place(target.id)?.nameId
     }
+
+    /// Who the active episode picks up and where, for the renderer to place the
+    /// waiting/riding/dropped passenger. Derived from the episode's beats so the
+    /// presentation stays data-driven (A2-09).
+    public struct PassengerPlan: Equatable, Sendable {
+        public let passengerId: String
+        public let pickupPlaceId: String
+        public let dropoffPlaceId: String
+    }
+
+    public var passengerPlan: PassengerPlan? {
+        guard let id = activeEpisodeId,
+              let episode = content.episodes.first(where: { $0.id == id }) else { return nil }
+        var passengerId: String?
+        var pickup: String?
+        var dropoff: String?
+        for beat in episode.beats {
+            switch beat {
+            case let .pickup(pid, atStop):
+                if passengerId == nil { passengerId = pid }
+                if pickup == nil { pickup = atStop }
+            case let .dropoff(pid, placeId):
+                if passengerId == nil { passengerId = pid }
+                dropoff = placeId
+            default:
+                break
+            }
+        }
+        guard let pid = passengerId, let pu = pickup, let dp = dropoff else { return nil }
+        return PassengerPlan(passengerId: pid, pickupPlaceId: pu, dropoffPlaceId: dp)
+    }
     public var language: Language {
         get { dialogue.language }
         set { dialogue.language = newValue; save.language = newValue }
