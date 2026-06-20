@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Light",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["id", "position"],
+    "properties": {
+      "id": { "type": "string" },
+      "position": {
+        "type": "object",
+        "required": ["x", "z"],
+        "properties": { "x": { "type": "number" }, "z": { "type": "number" } }
+      },
+      "phase": { "type": "number", "description": "seconds offset into the light cycle" }
+    },
+    "additionalProperties": false
+  }
+}

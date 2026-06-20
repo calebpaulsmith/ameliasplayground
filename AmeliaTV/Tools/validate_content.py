@@ -89,6 +89,20 @@ def validate():
                 err(f"passenger \"{p.get('id')}\" lineId \"{lid}\" is not a bilingual string")
         passenger_ids.add(p.get("id"))
 
+    # --- lights (optional) ---
+    light_ids = set()
+    lights_path = CONTENT / "lights.json"
+    if lights_path.exists():
+        lights = load_json("lights.json") or []
+        require(isinstance(lights, list), "lights.json must be a JSON array")
+        for i, lt in enumerate(lights if isinstance(lights, list) else []):
+            for field in ("id", "position"):
+                require(field in lt, f"lights[{i}] missing \"{field}\"")
+            pos = lt.get("position", {})
+            require(isinstance(pos, dict) and "x" in pos and "z" in pos,
+                    f"lights[{i}] position must have x and z")
+            light_ids.add(lt.get("id"))
+
     # --- episodes ---
     episode_dir = CONTENT / "episodes"
     episode_files = sorted(episode_dir.glob("*.json")) if episode_dir.exists() else []
@@ -124,6 +138,8 @@ def validate():
                     err(f"episode {eid} beat[{j}] dropoff unknown passenger \"{b.get('passengerId')}\"")
                 if b.get("placeId") not in place_ids:
                     err(f"episode {eid} beat[{j}] dropoff unknown place \"{b.get('placeId')}\"")
+            if t == "lightStop" and b.get("lightId") not in light_ids:
+                err(f"episode {eid} beat[{j}] lightStop unknown light \"{b.get('lightId')}\"")
             if t == "choice":
                 if not is_localized(b.get("promptLineId", "")):
                     err(f"episode {eid} beat[{j}] choice promptLineId not bilingual")
