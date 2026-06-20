@@ -1,6 +1,6 @@
 /* Service worker for Aventura Espacial de Amelia.
    Bump CACHE when files change to push updates to installed devices. */
-const CACHE = 'amelia-v7';
+const CACHE = 'amelia-v8';
 const ASSETS = [
   './',
   './index.html',
@@ -22,7 +22,8 @@ const ASSETS = [
   './drive/hud.js',
   './drive/voice.js',
   './drive/i18n.js',
-  './vendor/three.module.min.js'
+  './vendor/three.module.min.js',
+  './vendor/addons/RoundedBoxGeometry.js'
 ];
 
 self.addEventListener('install', (e) => {

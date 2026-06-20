@@ -3,86 +3,112 @@
 // model; the game loop feeds it input and resolves collisions.
 
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from '../vendor/addons/RoundedBoxGeometry.js';
 
-const BLUE = 0x3aa0ff, DKBLUE = 0x1f6fd0, WHITE = 0xfbfdff, GLASS = 0x9fd9ff;
+const BLUE = 0x3aa0ff, DKBLUE = 0x1f6fd0, NAVY = 0x16314a, WHITE = 0xfbfdff, GLASS = 0x9fd9ff;
 
 export function createBusMesh() {
   const g = new THREE.Group();
   const body = new THREE.Group(); g.add(body);
 
-  // main body (rounded look via stacked boxes)
-  const main = box(7, 4.2, 3.6, BLUE, 0, 3.0, 0); body.add(main);
-  body.add(box(7.2, 1.4, 3.8, DKBLUE, 0, 1.3, 0));            // lower skirt
-  body.add(box(7.2, 0.6, 3.9, 0x16324f, 0, 0.7, 0));          // bumper line
-  body.add(box(6.2, 1.0, 3.4, WHITE, 0, 5.3, 0));             // white roof band
-  const rooftop = box(5.4, 0.6, 3.0, BLUE, 0, 5.9, 0); body.add(rooftop);
+  // ---- rounded, chunky body (the Tayo look) ----
+  body.add(rbox(7.0, 1.7, 3.5, 0.5, DKBLUE, 0, 1.5));          // chassis / skirt
+  const main = rbox(6.9, 3.3, 3.5, 0.9, BLUE, 0, 3.35); body.add(main);
+  body.add(rbox(7.02, 0.5, 3.62, 0.22, WHITE, 0, 2.45));        // white belt stripe
+  body.add(rbox(6.1, 0.9, 3.42, 0.45, WHITE, 0, 5.05));         // white roof band
+  body.add(rbox(5.2, 0.8, 3.0, 0.4, BLUE, 0, 5.6));             // blue roof cap
 
-  // windshield + side windows (glass)
-  body.add(box(0.3, 2.0, 3.0, GLASS, 3.55, 3.3, 0));          // front glass
-  body.add(box(0.3, 1.6, 3.0, GLASS, -3.55, 3.4, 0));         // rear glass
+  // glass: dark front visor (where the eyes live) + side & rear windows
+  body.add(rbox(0.5, 1.5, 2.95, 0.35, NAVY, 3.45, 4.05));
+  body.add(rbox(0.4, 1.3, 2.7, 0.3, GLASS, -3.5, 4.0));         // rear window
   for (let s = -1; s <= 1; s += 2)
     for (let k = -1; k <= 1; k++)
-      body.add(box(1.6, 1.4, 0.2, GLASS, k * 1.9, 3.5, s * 1.82));
+      body.add(rbox(1.7, 1.3, 0.16, 0.16, GLASS, k * 1.95, 4.05, s * 1.74));
 
-  // face on the front
-  const face = new THREE.Group(); face.position.set(3.62, 0, 0); body.add(face);
-  const eyeWhiteL = sphere(0.62, WHITE, 0, 3.85, -0.85);
-  const eyeWhiteR = sphere(0.62, WHITE, 0, 3.85, 0.85);
-  const pupilL = sphere(0.28, 0x16314a, 0.34, 3.85, -0.85);
-  const pupilR = sphere(0.28, 0x16314a, 0.34, 3.85, 0.85);
-  const lidL = box(1.4, 0.7, 1.4, BLUE, 0.05, 4.5, -0.85); lidL.scale.y = 0.01;
-  const lidR = box(1.4, 0.7, 1.4, BLUE, 0.05, 4.5, 0.85); lidR.scale.y = 0.01;
-  face.add(eyeWhiteL, eyeWhiteR, pupilL, pupilR, lidL, lidR);
-  // smile (a torus arc)
+  // ---- face ----
+  const face = new THREE.Group(); body.add(face);
+  const mkEye = (z) => {
+    const white = sphere(0.74, WHITE, 3.62, 3.95, z); white.scale.set(0.55, 1, 1);
+    const pupil = sphere(0.36, NAVY, 3.95, 3.85, z); pupil.scale.set(0.45, 1, 1);
+    const shine = sphere(0.14, WHITE, 4.12, 4.12, z - 0.16);
+    const lid = rbox(1.55, 0.85, 1.55, 0.5, BLUE, 3.5, 4.6, z); lid.scale.y = 0.01;
+    const brow = rbox(0.85, 0.18, 0.55, 0.08, NAVY, 3.7, 4.78, z);
+    brow.rotation.z = z < 0 ? 0.18 : -0.18;
+    face.add(white, pupil, shine, lid, brow);
+    return { white, pupil, lid };
+  };
+  const L = mkEye(-0.85), R = mkEye(0.85);
+  // happy smile
   const mouth = new THREE.Mesh(
-    new THREE.TorusGeometry(0.55, 0.12, 8, 16, Math.PI),
-    new THREE.MeshStandardMaterial({ color: 0x16314a }));
+    new THREE.TorusGeometry(0.62, 0.13, 10, 20, Math.PI),
+    new THREE.MeshStandardMaterial({ color: NAVY }));
   mouth.rotation.z = Math.PI; mouth.rotation.y = Math.PI / 2;
-  mouth.position.set(0.18, 2.7, 0); face.add(mouth);
+  mouth.position.set(3.6, 2.95, 0); face.add(mouth);
   // rosy cheeks
-  face.add(sphere(0.24, 0xff9bb0, 0.2, 3.0, -1.2));
-  face.add(sphere(0.24, 0xff9bb0, 0.2, 3.0, 1.2));
+  const cheekL = sphere(0.28, 0xff9bb0, 3.5, 3.15, -1.25); cheekL.scale.set(0.4, 1, 1);
+  const cheekR = sphere(0.28, 0xff9bb0, 3.5, 3.15, 1.25); cheekR.scale.set(0.4, 1, 1);
+  face.add(cheekL, cheekR);
 
-  // headlights
-  body.add(sphere(0.3, 0xfff2a8, 3.58, 1.7, -1.2));
-  body.add(sphere(0.3, 0xfff2a8, 3.58, 1.7, 1.2));
+  // headlights (warm glow)
+  for (const z of [-1.25, 1.25]) {
+    const hl = new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 12),
+      new THREE.MeshStandardMaterial({ color: 0xfff2a8, emissive: 0xffd86b, emissiveIntensity: 0.7 }));
+    hl.position.set(3.5, 1.95, z); hl.scale.set(0.5, 1, 1); body.add(hl);
+  }
 
-  // roof route sign
-  const sign = box(2.6, 0.7, 0.2, WHITE, 0.4, 6.3, 1.55);
-  body.add(sign);
+  // roof route sign reading AMELIA
+  body.add(signBox(2.6, 0.66, 0.18, 'AMELIA', 0.5, 6.05, 0));
 
-  // wheels
+  // ---- wheels (fat tyre + hubcap + bolts) ----
   const wheels = [];
-  const wheelPos = [[2.3, -1.55], [2.3, 1.55], [-2.3, -1.55], [-2.3, 1.55]];
+  const wheelPos = [[2.35, -1.6], [2.35, 1.6], [-2.35, -1.6], [-2.35, 1.6]];
   for (const [x, z] of wheelPos) {
-    const w = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.7, 16),
-      new THREE.MeshStandardMaterial({ color: 0x1a1a1f }));
-    w.rotation.x = Math.PI / 2; w.position.set(x, 1.0, z); w.castShadow = true;
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.74, 10),
-      new THREE.MeshStandardMaterial({ color: 0xcfd6dd }));
-    hub.rotation.x = Math.PI / 2; w.add(hub);
-    const holder = new THREE.Group(); holder.position.copy(w.position);
-    w.position.set(0, 0, 0); holder.add(w);
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.05, 0.85, 20),
+      new THREE.MeshStandardMaterial({ color: 0x1b1b20, roughness: 0.9 }));
+    w.rotation.x = Math.PI / 2;
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.9, 14),
+      new THREE.MeshStandardMaterial({ color: 0xdfe6ee, metalness: 0.4, roughness: 0.4 }));
+    cap.rotation.x = Math.PI / 2; w.add(cap);
+    for (let b = 0; b < 5; b++) {
+      const a = b / 5 * Math.PI * 2;
+      const bolt = sphere(0.07, 0x9aa3ad, 0, 0, 0);
+      bolt.position.set(Math.cos(a) * 0.3, Math.sin(a) * 0.3, 0.46); w.add(bolt);
+    }
+    const holder = new THREE.Group(); holder.position.set(x, 1.05, z); holder.add(w);
     body.add(holder);
     wheels.push({ holder, spin: w, front: x > 0 });
   }
 
-  // door (right side) that slides up to open
-  const door = box(0.2, 2.6, 2.2, 0x16314a, 3.0, 2.3, 1.85);
+  // passenger door (right side) that slides up to open
+  const door = rbox(1.7, 2.5, 0.2, 0.18, NAVY, 2.7, 2.45, 1.76);
   body.add(door);
 
-  main.castShadow = true; body.children.forEach(c => { c.castShadow = true; });
-  return { group: g, wheels, door, face: { eyeWhiteL, eyeWhiteR, pupilL, pupilR, lidL, lidR, mouth } };
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return {
+    group: g, wheels, door,
+    face: { eyeWhiteL: L.white, eyeWhiteR: R.white, pupilL: L.pupil, pupilR: R.pupil, lidL: L.lid, lidR: R.lid, mouth },
+  };
 }
 
-function box(w, h, d, color, x, y, z) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d),
-    new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.05 }));
-  m.position.set(x, y, z); return m;
+function rbox(w, h, d, r, color, x, y, z) {
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, r),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.05 }));
+  m.position.set(x, y, z || 0); return m;
 }
 function sphere(r, color, x, y, z) {
   const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12),
     new THREE.MeshStandardMaterial({ color, roughness: 0.5 }));
+  m.position.set(x, y, z); return m;
+}
+function signBox(w, h, d, text, x, y, z) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fbfdff'; g.fillRect(0, 0, 256, 64);
+  g.fillStyle = '#1f6fd0'; g.font = 'bold 40px sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 36);
+  const tex = new THREE.CanvasTexture(c);
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, 0.08),
+    new THREE.MeshStandardMaterial({ map: tex }));
   m.position.set(x, y, z); return m;
 }
 
