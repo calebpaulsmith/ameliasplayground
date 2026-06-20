@@ -27,38 +27,40 @@ export function createBusMesh() {
 
   // ---- face (friendly, Tayo-style: forward gaze, eyelids, soft brows) ----
   const face = new THREE.Group(); body.add(face);
-  const EYE_Y = 3.28;
+  const EYE_Y = 3.5, EYE_Z = 0.72;
   const mkEye = (z) => {
-    const white = sphere(0.6, WHITE, 3.64, EYE_Y, z); white.scale.set(0.42, 1.05, 0.82);
-    // pupil looks straight ahead (centred), sitting just on the eye surface
-    const pupil = sphere(0.3, 0x101a26, 3.8, EYE_Y - 0.05, z); pupil.scale.set(0.4, 1, 1);
-    const shine = sphere(0.09, WHITE, 3.92, EYE_Y + 0.14, z - 0.12);
-    // dark upper eyelid bar — the key to a gentle (non-creepy) gaze
-    const eyelid = rbox(0.2, 0.14, 0.98, 0.06, NAVY, 3.82, EYE_Y + 0.32, z);
+    // smaller, friendly eyes that look straight ahead
+    const white = sphere(0.46, WHITE, 3.66, EYE_Y, z); white.scale.set(0.4, 1.0, 0.8);
+    const pupil = sphere(0.24, 0x101a26, 3.8, EYE_Y - 0.04, z); pupil.scale.set(0.42, 1, 1);
+    const shine = sphere(0.08, WHITE, 3.9, EYE_Y + 0.12, z - 0.1);
     // blink lid (body colour), animated in sync()
-    const lid = rbox(1.2, 0.9, 1.18, 0.42, BLUE, 3.55, EYE_Y + 0.7, z);
-    lid.scale.y = 0.02; lid.userData.openY = EYE_Y + 0.7;
-    // soft eyebrow, slightly raised toward the outside
-    const brow = rbox(0.16, 0.1, 0.62, 0.05, NAVY, 3.66, EYE_Y + 0.66, z);
-    brow.rotation.x = z < 0 ? -0.18 : 0.18;
-    face.add(white, pupil, shine, eyelid, lid, brow);
+    const lid = rbox(0.95, 1.0, 0.95, 0.34, BLUE, 3.6, EYE_Y + 0.55, z);
+    lid.scale.y = 0.02; lid.userData.openY = EYE_Y + 0.55; lid.userData.closeY = EYE_Y - 0.02;
+    // clear dark eyebrow, raised toward the outside
+    const brow = rbox(0.14, 0.13, 0.56, 0.05, 0x12222f, 3.66, EYE_Y + 0.52, z);
+    brow.rotation.x = z < 0 ? 0.22 : -0.22;
+    face.add(white, pupil, shine, lid, brow);
     return { white, pupil, lid };
   };
-  const L = mkEye(-0.82), R = mkEye(0.82);
-  // wide, gentle chrome smile (broad and shallow, like the reference)
+  const L = mkEye(-EYE_Z), R = mkEye(EYE_Z);
+  // little chrome nose
+  face.add(sphere(0.1, 0xccd4dc, 3.78, 3.05, 0));
+  // thin chrome smile, below the nose and above the bumper
   const mouth = new THREE.Mesh(
-    new THREE.TorusGeometry(0.7, 0.095, 10, 24, Math.PI),
+    new THREE.TorusGeometry(0.6, 0.06, 8, 24, Math.PI),
     new THREE.MeshStandardMaterial({ color: 0xccd4dc, metalness: 0.5, roughness: 0.35 }));
   mouth.rotation.z = Math.PI; mouth.rotation.y = Math.PI / 2;
-  mouth.scale.set(1.65, 0.6, 1);
-  mouth.position.set(3.66, 2.92, 0); face.add(mouth);
+  mouth.scale.set(1.25, 0.7, 1);
+  mouth.position.set(3.72, 2.62, 0); face.add(mouth);
 
-  // headlights (warm glow)
-  for (const z of [-1.25, 1.25]) {
-    const hl = new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 12),
-      new THREE.MeshStandardMaterial({ color: 0xfff2a8, emissive: 0xffd86b, emissiveIntensity: 0.7 }));
-    hl.position.set(3.5, 1.95, z); hl.scale.set(0.5, 1, 1); body.add(hl);
+  // amber turn-signal lights, low on the front (like the reference)
+  for (const z of [-1.3, 1.3]) {
+    const hl = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 12),
+      new THREE.MeshStandardMaterial({ color: 0xffb24d, emissive: 0xff9a1f, emissiveIntensity: 0.5 }));
+    hl.position.set(3.55, 2.1, z); hl.scale.set(0.45, 0.9, 1); body.add(hl);
   }
+  // black bumper across the front bottom
+  body.add(rbox(0.55, 0.85, 3.5, 0.22, 0x202329, 3.4, 1.45, 0));
 
   // route sign on the windshield: "120" + three little lights (Tayo style)
   body.add(frontSign(3.72, 4.45, 0));
@@ -221,19 +223,19 @@ export class Bus {
       if (this.blinkT < 0) { this.blink = 1; this.blinkT = 2.5 + Math.random() * 3.5; }
       if (this.blink > 0) this.blink -= dt * 6;
       const lid = Math.max(0, Math.min(1, this.blink));
-      const baseY = this.face.lidL.userData.openY;
-      this.face.lidL.scale.y = 0.02 + lid * 0.95;
-      this.face.lidR.scale.y = 0.02 + lid * 0.95;
-      this.face.lidL.position.y = baseY - lid * 0.72;
-      this.face.lidR.position.y = baseY - lid * 0.72;
+      const o = this.face.lidL.userData.openY, c = this.face.lidL.userData.closeY;
+      this.face.lidL.scale.y = 0.02 + lid;
+      this.face.lidR.scale.y = 0.02 + lid;
+      this.face.lidL.position.y = o + (c - o) * lid;
+      this.face.lidR.position.y = o + (c - o) * lid;
     }
   }
 
   setExpression(kind) {
     const m = this.face.mouth;   // base smile is wide + shallow: keep that shape
-    if (kind === 'surprised') { m.scale.set(1.0, 1.1, 1); m.rotation.z = 0; }
-    else if (kind === 'happy') { m.scale.set(1.8, 0.68, 1); m.rotation.z = Math.PI; }
-    else { m.scale.set(1.65, 0.6, 1); m.rotation.z = Math.PI; }
+    if (kind === 'surprised') { m.scale.set(0.9, 1.2, 1); m.rotation.z = 0; }
+    else if (kind === 'happy') { m.scale.set(1.45, 0.85, 1); m.rotation.z = Math.PI; }
+    else { m.scale.set(1.3, 0.7, 1); m.rotation.z = Math.PI; }
   }
 
   setDoor(open) { this._doorTarget = open ? 1 : 0; }
