@@ -70,12 +70,7 @@ final class SpikeEngine: ObservableObject {
     private let scale: Float = 0.12
 
     func makeRoot() -> Entity {
-        bus = ModelLibrary.entity(
-            id: "bus",
-            placeholderColor: .init(red: 0.23, green: 0.63, blue: 1.0, alpha: 1),
-            size: [1.6, 1.1, 0.9]
-        )
-        addFriendlyFace(to: bus)
+        bus = ModelLibrary.busEntity(placeholderColor: .init(red: 0.23, green: 0.63, blue: 1.0, alpha: 1))
         bus.position = [0, 0.55, 0]
         root.addChild(bus)
 
@@ -100,21 +95,6 @@ final class SpikeEngine: ObservableObject {
 
         positionCamera()
         return root
-    }
-
-    /// Gives the placeholder bus two big friendly eyes so it reads as a character
-    /// — the cozy "friendly vehicle" genre vibe, in original geometry (D-IP-1).
-    /// The bus's forward axis is local +x (see the heading rotation in `step`).
-    private func addFriendlyFace(to bus: Entity) {
-        for z in [Float(-0.24), 0.24] {
-            let white = ModelLibrary.sphere(radius: 0.17, color: .white)
-            white.position = [0.78, 0.18, z]
-            bus.addChild(white)
-            let pupil = ModelLibrary.sphere(radius: 0.075,
-                color: .init(red: 0.1, green: 0.12, blue: 0.16, alpha: 1))
-            pupil.position = [0.9, 0.18, z]
-            bus.addChild(pupil)
-        }
     }
 
     func start(session: AppSession) {

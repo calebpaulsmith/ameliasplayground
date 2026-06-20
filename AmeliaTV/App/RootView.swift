@@ -6,7 +6,7 @@ import AmeliaCore
 /// adventure-board UI is Phase 2 (A2-07, A2-11).
 struct RootView: View {
     @EnvironmentObject private var session: AppSession
-    @State private var showingSpike = false
+    @State private var showingGarage = false
 
     var body: some View {
         ZStack {
@@ -47,7 +47,7 @@ struct RootView: View {
                 }
 
                 Button {
-                    showingSpike = true
+                    showingGarage = true
                 } label: {
                     Text(session.string("ui.letsGo"))
                         .font(.system(size: 40, weight: .heavy, design: .rounded))
@@ -58,8 +58,8 @@ struct RootView: View {
             }
             .padding(80)
         }
-        .fullScreenCover(isPresented: $showingSpike) {
-            DriveSpikeView()
+        .fullScreenCover(isPresented: $showingGarage) {
+            GarageView()
                 .environmentObject(session)
         }
     }

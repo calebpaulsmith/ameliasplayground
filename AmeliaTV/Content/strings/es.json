@@ -6,6 +6,10 @@
   "ui.stop": "ALTO",
   "lang.choose": "Elige un idioma",
 
+  "garage.welcome": "¡Buenos días, Amelia! Tu autobús está arreglado y listo. ¡Vamos!",
+  "garage.stickers": "Mis Calcomanías",
+  "mom.name": "Mamá",
+
   "place.garage": "el taller",
   "place.park": "el parque",
   "place.school": "la escuela",

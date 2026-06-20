@@ -33,6 +33,22 @@ enum ModelLibrary {
         return ModelEntity(mesh: mesh, materials: [material])
     }
 
+    /// The bus, with two big friendly eyes on its forward (+x) face — the cozy
+    /// "friendly vehicle" genre look in original geometry (D-IP-1). Resolves a
+    /// `bus.usdz` if present, else a coloured placeholder box.
+    static func busEntity(placeholderColor: PlatformColor) -> Entity {
+        let bus = entity(id: "bus", placeholderColor: placeholderColor, size: [1.6, 1.1, 0.9])
+        for z in [Float(-0.24), 0.24] {
+            let white = sphere(radius: 0.17, color: .white)
+            white.position = [0.78, 0.18, z]
+            bus.addChild(white)
+            let pupil = sphere(radius: 0.075, color: PlatformColor(red: 0.1, green: 0.12, blue: 0.16, alpha: 1))
+            pupil.position = [0.9, 0.18, z]
+            bus.addChild(pupil)
+        }
+        return bus
+    }
+
     static func ground(size: Float, color: PlatformColor) -> ModelEntity {
         let mesh = MeshResource.generatePlane(width: size, depth: size)
         let material = SimpleMaterial(color: color, isMetallic: false)

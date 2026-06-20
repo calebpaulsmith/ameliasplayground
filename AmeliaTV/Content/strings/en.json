@@ -6,6 +6,10 @@
   "ui.stop": "STOP",
   "lang.choose": "Choose a language",
 
+  "garage.welcome": "Good morning, Amelia! Your bus is all fixed and ready. Let's go!",
+  "garage.stickers": "My Stickers",
+  "mom.name": "Mom",
+
   "place.garage": "the garage",
   "place.park": "the park",
   "place.school": "the school",
