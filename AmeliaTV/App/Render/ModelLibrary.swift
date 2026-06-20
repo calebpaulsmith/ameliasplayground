@@ -38,5 +38,25 @@ enum ModelLibrary {
         let material = SimpleMaterial(color: color, isMetallic: false)
         return ModelEntity(mesh: mesh, materials: [material])
     }
+
+    static func sphere(radius: Float, color: PlatformColor) -> ModelEntity {
+        let mesh = MeshResource.generateSphere(radius: radius)
+        let material = SimpleMaterial(color: color, isMetallic: false)
+        return ModelEntity(mesh: mesh, materials: [material])
+    }
+
+    /// Parses `#rrggbb` (case-insensitive) into a platform color; nil if unparseable.
+    static func color(hex: String?) -> PlatformColor? {
+        guard let hex else { return nil }
+        var s = hex.trimmingCharacters(in: .whitespaces)
+        if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 6, let v = UInt32(s, radix: 16) else { return nil }
+        return PlatformColor(
+            red: CGFloat((v >> 16) & 0xff) / 255.0,
+            green: CGFloat((v >> 8) & 0xff) / 255.0,
+            blue: CGFloat(v & 0xff) / 255.0,
+            alpha: 1
+        )
+    }
 }
 #endif

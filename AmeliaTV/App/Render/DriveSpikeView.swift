@@ -54,6 +54,7 @@ final class SpikeEngine: ObservableObject {
     private var bus = Entity()
     private var camera = Entity()
     private var beacon = Entity()
+    private var neighborhood: NeighborhoodScene?
     private var timer: Timer?
     private var lastTick = Date()
     private var elapsed: Double = 0
@@ -62,14 +63,12 @@ final class SpikeEngine: ObservableObject {
     private let scale: Float = 0.12
 
     func makeRoot() -> Entity {
-        let ground = ModelLibrary.ground(size: 80, color: .init(red: 0.46, green: 0.78, blue: 0.42, alpha: 1))
-        root.addChild(ground)
-
         bus = ModelLibrary.entity(
             id: "bus",
             placeholderColor: .init(red: 0.23, green: 0.63, blue: 1.0, alpha: 1),
             size: [1.6, 1.1, 0.9]
         )
+        addFriendlyFace(to: bus)
         bus.position = [0, 0.55, 0]
         root.addChild(bus)
 
@@ -96,6 +95,21 @@ final class SpikeEngine: ObservableObject {
         return root
     }
 
+    /// Gives the placeholder bus two big friendly eyes so it reads as a character
+    /// — the cozy "friendly vehicle" genre vibe, in original geometry (D-IP-1).
+    /// The bus's forward axis is local +x (see the heading rotation in `step`).
+    private func addFriendlyFace(to bus: Entity) {
+        for z in [Float(-0.24), 0.24] {
+            let white = ModelLibrary.sphere(radius: 0.17, color: .white)
+            white.position = [0.78, 0.18, z]
+            bus.addChild(white)
+            let pupil = ModelLibrary.sphere(radius: 0.075,
+                color: .init(red: 0.1, green: 0.12, blue: 0.16, alpha: 1))
+            pupil.position = [0.9, 0.18, z]
+            bus.addChild(pupil)
+        }
+    }
+
     func start(session: AppSession) {
         let game = GameSession(
             content: session.content,
@@ -109,6 +123,12 @@ final class SpikeEngine: ObservableObject {
         game.start(episodeId: "first-day")
         self.game = game
         self.places = session.content.places
+
+        // Build the data-driven neighborhood now that content is available, and
+        // insert it beneath the already-rendered bus/beacon/camera.
+        let scene = NeighborhoodScene(content: session.content, scale: scale)
+        neighborhood = scene
+        root.addChild(scene.root)
 
         lastTick = Date()
         let t = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
@@ -138,6 +158,8 @@ final class SpikeEngine: ObservableObject {
         bus.orientation = simd_quatf(angle: Float(-game.bus.heading), axis: [0, 1, 0])
 
         updateBeacon(target: game.currentTarget)
+        let states = Dictionary(uniqueKeysWithValues: game.lightSnapshot().map { ($0.id, $0.state) })
+        neighborhood?.updateLights(states)
         positionCamera()
         publishHUD(game)
     }
