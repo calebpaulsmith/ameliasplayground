@@ -1,0 +1,302 @@
+@claude
+
+I want to turn the existing “Amelia el Autobús” prototype into a substantially upgraded, native Apple TV game.
+
+This is not a request to lightly wrap or directly port the existing web game. Treat the existing `drive/` project as a playable prototype, gameplay reference, source of mission ideas, bilingual content, and early systems—not as architecture we must preserve.
+
+The goal is a new flagship game:
+
+# Amelia’s Bus Adventure
+A cozy, bilingual English/Spanish 3D driving-and-adventure game for Apple TV, designed for a young child and a parent playing together.
+
+The previous CLAUDE.md direction can be ignored. Create a new plan from first principles.
+
+## Product vision
+
+The player is Amelia, a friendly original blue city bus who lives at a mechanic’s garage with her caretaker, “Mechanic Mom.”
+
+The game should feel like a warm animated children’s show crossed with a simple open-world driving adventure:
+
+- Drive through small, cheerful neighborhoods.
+- Pick up and drop off friendly animal passengers.
+- Follow route arrows and learn where to turn.
+- Practice stop/go, red lights, green lights, left/right, bus stops, and basic road signs.
+- Earn stars, stickers, collectibles, garage decorations, and cosmetic bus upgrades.
+- Return to the garage between adventures.
+- Include small story episodes: first day driving, lost puppy, parade day, beach trip, rainy-day rescue, helping friends get somewhere important.
+- Include Free Drive eventually, but structured story adventures should be the main game.
+- The tone should be gentle, funny, safe, encouraging, and never punishing.
+
+The game must be an original IP. Do not use Tayo, Pixar, Cars, or other existing character names, designs, logos, voices, or visual imitation. Amelia may be a cute anthropomorphic bus, but she needs her own recognizable personality and visual identity.
+
+## Primary platform
+
+Target: Apple TV / tvOS first.
+
+This must be a real native tvOS game, not:
+
+- a webview
+- a PWA
+- a Capacitor wrapper
+- a browser shell
+- a thin conversion of the existing HTML/Three.js project
+
+The game should work well on a living-room TV in 1080p and 4K.
+
+Primary control assumptions:
+
+- Siri Remote must be supported for the core experience.
+- MFi / PlayStation / Xbox controller support should also be supported and should feel better for driving.
+- Do not make a controller mandatory for the first playable story.
+- Design a remote-friendly driving model rather than trying to force full analog driving onto the Siri Remote.
+
+For example, consider assisted driving, lane guidance, slow child-friendly steering, auto-forward movement in some story moments, simple braking/stopping interactions, and route decisions that work with clickpad directions.
+
+## Audience and design principles
+
+Primary player: approximately ages 3–6.
+
+Design requirements:
+
+- Very large readable UI.
+- Minimal reading required.
+- Spoken guidance in English and Spanish.
+- Strong visual route guidance.
+- Immediate positive feedback.
+- No failure states that feel harsh.
+- No long menus or complicated settings.
+- Short gameplay loops with a satisfying conclusion.
+- Parent can play alongside child with a controller.
+- Child should be able to launch and understand the main activity without adult help after a little familiarity.
+
+## Privacy and business constraints
+
+This should be a private/family-first project initially, with the option to submit publicly later.
+
+Assume:
+
+- No ads.
+- No analytics.
+- No accounts.
+- No chat.
+- No external links visible to children.
+- No purchases in the first version.
+- No network dependency for normal play.
+- All game state stored locally.
+- A future App Store version should be compatible with Apple Kids Category expectations.
+
+## Existing repository
+
+Inspect the current repository carefully, especially:
+
+- `drive/`
+- `drive/missions.js`
+- `drive/world.js`
+- `drive/bus.js`
+- `drive/npc.js`
+- `drive/controls.js`
+- `drive/voice.js`
+- `drive/i18n.js`
+- `drive/MODELS.md`
+
+Understand what is already present before proposing the replacement architecture.
+
+The existing web prototype already contains useful concepts:
+
+- garage home base
+- story missions
+- bus stops
+- passengers
+- route targets
+- traffic lights
+- road signs
+- free-drive mode
+- bilingual content
+- controller concepts
+- voice prompts
+- 3D city structure
+- roadmap ideas for neighborhoods, weather, stories, upgrades, and save slots
+
+Preserve useful gameplay ideas, but do not preserve weak technical decisions just because they already exist.
+
+## Your task: planning phase only
+
+Do not begin implementing the native game yet.
+
+First, inspect the repository and produce a planning PR containing documentation only.
+
+Create these files:
+
+1. `docs/tvos/PRODUCT_VISION.md`
+2. `docs/tvos/GAME_DESIGN.md`
+3. `docs/tvos/TECHNICAL_ARCHITECTURE.md`
+4. `docs/tvos/VERTICAL_SLICE.md`
+5. `docs/tvos/ROADMAP.md`
+6. `docs/tvos/BACKLOG.md`
+7. `docs/tvos/RISKS_AND_DECISIONS.md`
+8. A new root `CLAUDE.md` tailored to this project and future work.
+
+Do not delete or rewrite the existing web game in this planning PR.
+
+## Technical architecture decision
+
+Evaluate the best realistic technology choice for a native tvOS 3D game.
+
+Compare at least:
+
+- Native Swift + SwiftUI + RealityKit / SceneKit / Metal-related options
+- Unity
+- Any other realistic option only if it meaningfully improves the case
+
+Recommend exactly one primary implementation approach.
+
+Your recommendation must account for:
+
+- Native tvOS support
+- 3D world development
+- controller and Siri Remote support
+- asset import workflow for GLB or similar models
+- child-friendly performance on Apple TV hardware
+- maintainability with Claude Code and GitHub
+- future expansion to iPad/iPhone if desired
+- ability to build and test with cloud macOS CI rather than requiring me to own a Mac
+- practical complexity for a solo creator using AI assistance
+
+Be specific about why the chosen architecture is better than the alternatives for this exact game.
+
+## Define the first playable vertical slice
+
+The first vertical slice should be a tiny but polished native Apple TV experience, not a giant open world.
+
+Propose one complete 10–15 minute playable adventure.
+
+It should include:
+
+- launch screen
+- language choice or remembered language
+- garage home base
+- Mechanic Mom introduction
+- one passenger with personality
+- one small neighborhood route
+- at least one traffic light interaction
+- at least one left/right decision
+- a bus stop pickup
+- a destination drop-off
+- a return to the garage
+- star/reward completion screen
+- save progress locally
+- Siri Remote support
+- controller support
+- English and Spanish spoken/text content
+- basic sound/music direction
+- a simple but attractive art target
+
+Define exactly what is in scope and explicitly what is deferred.
+
+## Design the long-term game structure
+
+Create a clear structure for the larger game.
+
+Include:
+
+- Garage/home-base loop
+- Story episode system
+- Neighborhood/world progression
+- Passenger/friend system
+- Route and navigation system
+- Driving-assist model for children
+- Traffic-light and road-sign learning mechanics
+- Reward/economy system
+- Cosmetic upgrades and garage decorations
+- Collectibles
+- Free Drive unlock conditions
+- Save slots / parent-facing options
+- Bilingual content architecture
+- Voice and dialogue system
+- Future weather/day-night ideas
+- Future events such as parade, beach trip, lost puppy, rainy rescue
+
+Avoid feature bloat. Identify the few systems that create the most replayability.
+
+## Assets and visual direction
+
+Propose an original visual direction for Amelia, Mechanic Mom, passengers, buildings, roads, signs, and environments.
+
+It should be:
+
+- low-poly or stylized 3D
+- warm, colorful, calm, and readable from a couch
+- performant on Apple TV
+- clearly original
+- compatible with future AI-generated or commissioned GLB assets
+- designed so that models, animations, and materials can be swapped/upgraded later without breaking gameplay
+
+Create an asset list grouped by:
+
+- required for vertical slice
+- required for first public release
+- nice-to-have later
+
+Do not generate final art assets yet.
+
+## Development workflow
+
+Propose a workflow where:
+
+- Claude Code works through GitHub issues and pull requests.
+- Planning and implementation are broken into small, reviewable milestones.
+- GitHub Actions can build the tvOS project on cloud macOS runners.
+- Signing/TestFlight upload is isolated behind protected release secrets and manual approval.
+- Normal coding PRs never access Apple signing credentials.
+- The existing web game remains untouched and playable while native tvOS development happens in a separate directory or repository area.
+
+Recommend a folder structure for the new native game.
+
+## Backlog quality bar
+
+Make the backlog genuinely useful for implementation.
+
+Each backlog item should include:
+
+- ID
+- title
+- milestone
+- priority
+- player-facing outcome
+- acceptance criteria
+- dependencies
+- estimated complexity: S / M / L / XL
+- whether it is suitable for an AI-assisted PR
+- whether it needs human visual/gameplay review
+
+Organize the roadmap into:
+
+- Phase 0: planning and architecture
+- Phase 1: native project foundation
+- Phase 2: playable vertical slice
+- Phase 3: first complete episode
+- Phase 4: expandable systems
+- Phase 5: TestFlight and release preparation
+- Later: additional neighborhoods, stories, and Free Drive
+
+## Important working rules
+
+- Favor a great small game over a huge weak game.
+- Do not implement features until the vertical-slice scope is clear.
+- Do not make assumptions silently; list major assumptions in `RISKS_AND_DECISIONS.md`.
+- When uncertain about tvOS platform capabilities or current tooling, verify through official Apple or engine documentation.
+- Clearly distinguish confirmed facts from your recommendations.
+- Keep all game systems data-driven where practical.
+- Treat child usability as a first-class technical requirement, not polish for later.
+- Make design decisions that work with both Siri Remote and controller play.
+- Keep the project independent from third-party services at runtime.
+- Do not add ads, tracking, accounts, social features, or monetization.
+
+At the end of the PR, include a concise decision summary:
+
+1. Recommended engine/framework
+2. Why it is right for Amelia’s Bus Adventure
+3. Exact vertical-slice scope
+4. Biggest risks
+5. First five implementation issues to create next
+6. What you need me to decide before implementation begins
