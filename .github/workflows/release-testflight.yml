@@ -1,0 +1,106 @@
+name: release-testflight
+
+# Ships the game to TestFlight so it can be installed on a real iPhone/iPad and
+# Apple TV WITHOUT a Mac. This is the ONLY workflow that uses Apple signing
+# secrets (see CLAUDE.md): it is manual-only and runs in the protected `release`
+# environment, which requires your approval and holds the secrets. Normal coding
+# PRs never touch this.
+#
+# Full setup (one-time): docs/tvos/SHIP_WITHOUT_A_MAC.md
+#
+# Required secrets on the `release` environment:
+#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_API_KEY_P8  (App Store Connect API key)
+#   APPLE_TEAM_ID, IOS_BUNDLE_ID, TVOS_BUNDLE_ID
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Which app(s) to ship to TestFlight"
+        type: choice
+        options: [both, ios, tvos]
+        default: both
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-testflight
+  cancel-in-progress: false
+
+jobs:
+  ios:
+    name: iPhone / iPad → TestFlight
+    if: ${{ inputs.platform == 'ios' || inputs.platform == 'both' }}
+    runs-on: macos-15
+    environment: release          # protected: requires manual approval; holds secrets
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest Xcode
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest/Contents/Developer"; fi
+          xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: AmeliaTV
+        run: xcodegen generate
+      - name: Write App Store Connect API key
+        working-directory: AmeliaTV
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          mkdir -p fastlane
+          printf '%s' "$ASC_API_KEY_P8" > fastlane/AuthKey.p8
+      - name: Build & upload to TestFlight (iOS)
+        working-directory: AmeliaTV
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY_PATH: fastlane/AuthKey.p8
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
+        run: fastlane ios beta
+      - name: Clean up API key
+        if: always()
+        working-directory: AmeliaTV
+        run: rm -f fastlane/AuthKey.p8
+
+  tvos:
+    name: Apple TV → TestFlight
+    if: ${{ inputs.platform == 'tvos' || inputs.platform == 'both' }}
+    runs-on: macos-15
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest Xcode
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest/Contents/Developer"; fi
+          xcodebuild -version
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: AmeliaTV
+        run: xcodegen generate
+      - name: Write App Store Connect API key
+        working-directory: AmeliaTV
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          mkdir -p fastlane
+          printf '%s' "$ASC_API_KEY_P8" > fastlane/AuthKey.p8
+      - name: Build & upload to TestFlight (tvOS)
+        working-directory: AmeliaTV
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY_PATH: fastlane/AuthKey.p8
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TVOS_BUNDLE_ID: ${{ secrets.TVOS_BUNDLE_ID }}
+        run: fastlane tvos beta
+      - name: Clean up API key
+        if: always()
+        working-directory: AmeliaTV
+        run: rm -f fastlane/AuthKey.p8

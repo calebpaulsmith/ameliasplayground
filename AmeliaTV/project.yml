@@ -66,7 +66,7 @@ targets:
       testTargets: []
     settings:
       base:
-        TARGETED_DEVICE_FAMILY: "2"        # iPad
+        TARGETED_DEVICE_FAMILY: "1,2"      # iPhone + iPad
         SWIFT_VERSION: "5.9"
         GENERATE_INFOPLIST_FILE: "YES"
         CURRENT_PROJECT_VERSION: "1"
@@ -76,4 +76,5 @@ targets:
         INFOPLIST_KEY_GCSupportsControllerUserInteraction: "YES"
         INFOPLIST_KEY_UIRequiresFullScreen: "YES"
         "INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad": "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        "INFOPLIST_KEY_UISupportedInterfaceOrientations~iphone": "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         CODE_SIGNING_ALLOWED: "NO"
