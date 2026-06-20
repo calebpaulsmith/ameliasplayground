@@ -43,21 +43,23 @@ public final class GameCore {
 
         var speed = bus.speed
 
-        // In Auto-Drive the bus rolls forward on its own; otherwise the player
-        // supplies throttle.
-        let throttle = assistLevel.autoDrives ? max(input.throttle, autoThrottle) : input.throttle
+        // The game's own driving (auto-drive / lane guidance) is layered on top
+        // of player input: auto channels apply at full authority, player steering
+        // is scaled by the assist level.
+        let throttle = max(input.throttle, autoThrottle)
+        let brake = max(input.brake, autoBrake)
 
         if throttle > 0 { speed += accel * throttle * dt }
-        if input.brake > 0 {
-            speed -= (speed > 0.2 ? brakeForce : 7) * input.brake * dt
+        if brake > 0 {
+            speed -= (speed > 0.2 ? brakeForce : 7) * brake * dt
         }
         if throttle == 0 { speed -= (speed == 0 ? 0 : (speed > 0 ? 1.0 : -1.0)) * drag * dt }
         if abs(speed) < 0.05 { speed = 0 }
         speed = speed.clamped(to: -5 ... maxSpeed)
 
-        // Steering scaled by assist authority, only meaningful while moving.
+        // Steering scaled by assist authority, plus the game's auto-steer.
         let moveFactor = min(1.0, abs(speed) / 5.0)
-        let steer = input.steer * assistLevel.steeringAuthority
+        let steer = (input.steer * assistLevel.steeringAuthority + autoSteer).clamped(to: -1 ... 1)
         let turn = steer * 2.0 * moveFactor * (speed < 0 ? -1 : 1)
         var heading = bus.heading + turn * dt
 
@@ -70,9 +72,12 @@ public final class GameCore {
         bus = BusState(position: position, heading: heading, speed: speed)
     }
 
-    /// Whether the bus should auto-roll (Auto-Drive). Set by higher layers when
-    /// a `driveTo`/story beat wants movement; defaults off so the bus waits.
+    /// The game's own driving commands (Auto-Drive / lane guidance), applied at
+    /// full authority on top of (assist-scaled) player input. Set by GameSession
+    /// each tick; default 0 so the bus waits for the player.
     public var autoThrottle: Double = 0
+    public var autoBrake: Double = 0
+    public var autoSteer: Double = 0
 
     public func reset(to position: Vec2 = .zero, heading: Double = 0) {
         bus = BusState(position: position, heading: heading, speed: 0)
