@@ -44,6 +44,12 @@ final class AppSession: ObservableObject {
         content.localizer.string(id, language, vars: vars)
     }
 
+    /// Persist updated progress (called by the running episode session).
+    func persist(_ slot: SaveSlot) {
+        save = slot
+        saveStore.save(slot)
+    }
+
     /// Loads the data-driven content from the app bundle's Content/ folder.
     /// Falls back to empty content (never crashes) if something is missing.
     private static func loadBundledContent() -> GameContent {
