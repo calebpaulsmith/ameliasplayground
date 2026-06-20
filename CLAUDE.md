@@ -91,12 +91,75 @@ privacy/Kids constraints). Rationale + sources in `TECHNICAL_ARCHITECTURE.md`.
 - When uncertain about tvOS capabilities or tooling, **verify against official
   Apple/engine docs** and record facts vs. judgement in `RISKS_AND_DECISIONS.md`.
 
-## Current status
+## Current status (updated 2026-06-20)
 
-- **Phase 0 (planning):** this docs set + this file. **No native code yet** —
-  implementation begins only after the plan is approved (see
-  `RISKS_AND_DECISIONS.md` D-IMPL-START-1) and the first five issues (F1-01…F1-05)
-  are created.
+Phases 0–1 are merged to `main`; Phase 2 (the vertical slice) is well underway.
+**How to test everything is in [`docs/tvos/TESTING.md`](docs/tvos/TESTING.md).**
+
+### Done & merged to `main`
+- **Phase 0 — planning** (PR #9): `docs/tvos/*` + this file.
+- **Phase 1 — native foundation** (PR #9): `AmeliaTV/` scaffold (XcodeGen app +
+  `AmeliaCore` Swift package), **secret-free `ci-tvos`** workflow (content
+  validation + `swift test` + tvOS 26 Simulator build), and RealityKit /
+  GameController / GLB→USDZ spikes. **CI confirmed RealityKit runs on tvOS 26**
+  on GitHub-hosted macOS runners (Xcode 26.3 / tvOS 26.2 SDK) — R-ENG-1 de-risked.
+- **Phase 2 — gameplay backbone** (PR #10): `RouteGraph` (pathfinding + turn
+  cues), `TrafficLight`, `EpisodeRunner` (beat state machine), `DialogueDirector`,
+  and the `Light` content model — all unit-tested.
+
+### In review — green CI, **merge this first next session** (PR #11)
+- **Phase 2 — `GameSession` + playable loop:** the orchestrator (Auto-Drive,
+  episode events, rewards, local persistence), an `AVSpeech` speaker, and app
+  wiring so the **`first-day` episode runs end to end**. A headless `swift test`
+  plays the *real* episode to completion (reaches every target, boards the
+  passenger, awards + persists stars/sticker/completion). All 3 CI checks green.
+
+### What works today
+- The Game Core logic of the whole slice loop is **functionally complete and
+  unit-tested** (drive → bus stop → red-light stop → left/right choice →
+  drop-off → home → reward), playable with a Siri Remote via Auto-Drive.
+- The app builds for tvOS 26 and runs the episode with a **placeholder** bus on a
+  green plane: it auto-drives the route, speaks (TTS, EN/ES), and shows a live
+  subtitle + star count.
+
+### Not done yet (the rest of Phase 2 — "make it look like the game")
+- Real neighborhood **3D scene**: roads, bus-stop shelter, traffic light with lit
+  lamps, park, garage, passenger (placeholder primitives are fine; USDZ later).
+- **HUD**: big GO/STOP, pulsing turn arrow, destination beacon, minimap.
+- **Garage + Mechanic Mom** intro scene and the **reward/sticker** screen.
+- **Splash/language** polish (RootView is minimal today).
+- **Audio**: music themes + SFX (only TTS voice exists).
+- **Human play-test** on the tvOS Simulator / a real Apple TV (see TESTING.md).
+
+## Next steps (start here next session)
+
+1. **Merge PR #11** (green) so the playable loop is on `main`.
+2. **Human smoke-test** per `docs/tvos/TESTING.md` (run the Simulator, press
+   "Let's go", watch the bus auto-drive and talk). Capture anything that feels off.
+3. Build the slice's presentation, smallest-first, each a own PR:
+   - **A2-10 HUD** (GO/STOP, turn arrow from `GameSession.currentTurnCue`,
+     star count, subtitle, beacon).
+   - **A2-08 neighborhood scene** (roads + stop + light + park + garage as
+     placeholders, positioned from `Content/places.json` / `lights.json`).
+   - **A2-09 passenger** entity (board/exit at the stop).
+   - **A2-07 garage + Mechanic Mom** intro; **A2-12 reward/sticker** screen.
+   - **A2-13 audio** pass.
+4. **A2-14 integration & acceptance pass** against `docs/tvos/VERTICAL_SLICE.md`.
+
+## Outstanding questions / decisions (need the human)
+
+These gate later work; recorded in full in `docs/tvos/RISKS_AND_DECISIONS.md`.
+- **D-SIGN-1 — Apple Developer account / signing.** Needed to run on a *real*
+  Apple TV and for Phase 5 TestFlight. Not needed for Simulator or CI. *Who owns
+  the account? Provide secrets only to the future protected `release-tvos` env.*
+- **D-ART-1 — art sourcing & reviewer.** AI-generated GLB→USDZ vs. commissioned,
+  and who signs off on look/originality. Blocks final art, not gameplay.
+- **D-IP-1 — ratify the original-IP rule** (no Tayo/Cars/Pixar likeness) before
+  any art is generated.
+- **Testing access:** do you have a Mac with **Xcode 26** (to run the Simulator),
+  or should human testing wait until a TestFlight build (which needs D-SIGN-1)?
+  This decides how we verify the presentation work — see TESTING.md.
+
 
 ## Web game notes (only if a task targets the web games)
 
