@@ -33,6 +33,58 @@ public final class GameSession: EpisodeWorld {
 
     public var subtitle: String { dialogue.currentSubtitle }
     public var bus: GameCore.BusState { core.bus }
+
+    /// Big, single-glance guidance for the HUD. `stop` only when the bus is being
+    /// asked to hold at a red light it must obey; `go` otherwise. Derived from core
+    /// state so the HUD stays a thin, testable reflection of the game (A2-10).
+    public enum DrivePrompt: String, Sendable { case go, stop }
+
+    public var drivePrompt: DrivePrompt {
+        guard let target = currentTarget, target.kind == .light, target.requireStop else {
+            return .go
+        }
+        let dist = (target.position - core.bus.position).length
+        if dist <= target.radius + 6, lightState(target.id) == .red { return .stop }
+        return .go
+    }
+
+    /// The string id naming the current destination, for the HUD beacon label.
+    /// Lights have no friendly name, so only places resolve.
+    public var currentTargetNameId: String? {
+        guard let target = currentTarget, target.kind == .place else { return nil }
+        return place(target.id)?.nameId
+    }
+
+    /// Who the active episode picks up and where, for the renderer to place the
+    /// waiting/riding/dropped passenger. Derived from the episode's beats so the
+    /// presentation stays data-driven (A2-09).
+    public struct PassengerPlan: Equatable, Sendable {
+        public let passengerId: String
+        public let pickupPlaceId: String
+        public let dropoffPlaceId: String
+    }
+
+    public var passengerPlan: PassengerPlan? {
+        guard let id = activeEpisodeId,
+              let episode = content.episodes.first(where: { $0.id == id }) else { return nil }
+        var passengerId: String?
+        var pickup: String?
+        var dropoff: String?
+        for beat in episode.beats {
+            switch beat {
+            case let .pickup(pid, atStop):
+                if passengerId == nil { passengerId = pid }
+                if pickup == nil { pickup = atStop }
+            case let .dropoff(pid, placeId):
+                if passengerId == nil { passengerId = pid }
+                dropoff = placeId
+            default:
+                break
+            }
+        }
+        guard let pid = passengerId, let pu = pickup, let dp = dropoff else { return nil }
+        return PassengerPlan(passengerId: pid, pickupPlaceId: pu, dropoffPlaceId: dp)
+    }
     public var language: Language {
         get { dialogue.language }
         set { dialogue.language = newValue; save.language = newValue }
