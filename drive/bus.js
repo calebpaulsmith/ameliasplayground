@@ -27,7 +27,7 @@ export function createBusMesh() {
 
   // ---- face (friendly, Tayo-style: forward gaze, eyelids, soft brows) ----
   const face = new THREE.Group(); body.add(face);
-  const EYE_Y = 3.62;
+  const EYE_Y = 3.28;
   const mkEye = (z) => {
     const white = sphere(0.6, WHITE, 3.64, EYE_Y, z); white.scale.set(0.42, 1.05, 0.82);
     // pupil looks straight ahead (centred), sitting just on the eye surface
@@ -36,7 +36,8 @@ export function createBusMesh() {
     // dark upper eyelid bar — the key to a gentle (non-creepy) gaze
     const eyelid = rbox(0.2, 0.14, 0.98, 0.06, NAVY, 3.82, EYE_Y + 0.32, z);
     // blink lid (body colour), animated in sync()
-    const lid = rbox(1.2, 0.9, 1.18, 0.42, BLUE, 3.55, EYE_Y + 0.7, z); lid.scale.y = 0.02;
+    const lid = rbox(1.2, 0.9, 1.18, 0.42, BLUE, 3.55, EYE_Y + 0.7, z);
+    lid.scale.y = 0.02; lid.userData.openY = EYE_Y + 0.7;
     // soft eyebrow, slightly raised toward the outside
     const brow = rbox(0.16, 0.1, 0.62, 0.05, NAVY, 3.66, EYE_Y + 0.66, z);
     brow.rotation.x = z < 0 ? -0.18 : 0.18;
@@ -44,12 +45,13 @@ export function createBusMesh() {
     return { white, pupil, lid };
   };
   const L = mkEye(-0.82), R = mkEye(0.82);
-  // gentle chrome smile
+  // wide, gentle chrome smile (broad and shallow, like the reference)
   const mouth = new THREE.Mesh(
-    new THREE.TorusGeometry(0.72, 0.1, 10, 22, Math.PI),
+    new THREE.TorusGeometry(0.7, 0.095, 10, 24, Math.PI),
     new THREE.MeshStandardMaterial({ color: 0xccd4dc, metalness: 0.5, roughness: 0.35 }));
   mouth.rotation.z = Math.PI; mouth.rotation.y = Math.PI / 2;
-  mouth.position.set(3.64, 2.86, 0); face.add(mouth);
+  mouth.scale.set(1.65, 0.6, 1);
+  mouth.position.set(3.66, 2.92, 0); face.add(mouth);
 
   // headlights (warm glow)
   for (const z of [-1.25, 1.25]) {
@@ -219,18 +221,19 @@ export class Bus {
       if (this.blinkT < 0) { this.blink = 1; this.blinkT = 2.5 + Math.random() * 3.5; }
       if (this.blink > 0) this.blink -= dt * 6;
       const lid = Math.max(0, Math.min(1, this.blink));
+      const baseY = this.face.lidL.userData.openY;
       this.face.lidL.scale.y = 0.02 + lid * 0.95;
       this.face.lidR.scale.y = 0.02 + lid * 0.95;
-      this.face.lidL.position.y = 4.32 - lid * 0.72;
-      this.face.lidR.position.y = 4.32 - lid * 0.72;
+      this.face.lidL.position.y = baseY - lid * 0.72;
+      this.face.lidR.position.y = baseY - lid * 0.72;
     }
   }
 
   setExpression(kind) {
-    const m = this.face.mouth;
-    if (kind === 'surprised') { m.scale.set(0.8, 1.4, 0.8); m.rotation.z = 0; }
-    else if (kind === 'happy') { m.scale.set(1.2, 1, 1); m.rotation.z = Math.PI; }
-    else { m.scale.set(1, 1, 1); m.rotation.z = Math.PI; }
+    const m = this.face.mouth;   // base smile is wide + shallow: keep that shape
+    if (kind === 'surprised') { m.scale.set(1.0, 1.1, 1); m.rotation.z = 0; }
+    else if (kind === 'happy') { m.scale.set(1.8, 0.68, 1); m.rotation.z = Math.PI; }
+    else { m.scale.set(1.65, 0.6, 1); m.rotation.z = Math.PI; }
   }
 
   setDoor(open) { this._doorTarget = open ? 1 : 0; }
