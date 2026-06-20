@@ -46,9 +46,18 @@ jobs:
 
   app-build:
     name: Build tvOS app (Simulator, no signing)
-    runs-on: macos-latest
+    # macos-15+ is required for Xcode 26 / the tvOS 26 SDK (RealityKit on tvOS).
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Select newest Xcode and show tvOS SDKs
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          echo "Selecting ${latest:-<none found>}"
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest/Contents/Developer"; fi
+          xcodebuild -version
+          echo "Available tvOS SDKs:"
+          xcodebuild -showsdks | grep -i tvos || echo "  (none)"
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project

@@ -1,8 +1,14 @@
 import Foundation
+
+#if canImport(RealityKit)
 import RealityKit
 
 #if canImport(UIKit)
 import UIKit
+typealias PlatformColor = UIColor
+#else
+import AppKit
+typealias PlatformColor = NSColor
 #endif
 
 /// Resolves a model **id** to a RealityKit `Entity`, loading a USDZ from the app
@@ -33,9 +39,4 @@ enum ModelLibrary {
         return ModelEntity(mesh: mesh, materials: [material])
     }
 }
-
-#if canImport(UIKit)
-typealias PlatformColor = UIColor
-#else
-typealias PlatformColor = NSColor
 #endif

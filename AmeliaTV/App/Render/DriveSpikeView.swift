@@ -1,11 +1,17 @@
 import SwiftUI
-import RealityKit
 import AmeliaCore
+
+#if canImport(RealityKit)
+import RealityKit
 
 /// Phase 1 rendering + input spike (F1-04 / F1-05 / F1-06): renders a placeholder
 /// bus on a ground plane with a follow camera, driven by the rendering-agnostic
 /// `GameCore`, fed by `GameControllerInput` (Siri Remote or controller). This is
 /// the de-risking spike for R-ENG-1, NOT the real game scene.
+///
+/// Requires the tvOS 26 SDK (RealityKit on tvOS). On older SDKs a SwiftUI
+/// fallback is compiled instead (see the `#else` branch) so the foundation still
+/// builds — the real RealityKit validation runs on CI with Xcode 26.
 struct DriveSpikeView: View {
     @EnvironmentObject private var session: AppSession
     @Environment(\.dismiss) private var dismiss
@@ -130,3 +136,25 @@ final class SpikeEngine: ObservableObject {
         camera.look(at: bp, from: camera.position, relativeTo: nil)
     }
 }
+
+#else
+
+/// Fallback when RealityKit is unavailable (SDK older than tvOS 26). Keeps the
+/// app buildable; the 3D spike is exercised on CI with the tvOS 26 SDK.
+struct DriveSpikeView: View {
+    @EnvironmentObject private var session: AppSession
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 32) {
+            Text("3D preview needs RealityKit (tvOS 26+).")
+                .font(.system(size: 32, weight: .semibold, design: .rounded))
+                .multilineTextAlignment(.center)
+            Button(session.string("ui.back")) { dismiss() }
+                .buttonStyle(.borderedProminent)
+        }
+        .padding(80)
+    }
+}
+
+#endif
