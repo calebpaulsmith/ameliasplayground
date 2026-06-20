@@ -50,8 +50,13 @@ public final class GameCore {
         let brake = max(input.brake, autoBrake)
 
         if throttle > 0 { speed += accel * throttle * dt }
-        if brake > 0 {
-            speed -= (speed > 0.2 ? brakeForce : 7) * brake * dt
+        if speed > 0.2 {
+            // Any brake (player or auto) decelerates a moving bus.
+            speed -= brakeForce * brake * dt
+        } else if input.brake > 0 {
+            // Gentle reverse only from an explicit player brake — auto-brake
+            // (holding position / stopping at a target) must never back up.
+            speed -= 7 * input.brake * dt
         }
         if throttle == 0 { speed -= (speed == 0 ? 0 : (speed > 0 ? 1.0 : -1.0)) * drag * dt }
         if abs(speed) < 0.05 { speed = 0 }
