@@ -72,3 +72,33 @@ jobs:
             -destination 'generic/platform=tvOS Simulator' \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO
+
+  app-build-ios:
+    name: Build iPad app (iOS Simulator, no signing)
+    # iPad/iOS build of the same game so it can be play-tested on the iOS
+    # Simulator. RealityView needs iOS 18; macos-15 ships a new enough Xcode.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest Xcode and show iOS SDKs
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          echo "Selecting ${latest:-<none found>}"
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest/Contents/Developer"; fi
+          xcodebuild -version
+          echo "Available iOS SDKs:"
+          xcodebuild -showsdks | grep -i ios || echo "  (none)"
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: AmeliaTV
+        run: xcodegen generate
+      - name: Build for iOS Simulator
+        working-directory: AmeliaTV
+        run: |
+          xcodebuild build \
+            -project AmeliaTV.xcodeproj \
+            -scheme AmeliaPad \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO

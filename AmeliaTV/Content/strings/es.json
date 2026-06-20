@@ -22,6 +22,16 @@
   "passenger.tomas": "Tomás",
   "passenger.mia": "Mía",
 
+  "vehicle.pim": "Pim",
+  "vehicle.hux": "Hux",
+  "vehicle.bea": "Bea",
+  "vehicle.skip": "Skip",
+
+  "pim.hi": "¡Hola! Soy Pim, el camión de bomberos. ¡Listo para ayudar!",
+  "hux.hi": "¡Soy Hux! Puedo remolcar lo que sea a casa.",
+  "bea.hi": "¡Aquí Bea! Ayudo a que todos se sientan mejor.",
+  "skip.hi": "¡Skip el helicóptero, listo para volar!",
+
   "pip.hello": "¡Hola Amelia! ¿Me llevas al parque?",
   "pip.thanks": "¡Gracias, Amelia! ¡Hasta pronto!",
 

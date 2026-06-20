@@ -44,3 +44,37 @@ targets:
         INFOPLIST_KEY_GCSupportsControllerUserInteraction: "YES"
         # No signing for normal CI; the protected release workflow handles it.
         CODE_SIGNING_ALLOWED: "NO"
+
+  # iPad/iOS build of the same game. Shares App/ + Content/ + AmeliaCore; the only
+  # platform-specific code is guarded with #if os(tvOS)/canImport. tvOS is the
+  # flagship; this target exists so the game can be play-tested on the iOS
+  # Simulator and iPad (RealityView requires iOS 18). Touch input drives the
+  # left/right choice; the rest of the slice auto-drives.
+  AmeliaPad:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: App
+      - path: Content
+        type: folder        # folder reference: whole tree copied into the bundle
+        buildPhase: resources
+    dependencies:
+      - package: AmeliaCore
+        product: AmeliaCore
+    scheme:
+      testTargets: []
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "1,2"      # iPhone + iPad
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: "YES"
+        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "0.1.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        INFOPLIST_KEY_CFBundleDisplayName: "Amelia"
+        INFOPLIST_KEY_GCSupportsControllerUserInteraction: "YES"
+        INFOPLIST_KEY_UIRequiresFullScreen: "YES"
+        "INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad": "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        "INFOPLIST_KEY_UISupportedInterfaceOrientations~iphone": "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+        CODE_SIGNING_ALLOWED: "NO"

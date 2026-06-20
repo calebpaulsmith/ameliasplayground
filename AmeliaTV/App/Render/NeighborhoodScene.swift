@@ -35,6 +35,26 @@ final class NeighborhoodScene {
         buildRoads(content: content)
         for place in content.places { buildPlace(place) }
         for light in content.lights { buildLight(light) }
+        buildVehicles(content)
+    }
+
+    /// Parks the Rescue Team vehicles near their home places, spreading multiple
+    /// vehicles at the same place so they don't overlap.
+    private func buildVehicles(_ content: GameContent) {
+        var perPlace: [String: Int] = [:]
+        for v in content.vehicles {
+            guard let place = content.places.first(where: { $0.id == v.homePlace }) else { continue }
+            let n = perPlace[v.homePlace, default: 0]
+            perPlace[v.homePlace] = n + 1
+            let color = ModelLibrary.color(hex: v.color) ?? PlatformColor(white: 0.8, alpha: 1)
+            let node = ModelLibrary.vehicle(modelRef: v.modelRef, role: v.role, color: color)
+            var p = scenePos(place.position.vec, y: 0)
+            p.x -= 3.0                              // sit off to one side
+            p.z += Float(n) * 2.8 - 1.4            // line them up
+            node.position = p
+            node.orientation = simd_quatf(angle: -.pi / 2, axis: [0, 1, 0])  // face the road
+            root.addChild(node)
+        }
     }
 
     /// Lights the lamp matching each light's state and dims the others.

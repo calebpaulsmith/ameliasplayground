@@ -22,6 +22,16 @@
   "passenger.tomas": "Tomas",
   "passenger.mia": "Mia",
 
+  "vehicle.pim": "Pim",
+  "vehicle.hux": "Hux",
+  "vehicle.bea": "Bea",
+  "vehicle.skip": "Skip",
+
+  "pim.hi": "Hi! I'm Pim the fire truck. Ready to help!",
+  "hux.hi": "I'm Hux! I can tow anything home.",
+  "bea.hi": "Bea here! I help everyone feel better.",
+  "skip.hi": "Skip the helicopter, ready to fly!",
+
   "pip.hello": "Hi Amelia! Can you take me to the park?",
   "pip.thanks": "Thank you, Amelia! See you soon!",
 

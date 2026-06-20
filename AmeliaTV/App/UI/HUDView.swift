@@ -10,6 +10,7 @@ struct HUDModel: Equatable {
     var turnCue: TurnCue = .straight
     var drivePrompt: GameSession.DrivePrompt = .go
     var destinationNameId: String? = nil
+    var awaitingChoice: Bool = false
     var finished: Bool = false
 
     // Minimap (world units; the map computes its own bounds from the places).
@@ -35,6 +36,10 @@ struct HUDPlace: Equatable, Identifiable {
 struct HUDView: View {
     @EnvironmentObject private var session: AppSession
     let model: HUDModel
+    /// On-screen turn buttons call these (used for the fork choice, esp. on touch
+    /// devices with no controller). No-ops by default.
+    var onTurnLeft: () -> Void = {}
+    var onTurnRight: () -> Void = {}
 
     var body: some View {
         ZStack {
@@ -58,6 +63,9 @@ struct HUDView: View {
                     DrivePromptBadge(prompt: model.drivePrompt,
                                      go: session.string("ui.go"),
                                      stop: session.string("ui.stop"))
+                    if model.awaitingChoice {
+                        ChoiceButtons(onLeft: onTurnLeft, onRight: onTurnRight)
+                    }
                 }
                 Spacer()
             }
@@ -95,6 +103,33 @@ struct HUDView: View {
 }
 
 // MARK: - Pieces
+
+/// Big left/right buttons shown at the fork. Tappable on touch devices and
+/// focusable with a remote/controller — the one interactive choice in the slice.
+private struct ChoiceButtons: View {
+    let onLeft: () -> Void
+    let onRight: () -> Void
+
+    var body: some View {
+        HStack(spacing: 64) {
+            button(system: "arrow.left.circle.fill", action: onLeft)
+            button(system: "arrow.right.circle.fill", action: onRight)
+        }
+        .padding(.top, 12)
+    }
+
+    private func button(system: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: system)
+                .font(.system(size: 96, weight: .black))
+                .foregroundStyle(.white)
+                .padding(16)
+                .background(Circle().fill(Color(red: 0.12, green: 0.43, blue: 0.81)))
+                .shadow(radius: 10, y: 6)
+        }
+        .buttonStyle(.plain)
+    }
+}
 
 private struct StarCounter: View {
     let count: Int

@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Vehicle",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["id", "nameId", "role", "color", "modelRef", "homePlace"],
+    "properties": {
+      "id": { "type": "string" },
+      "nameId": { "type": "string", "description": "bilingual string id" },
+      "role": {
+        "type": "string",
+        "description": "vehicle kind used to pick a model/silhouette",
+        "enum": ["fire", "tow", "ambulance", "helicopter", "car"]
+      },
+      "color": { "type": "string", "pattern": "^#?[0-9a-fA-F]{6}$" },
+      "modelRef": { "type": "string", "description": "model id; placeholder fallback if absent" },
+      "homePlace": { "type": "string", "description": "Place.id where it idles" },
+      "lineIds": { "type": "array", "items": { "type": "string" } }
+    },
+    "additionalProperties": false
+  }
+}

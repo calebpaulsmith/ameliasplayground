@@ -73,6 +73,7 @@ final class GarageEngine: ObservableObject {
     private var timer: Timer?
     private var elapsed: Double = 0
     private var didGreet = false
+    private var didBuildFriends = false
 
     func makeRoot() -> Entity {
         let floor = ModelLibrary.ground(size: 16,
@@ -132,6 +133,10 @@ final class GarageEngine: ObservableObject {
             didGreet = true
             speaker.speak(subtitle, language: session.language)
         }
+        if !didBuildFriends {
+            didBuildFriends = true
+            buildRescueFriends(session.content)
+        }
         elapsed = 0
         let t = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
@@ -144,6 +149,19 @@ final class GarageEngine: ObservableObject {
         timer?.invalidate()
         timer = nil
         speaker.stopSpeaking()
+    }
+
+    /// Parks the Rescue Team members who live at the garage beside the lift, so
+    /// the player meets a couple of friends before setting off.
+    private func buildRescueFriends(_ content: GameContent) {
+        let here = content.vehicles.filter { $0.homePlace == "garage" }
+        for (i, v) in here.enumerated() {
+            let color = ModelLibrary.color(hex: v.color) ?? .init(white: 0.8, alpha: 1)
+            let node = ModelLibrary.vehicle(modelRef: v.modelRef, role: v.role, color: color)
+            node.position = [-3.2, 0, Float(i) * 2.4 - 1.0]
+            node.orientation = simd_quatf(angle: -.pi / 2, axis: [0, 1, 0])  // face the camera
+            root.addChild(node)
+        }
     }
 
     private func tick() {

@@ -89,6 +89,25 @@ def validate():
                 err(f"passenger \"{p.get('id')}\" lineId \"{lid}\" is not a bilingual string")
         passenger_ids.add(p.get("id"))
 
+    # --- vehicles (optional: the Rescue Team) ---
+    vehicles_path = CONTENT / "vehicles.json"
+    if vehicles_path.exists():
+        vehicles = load_json("vehicles.json") or []
+        require(isinstance(vehicles, list), "vehicles.json must be a JSON array")
+        known_roles = {"fire", "tow", "ambulance", "helicopter", "car"}
+        for i, v in enumerate(vehicles if isinstance(vehicles, list) else []):
+            for field in ("id", "nameId", "role", "color", "modelRef", "homePlace"):
+                require(field in v, f"vehicles[{i}] missing \"{field}\"")
+            if "role" in v and v["role"] not in known_roles:
+                err(f"vehicle \"{v.get('id')}\" role \"{v['role']}\" is not a known role")
+            if "homePlace" in v and v["homePlace"] not in place_ids:
+                err(f"vehicle \"{v.get('id')}\" homePlace \"{v['homePlace']}\" is not a known place")
+            if "nameId" in v and not is_localized(v["nameId"]):
+                err(f"vehicle \"{v.get('id')}\" nameId \"{v['nameId']}\" is not a bilingual string")
+            for lid in v.get("lineIds", []) or []:
+                if not is_localized(lid):
+                    err(f"vehicle \"{v.get('id')}\" lineId \"{lid}\" is not a bilingual string")
+
     # --- lights (optional) ---
     light_ids = set()
     lights_path = CONTENT / "lights.json"

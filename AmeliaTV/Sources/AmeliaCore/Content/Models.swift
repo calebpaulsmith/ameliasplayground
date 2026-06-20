@@ -39,6 +39,19 @@ public struct Passenger: Codable, Equatable, Sendable {
     public var lineIds: [String]       // greeting/chatter/thanks string ids
 }
 
+/// A friendly vehicle character — e.g. the original Rescue Team (fire truck,
+/// tow truck, ambulance, rescue helicopter). Set dressing / future episode cast,
+/// authored as data. Original designs only (RISKS_AND_DECISIONS.md D-IP-1).
+public struct Vehicle: Codable, Equatable, Sendable {
+    public var id: String
+    public var nameId: String
+    public var role: String            // "fire" | "tow" | "ambulance" | "helicopter" | ...
+    public var color: String           // hex
+    public var modelRef: String        // model id (placeholder fallback if absent)
+    public var homePlace: String       // Place.id where it idles
+    public var lineIds: [String]?      // optional chatter string ids
+}
+
 /// One step of an episode. Tagged union mirroring drive/missions.js beats,
 /// generalized for the native game (see GAME_DESIGN.md §2).
 public enum Beat: Codable, Equatable, Sendable {
@@ -149,6 +162,7 @@ public struct GameContent: Sendable {
     public var strings: [String: [String: String]]
     public var places: [Place]
     public var passengers: [Passenger]
+    public var vehicles: [Vehicle]
     public var lights: [Light]
     public var episodes: [Episode]
 
@@ -156,12 +170,14 @@ public struct GameContent: Sendable {
         strings: [String: [String: String]] = [:],
         places: [Place] = [],
         passengers: [Passenger] = [],
+        vehicles: [Vehicle] = [],
         lights: [Light] = [],
         episodes: [Episode] = []
     ) {
         self.strings = strings
         self.places = places
         self.passengers = passengers
+        self.vehicles = vehicles
         self.lights = lights
         self.episodes = episodes
     }
