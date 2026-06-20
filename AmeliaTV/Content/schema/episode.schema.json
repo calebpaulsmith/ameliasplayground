@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Episode",
+  "type": "object",
+  "required": ["id", "titleId", "neighborhood", "beats"],
+  "properties": {
+    "id": { "type": "string" },
+    "titleId": { "type": "string", "description": "bilingual string id" },
+    "neighborhood": { "type": "string" },
+    "beats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {
+            "enum": ["say", "driveTo", "pickup", "dropoff", "lightStop", "choice", "cutscene", "reward"]
+          },
+          "lineId": { "type": "string" },
+          "placeId": { "type": "string" },
+          "arriveLineId": { "type": ["string", "null"] },
+          "passengerId": { "type": "string" },
+          "atStop": { "type": "string" },
+          "lightId": { "type": "string" },
+          "promptLineId": { "type": "string" },
+          "correct": { "enum": ["left", "right"] },
+          "id": { "type": "string" },
+          "stars": { "type": "integer", "minimum": 0 },
+          "stickerId": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,6 @@
+[
+  { "id": "pip",   "nameId": "passenger.pip",   "homePlace": "park",   "color": "#ff8a3d", "modelRef": "passenger_bear",  "lineIds": ["pip.hello", "pip.thanks"] },
+  { "id": "lola",  "nameId": "passenger.lola",  "homePlace": "school", "color": "#ff5d9e", "modelRef": "passenger_bunny", "lineIds": [] },
+  { "id": "tomas", "nameId": "passenger.tomas", "homePlace": "market", "color": "#57b85a", "modelRef": "passenger_frog",  "lineIds": [] },
+  { "id": "mia",   "nameId": "passenger.mia",   "homePlace": "beach",  "color": "#a06bff", "modelRef": "passenger_cat",   "lineIds": [] }
+]

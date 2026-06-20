@@ -1,0 +1,65 @@
+name: ci-tvos
+
+# Secret-free CI for the native tvOS game (see docs/tvos/TECHNICAL_ARCHITECTURE.md).
+# Validates content, unit-tests the rendering-agnostic Game Core, and builds the
+# tvOS app for the Simulator. NEVER uses Apple signing secrets — those live only
+# in the separate, protected `release-tvos` workflow.
+on:
+  pull_request:
+    paths:
+      - 'AmeliaTV/**'
+      - '.github/workflows/ci-tvos.yml'
+  push:
+    branches:
+      - 'claude/**'
+    paths:
+      - 'AmeliaTV/**'
+      - '.github/workflows/ci-tvos.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-tvos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  content:
+    name: Validate content (bilingual + references)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate content JSON
+        run: python3 AmeliaTV/Tools/validate_content.py
+
+  core-tests:
+    name: Unit-test Game Core (no GPU)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Swift / Xcode
+        run: swift --version && xcodebuild -version
+      - name: Run Game Core unit tests
+        working-directory: AmeliaTV
+        run: swift test
+
+  app-build:
+    name: Build tvOS app (Simulator, no signing)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: AmeliaTV
+        run: xcodegen generate
+      - name: Build for tvOS Simulator
+        working-directory: AmeliaTV
+        run: |
+          xcodebuild build \
+            -project AmeliaTV.xcodeproj \
+            -scheme AmeliaTV \
+            -destination 'generic/platform=tvOS Simulator' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO
