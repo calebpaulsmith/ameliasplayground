@@ -25,29 +25,31 @@ export function createBusMesh() {
     for (let k = -1; k <= 1; k++)
       body.add(rbox(1.7, 1.3, 0.16, 0.16, GLASS, k * 1.95, 4.05, s * 1.74));
 
-  // ---- face ----
+  // ---- face (friendly, Tayo-style: forward gaze, eyelids, soft brows) ----
   const face = new THREE.Group(); body.add(face);
+  const EYE_Y = 3.62;
   const mkEye = (z) => {
-    const white = sphere(0.74, WHITE, 3.62, 3.95, z); white.scale.set(0.55, 1, 1);
-    const pupil = sphere(0.36, NAVY, 3.95, 3.85, z); pupil.scale.set(0.45, 1, 1);
-    const shine = sphere(0.14, WHITE, 4.12, 4.12, z - 0.16);
-    const lid = rbox(1.55, 0.85, 1.55, 0.5, BLUE, 3.5, 4.6, z); lid.scale.y = 0.01;
-    const brow = rbox(0.85, 0.18, 0.55, 0.08, NAVY, 3.7, 4.78, z);
-    brow.rotation.z = z < 0 ? 0.18 : -0.18;
-    face.add(white, pupil, shine, lid, brow);
+    const white = sphere(0.6, WHITE, 3.64, EYE_Y, z); white.scale.set(0.42, 1.05, 0.82);
+    // pupil looks straight ahead (centred), sitting just on the eye surface
+    const pupil = sphere(0.3, 0x101a26, 3.8, EYE_Y - 0.05, z); pupil.scale.set(0.4, 1, 1);
+    const shine = sphere(0.09, WHITE, 3.92, EYE_Y + 0.14, z - 0.12);
+    // dark upper eyelid bar — the key to a gentle (non-creepy) gaze
+    const eyelid = rbox(0.2, 0.14, 0.98, 0.06, NAVY, 3.82, EYE_Y + 0.32, z);
+    // blink lid (body colour), animated in sync()
+    const lid = rbox(1.2, 0.9, 1.18, 0.42, BLUE, 3.55, EYE_Y + 0.7, z); lid.scale.y = 0.02;
+    // soft eyebrow, slightly raised toward the outside
+    const brow = rbox(0.16, 0.1, 0.62, 0.05, NAVY, 3.66, EYE_Y + 0.66, z);
+    brow.rotation.x = z < 0 ? -0.18 : 0.18;
+    face.add(white, pupil, shine, eyelid, lid, brow);
     return { white, pupil, lid };
   };
-  const L = mkEye(-0.85), R = mkEye(0.85);
-  // happy smile
+  const L = mkEye(-0.82), R = mkEye(0.82);
+  // gentle chrome smile
   const mouth = new THREE.Mesh(
-    new THREE.TorusGeometry(0.62, 0.13, 10, 20, Math.PI),
-    new THREE.MeshStandardMaterial({ color: NAVY }));
+    new THREE.TorusGeometry(0.72, 0.1, 10, 22, Math.PI),
+    new THREE.MeshStandardMaterial({ color: 0xccd4dc, metalness: 0.5, roughness: 0.35 }));
   mouth.rotation.z = Math.PI; mouth.rotation.y = Math.PI / 2;
-  mouth.position.set(3.6, 2.95, 0); face.add(mouth);
-  // rosy cheeks
-  const cheekL = sphere(0.28, 0xff9bb0, 3.5, 3.15, -1.25); cheekL.scale.set(0.4, 1, 1);
-  const cheekR = sphere(0.28, 0xff9bb0, 3.5, 3.15, 1.25); cheekR.scale.set(0.4, 1, 1);
-  face.add(cheekL, cheekR);
+  mouth.position.set(3.64, 2.86, 0); face.add(mouth);
 
   // headlights (warm glow)
   for (const z of [-1.25, 1.25]) {
@@ -56,8 +58,11 @@ export function createBusMesh() {
     hl.position.set(3.5, 1.95, z); hl.scale.set(0.5, 1, 1); body.add(hl);
   }
 
-  // roof route sign reading AMELIA
-  body.add(signBox(2.6, 0.66, 0.18, 'AMELIA', 0.5, 6.05, 0));
+  // route sign on the windshield: "120" + three little lights (Tayo style)
+  body.add(frontSign(3.72, 4.45, 0));
+  // "120" on each side
+  body.add(sideNumber(-0.6, 3.0, 1.77, 0));
+  body.add(sideNumber(-0.6, 3.0, -1.77, Math.PI));
 
   // ---- wheels (fat tyre + hubcap + bolts) ----
   const wheels = [];
@@ -100,16 +105,46 @@ function sphere(r, color, x, y, z) {
     new THREE.MeshStandardMaterial({ color, roughness: 0.5 }));
   m.position.set(x, y, z); return m;
 }
-function signBox(w, h, d, text, x, y, z) {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 64;
+// The destination roller sign on the windshield: a black "120" panel and
+// three round indicator lights, drawn on a canvas and faced forward (+X).
+function frontSign(x, y, z) {
+  const c = document.createElement('canvas'); c.width = 480; c.height = 100;
   const g = c.getContext('2d');
-  g.fillStyle = '#fbfdff'; g.fillRect(0, 0, 256, 64);
-  g.fillStyle = '#1f6fd0'; g.font = 'bold 40px sans-serif';
-  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 36);
+  g.fillStyle = '#f6f3ea'; g.fillRect(0, 0, 480, 100);
+  // black "120" box
+  g.fillStyle = '#161616'; roundRect(g, 8, 14, 196, 72, 12); g.fill();
+  g.fillStyle = '#ffffff'; g.font = 'bold 62px sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('120', 106, 52);
+  // three lights
+  const cols = ['#efe2bd', '#6ec6f0', '#efe2bd'];
+  cols.forEach((col, i) => {
+    g.fillStyle = col; g.beginPath();
+    g.arc(268 + i * 78, 50, 30, 0, 7); g.fill();
+    g.strokeStyle = '#cabf9a'; g.lineWidth = 3; g.stroke();
+  });
   const tex = new THREE.CanvasTexture(c);
-  const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, 0.08),
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 0.52),
     new THREE.MeshStandardMaterial({ map: tex }));
-  m.position.set(x, y, z); return m;
+  m.rotation.y = Math.PI / 2; m.position.set(x, y, z); return m;
+}
+
+function sideNumber(x, y, z, rot) {
+  const c = document.createElement('canvas'); c.width = 200; c.height = 120;
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, 200, 120);
+  g.fillStyle = '#16314a'; g.font = 'bold 86px sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('120', 100, 64);
+  const tex = new THREE.CanvasTexture(c);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.9),
+    new THREE.MeshStandardMaterial({ map: tex, transparent: true }));
+  m.rotation.y = rot; m.position.set(x, y, z); return m;
+}
+
+function roundRect(g, x, y, w, h, r) {
+  g.beginPath();
+  g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r); g.closePath();
 }
 
 export class Bus {
@@ -184,10 +219,10 @@ export class Bus {
       if (this.blinkT < 0) { this.blink = 1; this.blinkT = 2.5 + Math.random() * 3.5; }
       if (this.blink > 0) this.blink -= dt * 6;
       const lid = Math.max(0, Math.min(1, this.blink));
-      this.face.lidL.scale.y = 0.01 + lid * 1;
-      this.face.lidR.scale.y = 0.01 + lid * 1;
-      this.face.lidL.position.y = 4.5 - lid * 0.6;
-      this.face.lidR.position.y = 4.5 - lid * 0.6;
+      this.face.lidL.scale.y = 0.02 + lid * 0.95;
+      this.face.lidR.scale.y = 0.02 + lid * 0.95;
+      this.face.lidL.position.y = 4.32 - lid * 0.72;
+      this.face.lidR.position.y = 4.32 - lid * 0.72;
     }
   }
 
