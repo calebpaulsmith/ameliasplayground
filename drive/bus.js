@@ -3,87 +3,152 @@
 // model; the game loop feeds it input and resolves collisions.
 
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from '../vendor/addons/RoundedBoxGeometry.js';
 
-const BLUE = 0x3aa0ff, DKBLUE = 0x1f6fd0, WHITE = 0xfbfdff, GLASS = 0x9fd9ff;
+const BLUE = 0x3aa0ff, DKBLUE = 0x1f6fd0, NAVY = 0x16314a, WHITE = 0xfbfdff, GLASS = 0x9fd9ff;
 
 export function createBusMesh() {
   const g = new THREE.Group();
   const body = new THREE.Group(); g.add(body);
 
-  // main body (rounded look via stacked boxes)
-  const main = box(7, 4.2, 3.6, BLUE, 0, 3.0, 0); body.add(main);
-  body.add(box(7.2, 1.4, 3.8, DKBLUE, 0, 1.3, 0));            // lower skirt
-  body.add(box(7.2, 0.6, 3.9, 0x16324f, 0, 0.7, 0));          // bumper line
-  body.add(box(6.2, 1.0, 3.4, WHITE, 0, 5.3, 0));             // white roof band
-  const rooftop = box(5.4, 0.6, 3.0, BLUE, 0, 5.9, 0); body.add(rooftop);
+  // ---- rounded, chunky body (the Tayo look) ----
+  body.add(rbox(7.0, 1.7, 3.5, 0.5, DKBLUE, 0, 1.5));          // chassis / skirt
+  const main = rbox(6.9, 3.3, 3.5, 0.9, BLUE, 0, 3.35); body.add(main);
+  body.add(rbox(7.02, 0.5, 3.62, 0.22, WHITE, 0, 2.45));        // white belt stripe
+  body.add(rbox(6.1, 0.9, 3.42, 0.45, WHITE, 0, 5.05));         // white roof band
+  body.add(rbox(5.2, 0.8, 3.0, 0.4, BLUE, 0, 5.6));             // blue roof cap
 
-  // windshield + side windows (glass)
-  body.add(box(0.3, 2.0, 3.0, GLASS, 3.55, 3.3, 0));          // front glass
-  body.add(box(0.3, 1.6, 3.0, GLASS, -3.55, 3.4, 0));         // rear glass
+  // glass: dark front visor (where the eyes live) + side & rear windows
+  body.add(rbox(0.5, 1.5, 2.95, 0.35, NAVY, 3.45, 4.05));
+  body.add(rbox(0.4, 1.3, 2.7, 0.3, GLASS, -3.5, 4.0));         // rear window
   for (let s = -1; s <= 1; s += 2)
     for (let k = -1; k <= 1; k++)
-      body.add(box(1.6, 1.4, 0.2, GLASS, k * 1.9, 3.5, s * 1.82));
+      body.add(rbox(1.7, 1.3, 0.16, 0.16, GLASS, k * 1.95, 4.05, s * 1.74));
 
-  // face on the front
-  const face = new THREE.Group(); face.position.set(3.62, 0, 0); body.add(face);
-  const eyeWhiteL = sphere(0.62, WHITE, 0, 3.85, -0.85);
-  const eyeWhiteR = sphere(0.62, WHITE, 0, 3.85, 0.85);
-  const pupilL = sphere(0.28, 0x16314a, 0.34, 3.85, -0.85);
-  const pupilR = sphere(0.28, 0x16314a, 0.34, 3.85, 0.85);
-  const lidL = box(1.4, 0.7, 1.4, BLUE, 0.05, 4.5, -0.85); lidL.scale.y = 0.01;
-  const lidR = box(1.4, 0.7, 1.4, BLUE, 0.05, 4.5, 0.85); lidR.scale.y = 0.01;
-  face.add(eyeWhiteL, eyeWhiteR, pupilL, pupilR, lidL, lidR);
-  // smile (a torus arc)
+  // ---- face (friendly, Tayo-style: forward gaze, eyelids, soft brows) ----
+  const face = new THREE.Group(); body.add(face);
+  const EYE_Y = 3.5, EYE_Z = 0.72;
+  const mkEye = (z) => {
+    // smaller, friendly eyes that look straight ahead
+    const white = sphere(0.46, WHITE, 3.66, EYE_Y, z); white.scale.set(0.4, 1.0, 0.8);
+    const pupil = sphere(0.24, 0x101a26, 3.8, EYE_Y - 0.04, z); pupil.scale.set(0.42, 1, 1);
+    const shine = sphere(0.08, WHITE, 3.9, EYE_Y + 0.12, z - 0.1);
+    // blink lid (body colour), animated in sync()
+    const lid = rbox(0.95, 1.0, 0.95, 0.34, BLUE, 3.6, EYE_Y + 0.55, z);
+    lid.scale.y = 0.02; lid.userData.openY = EYE_Y + 0.55; lid.userData.closeY = EYE_Y - 0.02;
+    // clear dark eyebrow, raised toward the outside
+    const brow = rbox(0.14, 0.13, 0.56, 0.05, 0x12222f, 3.66, EYE_Y + 0.52, z);
+    brow.rotation.x = z < 0 ? 0.22 : -0.22;
+    face.add(white, pupil, shine, lid, brow);
+    return { white, pupil, lid };
+  };
+  const L = mkEye(-EYE_Z), R = mkEye(EYE_Z);
+  // little chrome nose
+  face.add(sphere(0.1, 0xccd4dc, 3.78, 3.05, 0));
+  // thin chrome smile, below the nose and above the bumper
   const mouth = new THREE.Mesh(
-    new THREE.TorusGeometry(0.55, 0.12, 8, 16, Math.PI),
-    new THREE.MeshStandardMaterial({ color: 0x16314a }));
+    new THREE.TorusGeometry(0.6, 0.06, 8, 24, Math.PI),
+    new THREE.MeshStandardMaterial({ color: 0xccd4dc, metalness: 0.5, roughness: 0.35 }));
   mouth.rotation.z = Math.PI; mouth.rotation.y = Math.PI / 2;
-  mouth.position.set(0.18, 2.7, 0); face.add(mouth);
-  // rosy cheeks
-  face.add(sphere(0.24, 0xff9bb0, 0.2, 3.0, -1.2));
-  face.add(sphere(0.24, 0xff9bb0, 0.2, 3.0, 1.2));
+  mouth.scale.set(1.25, 0.7, 1);
+  mouth.position.set(3.72, 2.62, 0); face.add(mouth);
 
-  // headlights
-  body.add(sphere(0.3, 0xfff2a8, 3.58, 1.7, -1.2));
-  body.add(sphere(0.3, 0xfff2a8, 3.58, 1.7, 1.2));
+  // amber turn-signal lights, low on the front (like the reference)
+  for (const z of [-1.3, 1.3]) {
+    const hl = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 12),
+      new THREE.MeshStandardMaterial({ color: 0xffb24d, emissive: 0xff9a1f, emissiveIntensity: 0.5 }));
+    hl.position.set(3.55, 2.1, z); hl.scale.set(0.45, 0.9, 1); body.add(hl);
+  }
+  // black bumper across the front bottom
+  body.add(rbox(0.55, 0.85, 3.5, 0.22, 0x202329, 3.4, 1.45, 0));
 
-  // roof route sign
-  const sign = box(2.6, 0.7, 0.2, WHITE, 0.4, 6.3, 1.55);
-  body.add(sign);
+  // route sign on the windshield: "120" + three little lights (Tayo style)
+  body.add(frontSign(3.72, 4.45, 0));
+  // "120" on each side
+  body.add(sideNumber(-0.6, 3.0, 1.77, 0));
+  body.add(sideNumber(-0.6, 3.0, -1.77, Math.PI));
 
-  // wheels
+  // ---- wheels (fat tyre + hubcap + bolts) ----
   const wheels = [];
-  const wheelPos = [[2.3, -1.55], [2.3, 1.55], [-2.3, -1.55], [-2.3, 1.55]];
+  const wheelPos = [[2.35, -1.6], [2.35, 1.6], [-2.35, -1.6], [-2.35, 1.6]];
   for (const [x, z] of wheelPos) {
-    const w = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 0.7, 16),
-      new THREE.MeshStandardMaterial({ color: 0x1a1a1f }));
-    w.rotation.x = Math.PI / 2; w.position.set(x, 1.0, z); w.castShadow = true;
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.74, 10),
-      new THREE.MeshStandardMaterial({ color: 0xcfd6dd }));
-    hub.rotation.x = Math.PI / 2; w.add(hub);
-    const holder = new THREE.Group(); holder.position.copy(w.position);
-    w.position.set(0, 0, 0); holder.add(w);
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.05, 0.85, 20),
+      new THREE.MeshStandardMaterial({ color: 0x1b1b20, roughness: 0.9 }));
+    w.rotation.x = Math.PI / 2;
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.9, 14),
+      new THREE.MeshStandardMaterial({ color: 0xdfe6ee, metalness: 0.4, roughness: 0.4 }));
+    cap.rotation.x = Math.PI / 2; w.add(cap);
+    for (let b = 0; b < 5; b++) {
+      const a = b / 5 * Math.PI * 2;
+      const bolt = sphere(0.07, 0x9aa3ad, 0, 0, 0);
+      bolt.position.set(Math.cos(a) * 0.3, Math.sin(a) * 0.3, 0.46); w.add(bolt);
+    }
+    const holder = new THREE.Group(); holder.position.set(x, 1.05, z); holder.add(w);
     body.add(holder);
     wheels.push({ holder, spin: w, front: x > 0 });
   }
 
-  // door (right side) that slides up to open
-  const door = box(0.2, 2.6, 2.2, 0x16314a, 3.0, 2.3, 1.85);
+  // passenger door (right side) that slides up to open
+  const door = rbox(1.7, 2.5, 0.2, 0.18, NAVY, 2.7, 2.45, 1.76);
   body.add(door);
 
-  main.castShadow = true; body.children.forEach(c => { c.castShadow = true; });
-  return { group: g, wheels, door, face: { eyeWhiteL, eyeWhiteR, pupilL, pupilR, lidL, lidR, mouth } };
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return {
+    group: g, wheels, door,
+    face: { eyeWhiteL: L.white, eyeWhiteR: R.white, pupilL: L.pupil, pupilR: R.pupil, lidL: L.lid, lidR: R.lid, mouth },
+  };
 }
 
-function box(w, h, d, color, x, y, z) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d),
-    new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.05 }));
-  m.position.set(x, y, z); return m;
+function rbox(w, h, d, r, color, x, y, z) {
+  const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, r),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.05 }));
+  m.position.set(x, y, z || 0); return m;
 }
 function sphere(r, color, x, y, z) {
   const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12),
     new THREE.MeshStandardMaterial({ color, roughness: 0.5 }));
   m.position.set(x, y, z); return m;
+}
+// The destination roller sign on the windshield: a black "120" panel and
+// three round indicator lights, drawn on a canvas and faced forward (+X).
+function frontSign(x, y, z) {
+  const c = document.createElement('canvas'); c.width = 480; c.height = 100;
+  const g = c.getContext('2d');
+  g.fillStyle = '#f6f3ea'; g.fillRect(0, 0, 480, 100);
+  // black "120" box
+  g.fillStyle = '#161616'; roundRect(g, 8, 14, 196, 72, 12); g.fill();
+  g.fillStyle = '#ffffff'; g.font = 'bold 62px sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('120', 106, 52);
+  // three lights
+  const cols = ['#efe2bd', '#6ec6f0', '#efe2bd'];
+  cols.forEach((col, i) => {
+    g.fillStyle = col; g.beginPath();
+    g.arc(268 + i * 78, 50, 30, 0, 7); g.fill();
+    g.strokeStyle = '#cabf9a'; g.lineWidth = 3; g.stroke();
+  });
+  const tex = new THREE.CanvasTexture(c);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 0.52),
+    new THREE.MeshStandardMaterial({ map: tex }));
+  m.rotation.y = Math.PI / 2; m.position.set(x, y, z); return m;
+}
+
+function sideNumber(x, y, z, rot) {
+  const c = document.createElement('canvas'); c.width = 200; c.height = 120;
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, 200, 120);
+  g.fillStyle = '#16314a'; g.font = 'bold 86px sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('120', 100, 64);
+  const tex = new THREE.CanvasTexture(c);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.9),
+    new THREE.MeshStandardMaterial({ map: tex, transparent: true }));
+  m.rotation.y = rot; m.position.set(x, y, z); return m;
+}
+
+function roundRect(g, x, y, w, h, r) {
+  g.beginPath();
+  g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r); g.closePath();
 }
 
 export class Bus {
@@ -158,18 +223,19 @@ export class Bus {
       if (this.blinkT < 0) { this.blink = 1; this.blinkT = 2.5 + Math.random() * 3.5; }
       if (this.blink > 0) this.blink -= dt * 6;
       const lid = Math.max(0, Math.min(1, this.blink));
-      this.face.lidL.scale.y = 0.01 + lid * 1;
-      this.face.lidR.scale.y = 0.01 + lid * 1;
-      this.face.lidL.position.y = 4.5 - lid * 0.6;
-      this.face.lidR.position.y = 4.5 - lid * 0.6;
+      const o = this.face.lidL.userData.openY, c = this.face.lidL.userData.closeY;
+      this.face.lidL.scale.y = 0.02 + lid;
+      this.face.lidR.scale.y = 0.02 + lid;
+      this.face.lidL.position.y = o + (c - o) * lid;
+      this.face.lidR.position.y = o + (c - o) * lid;
     }
   }
 
   setExpression(kind) {
-    const m = this.face.mouth;
-    if (kind === 'surprised') { m.scale.set(0.8, 1.4, 0.8); m.rotation.z = 0; }
-    else if (kind === 'happy') { m.scale.set(1.2, 1, 1); m.rotation.z = Math.PI; }
-    else { m.scale.set(1, 1, 1); m.rotation.z = Math.PI; }
+    const m = this.face.mouth;   // base smile is wide + shallow: keep that shape
+    if (kind === 'surprised') { m.scale.set(0.9, 1.2, 1); m.rotation.z = 0; }
+    else if (kind === 'happy') { m.scale.set(1.45, 0.85, 1); m.rotation.z = Math.PI; }
+    else { m.scale.set(1.3, 0.7, 1); m.rotation.z = Math.PI; }
   }
 
   setDoor(open) { this._doorTarget = open ? 1 : 0; }
