@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Passenger",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["id", "nameId", "homePlace", "color", "modelRef"],
+    "properties": {
+      "id": { "type": "string" },
+      "nameId": { "type": "string", "description": "bilingual string id" },
+      "homePlace": { "type": "string", "description": "Place.id" },
+      "color": { "type": "string", "pattern": "^#?[0-9a-fA-F]{6}$" },
+      "modelRef": { "type": "string", "description": "model id; placeholder fallback if absent" },
+      "lineIds": { "type": "array", "items": { "type": "string" } }
+    },
+    "additionalProperties": false
+  }
+}

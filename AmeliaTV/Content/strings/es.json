@@ -1,0 +1,37 @@
+{
+  "ui.play": "Jugar",
+  "ui.back": "Atrás",
+  "ui.letsGo": "¡Vamos!",
+  "ui.go": "VAMOS",
+  "ui.stop": "ALTO",
+  "lang.choose": "Elige un idioma",
+
+  "place.garage": "el taller",
+  "place.park": "el parque",
+  "place.school": "la escuela",
+  "place.market": "el mercado",
+  "place.beach": "la playa",
+  "place.stopA": "la parada",
+
+  "passenger.pip": "Pip",
+  "passenger.lola": "Lola",
+  "passenger.tomas": "Tomás",
+  "passenger.mia": "Mía",
+
+  "pip.hello": "¡Hola Amelia! ¿Me llevas al parque?",
+  "pip.thanks": "¡Gracias, Amelia! ¡Hasta pronto!",
+
+  "m.dawn": "¡Buenos días, Amelia! Es tu primer día. ",
+  "m.goStop": "Vamos a recoger a un amigo. Sigue la flecha hasta la parada.",
+  "m.pickup": "Detente en la parada y abre las puertas.",
+  "m.dropoffHint": "Ahora llevemos a Pip al parque. ¡Cuidado con los semáforos!",
+  "m.chooseRight": "¡Gira a la derecha para llegar al parque!",
+  "m.home": "¡Buen trabajo! Regresa a casa, al taller.",
+
+  "light.redStop": "Rojo. Alto, espera aquí.",
+  "light.greenGo": "¡Verde! Ya podemos ir.",
+  "light.goodStop": "¡Muy bien! Te paraste en el rojo. ",
+
+  "episode.firstDay.title": "El Primer Día",
+  "reward.complete": "¡Lo lograste! Mamá te da un gran abrazo. "
+}

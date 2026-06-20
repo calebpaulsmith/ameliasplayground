@@ -1,0 +1,46 @@
+# XcodeGen spec for the native tvOS app.
+#
+# We use XcodeGen (instead of committing a hand-maintained .xcodeproj) so the
+# project definition is a small, diff-friendly YAML file — which fits the
+# AI-authored / human-reviewed GitHub PR workflow (docs/tvos/TECHNICAL_ARCHITECTURE.md).
+# CI runs `xcodegen generate` before building. Generate locally the same way:
+#   brew install xcodegen && cd AmeliaTV && xcodegen generate && open AmeliaTV.xcodeproj
+name: AmeliaTV
+options:
+  bundleIdPrefix: com.ameliasplayground
+  deploymentTarget:
+    tvOS: "26.0"
+  createIntermediateGroups: true
+
+packages:
+  AmeliaCore:
+    # The local Swift package in this same directory (Package.swift).
+    path: .
+
+targets:
+  AmeliaTV:
+    type: application
+    platform: tvOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: App
+      - path: Content
+        type: folder        # folder reference: whole tree copied into the bundle
+        buildPhase: resources
+    dependencies:
+      - package: AmeliaCore
+        product: AmeliaCore
+    scheme:
+      testTargets: []
+    settings:
+      base:
+        TARGETED_DEVICE_FAMILY: "3"        # tvOS
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: "YES"
+        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "0.1.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        INFOPLIST_KEY_CFBundleDisplayName: "Amelia"
+        INFOPLIST_KEY_GCSupportsControllerUserInteraction: "YES"
+        # No signing for normal CI; the protected release workflow handles it.
+        CODE_SIGNING_ALLOWED: "NO"

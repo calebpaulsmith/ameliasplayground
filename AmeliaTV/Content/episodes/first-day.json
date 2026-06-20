@@ -1,0 +1,18 @@
+{
+  "id": "first-day",
+  "titleId": "episode.firstDay.title",
+  "neighborhood": "home-block",
+  "beats": [
+    { "type": "say", "lineId": "m.dawn" },
+    { "type": "say", "lineId": "m.goStop" },
+    { "type": "driveTo", "placeId": "stopA", "arriveLineId": "m.pickup" },
+    { "type": "pickup", "passengerId": "pip", "atStop": "stopA" },
+    { "type": "say", "lineId": "m.dropoffHint" },
+    { "type": "lightStop", "lightId": "light1" },
+    { "type": "choice", "promptLineId": "m.chooseRight", "correct": "right" },
+    { "type": "driveTo", "placeId": "park", "arriveLineId": null },
+    { "type": "dropoff", "passengerId": "pip", "placeId": "park" },
+    { "type": "driveTo", "placeId": "garage", "arriveLineId": "m.home" },
+    { "type": "reward", "stars": 3, "stickerId": "first-day" }
+  ]
+}

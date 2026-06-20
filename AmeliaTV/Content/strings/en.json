@@ -1,0 +1,37 @@
+{
+  "ui.play": "Play",
+  "ui.back": "Back",
+  "ui.letsGo": "Let's go!",
+  "ui.go": "GO",
+  "ui.stop": "STOP",
+  "lang.choose": "Choose a language",
+
+  "place.garage": "the garage",
+  "place.park": "the park",
+  "place.school": "the school",
+  "place.market": "the market",
+  "place.beach": "the beach",
+  "place.stopA": "the bus stop",
+
+  "passenger.pip": "Pip",
+  "passenger.lola": "Lola",
+  "passenger.tomas": "Tomas",
+  "passenger.mia": "Mia",
+
+  "pip.hello": "Hi Amelia! Can you take me to the park?",
+  "pip.thanks": "Thank you, Amelia! See you soon!",
+
+  "m.dawn": "Good morning, Amelia! Time for your first day. ",
+  "m.goStop": "Let's pick up a friend. Follow the arrow to the bus stop.",
+  "m.pickup": "Stop at the bus stop and open the doors.",
+  "m.dropoffHint": "Now let's take Pip to the park. Mind the traffic lights!",
+  "m.chooseRight": "Turn right to reach the park!",
+  "m.home": "Great work! Head back home to the garage.",
+
+  "light.redStop": "Red light. Stop and wait here.",
+  "light.greenGo": "Green light! Now we can go.",
+  "light.goodStop": "Great job stopping at the red light! ",
+
+  "episode.firstDay.title": "First Day Driving",
+  "reward.complete": "You did it! Mom gives you a big hug. "
+}
