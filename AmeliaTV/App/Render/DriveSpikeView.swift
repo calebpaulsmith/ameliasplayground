@@ -20,7 +20,8 @@ struct DriveSpikeView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             RealityView { content in
-                engine.install(into: content)
+                // Let RealityView infer its content type; we only add the root.
+                content.add(engine.makeRoot())
             }
             .ignoresSafeArea()
 
@@ -64,7 +65,8 @@ final class SpikeEngine: ObservableObject {
 
     var assistDescription: String { core.assistLevel.rawValue }
 
-    func install(into content: RealityViewContent) {
+    /// Builds (once) and returns the scene root for the RealityView to add.
+    func makeRoot() -> Entity {
         // Ground.
         let ground = ModelLibrary.ground(size: 60, color: .init(red: 0.46, green: 0.78, blue: 0.42, alpha: 1))
         ground.position = [0, 0, 0]
@@ -91,8 +93,8 @@ final class SpikeEngine: ObservableObject {
         camera = cam
         root.addChild(camera)
 
-        content.add(root)
         positionCamera()
+        return root
     }
 
     func start(language: Language) {
