@@ -14,6 +14,7 @@ public enum ContentLoader {
     ///   strings/en.json, strings/es.json   (id -> text)
     ///   places.json                         ([Place])
     ///   passengers.json                     ([Passenger])
+    ///   vehicles.json                       ([Vehicle], optional)
     ///   episodes/*.json                     (Episode each)
     public static func load(from directory: URL) throws -> GameContent {
         let fm = FileManager.default
@@ -38,6 +39,16 @@ public enum ContentLoader {
                                               name: "places.json", decoder: decoder)
         let passengers: [Passenger] = try decodeArray(at: directory.appendingPathComponent("passengers.json"),
                                                       name: "passengers.json", decoder: decoder)
+
+        // Vehicles are optional (the Rescue Team is set dressing / future cast).
+        var vehicles: [Vehicle] = []
+        let vehiclesURL = directory.appendingPathComponent("vehicles.json")
+        if let data = try? Data(contentsOf: vehiclesURL) {
+            guard let decoded = try? decoder.decode([Vehicle].self, from: data) else {
+                throw LoadError.decodeFailed("vehicles.json")
+            }
+            vehicles = decoded
+        }
 
         // Lights are optional (an episode may not use a traffic light).
         var lights: [Light] = []
@@ -67,7 +78,8 @@ public enum ContentLoader {
         }
 
         return GameContent(strings: strings, places: places,
-                           passengers: passengers, lights: lights, episodes: episodes)
+                           passengers: passengers, vehicles: vehicles,
+                           lights: lights, episodes: episodes)
     }
 
     private static func decodeArray<T: Decodable>(at url: URL, name: String,

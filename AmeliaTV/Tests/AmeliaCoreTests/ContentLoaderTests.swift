@@ -31,6 +31,26 @@ final class ContentLoaderTests: XCTestCase {
         }
     }
 
+    func testVehiclesLoadAndResolve() throws {
+        let content = try ContentLoader.load(from: contentDir)
+        XCTAssertFalse(content.vehicles.isEmpty, "expected the Rescue Team vehicles to load")
+
+        let placeIds = Set(content.places.map(\.id))
+        let loc = content.localizer
+        let knownRoles: Set<String> = ["fire", "tow", "ambulance", "helicopter", "car"]
+        for v in content.vehicles {
+            XCTAssertTrue(placeIds.contains(v.homePlace),
+                          "vehicle \(v.id) references unknown place \(v.homePlace)")
+            XCTAssertTrue(knownRoles.contains(v.role), "vehicle \(v.id) has unknown role \(v.role)")
+            XCTAssertTrue(loc.hasTranslation(v.nameId, .en) && loc.hasTranslation(v.nameId, .es),
+                          "vehicle \(v.id) name \(v.nameId) is not bilingual")
+            for line in v.lineIds ?? [] {
+                XCTAssertTrue(loc.hasTranslation(line, .en) && loc.hasTranslation(line, .es),
+                              "vehicle \(v.id) line \(line) is not bilingual")
+            }
+        }
+    }
+
     func testEveryStringIsBilingual() throws {
         let content = try ContentLoader.load(from: contentDir)
         let loc = content.localizer

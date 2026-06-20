@@ -1,0 +1,6 @@
+[
+  { "id": "pim",   "nameId": "vehicle.pim",   "role": "fire",       "color": "#e5443b", "modelRef": "veh_fire",  "homePlace": "garage", "lineIds": ["pim.hi"] },
+  { "id": "hux",   "nameId": "vehicle.hux",   "role": "tow",        "color": "#3fa64a", "modelRef": "veh_tow",   "homePlace": "garage", "lineIds": ["hux.hi"] },
+  { "id": "bea",   "nameId": "vehicle.bea",   "role": "ambulance",  "color": "#eef1f6", "modelRef": "veh_amb",   "homePlace": "school", "lineIds": ["bea.hi"] },
+  { "id": "skip",  "nameId": "vehicle.skip",  "role": "helicopter", "color": "#ffce3a", "modelRef": "veh_heli",  "homePlace": "beach",  "lineIds": ["skip.hi"] }
+]
