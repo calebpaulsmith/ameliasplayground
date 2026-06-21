@@ -3,6 +3,9 @@ import AmeliaCore
 
 #if canImport(RealityKit)
 import RealityKit
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Phase 2 playable view: runs the "First Day" episode through `GameSession` and
 /// renders it with RealityKit — a placeholder bus auto-drives the route, speaks
@@ -60,6 +63,7 @@ final class SpikeEngine: ObservableObject {
 
     private let root = Entity()
     private var bus = Entity()
+    private var face: FaceRig?            // Amelia's eyes, for blink + look-at
     private var camera = Entity()
     private var beacon = Entity()
     private var neighborhood: NeighborhoodScene?
@@ -83,6 +87,20 @@ final class SpikeEngine: ObservableObject {
     // Lets the fork choice be made without a controller (e.g. on iPad).
     private var pendingTouchTurn: InputIntents.DiscreteTurn = .none
 
+    // --- Character Life: Amelia's expressive state (GAME_DESIGN.md §4a). ---
+    // Springs/eased values driven each frame; springs give the playful "boing".
+    private var lean = 0.0                          // roll into turns
+    private var squash = Spring(stiffness: 220, damping: 16)   // squash on a stop
+    private var hop = Spring(stiffness: 200, damping: 14)      // bounce on pickup/honk
+    private var lookX = 0.0, lookY = 0.0            // eased pupil gaze
+    private var wiggle = 0.0                        // honk happy-wiggle
+    private var nextBlink = 1.5
+    private var blinkUntil = -1.0
+    private var prevSpeed = 0.0
+    private var prevPassengerId: String?
+    private var prevDrivePrompt: GameSession.DrivePrompt = .go
+    private var reduceMotion = false                // tvOS "Reduce Motion" accessibility
+
     /// Called by the HUD's on-screen LEFT/RIGHT buttons.
     func chooseTurn(_ turn: InputIntents.DiscreteTurn) { pendingTouchTurn = turn }
 
@@ -90,7 +108,9 @@ final class SpikeEngine: ObservableObject {
     private let scale: Float = 0.12
 
     func makeRoot() -> Entity {
-        bus = ModelLibrary.busEntity(placeholderColor: .init(red: 0.23, green: 0.63, blue: 1.0, alpha: 1))
+        let rig = ModelLibrary.busRig(placeholderColor: .init(red: 0.23, green: 0.63, blue: 1.0, alpha: 1))
+        bus = rig.root
+        face = rig.face
         bus.position = [0, 0.55, 0]
         root.addChild(bus)
 
@@ -132,6 +152,9 @@ final class SpikeEngine: ObservableObject {
         self.game = game
         self.places = session.content.places
         self.spokeReward = false
+        #if canImport(UIKit)
+        reduceMotion = UIAccessibility.isReduceMotionEnabled
+        #endif
 
         // Build the data-driven neighborhood now that content is available, and
         // insert it beneath the already-rendered bus/beacon/camera.
@@ -177,9 +200,19 @@ final class SpikeEngine: ObservableObject {
             game.dialogue.play("reward.complete", force: true)
         }
 
+        // Give Amelia life: blink, look around, lean into turns, squash on stops,
+        // breathe when idle, hop on pickup, wiggle on a honk (GAME_DESIGN.md §4a).
+        updateBusLife(game: game, honk: intents.honkPressed, dt: dt)
+
         let p = game.bus.position
-        bus.position = [Float(p.x) * scale, 0.55, Float(p.z) * scale]
-        bus.orientation = simd_quatf(angle: Float(-game.bus.heading), axis: [0, 1, 0])
+        bus.position = [Float(p.x) * scale, 0.55 + Float(hop.value), Float(p.z) * scale]
+        let yaw = simd_quatf(angle: Float(-game.bus.heading), axis: [0, 1, 0])
+        let leanRoll = simd_quatf(angle: Float(lean), axis: [1, 0, 0])   // tilt into the turn
+        let honkWiggle = simd_quatf(angle: Float(wiggle), axis: [0, 1, 0])
+        bus.orientation = yaw * leanRoll * honkWiggle
+        let wide = Float(1 + squash.value * 0.5)
+        let tall = Float(max(0.5, 1 - squash.value))
+        bus.scale = [wide, tall, wide]
 
         // Engine hum rises and falls with how fast Amelia is rolling.
         audio.setEngineIntensity(abs(game.bus.speed) / game.core.assistLevel.maxSpeed)
@@ -191,6 +224,80 @@ final class SpikeEngine: ObservableObject {
         neighborhood?.updateLights(states)
         positionCamera()
         publishHUD(game)
+    }
+
+    /// Drives Amelia's personality each frame from Core state — eased values and
+    /// springs so motion overshoots and settles instead of snapping. All gated by
+    /// Reduce Motion; the Core is untouched (this only reads its state).
+    private func updateBusLife(game: GameSession, honk: Bool, dt: Double) {
+        let maxSpeed = max(0.001, game.core.assistLevel.maxSpeed)
+        let speed = abs(game.bus.speed)
+        let moving = min(1.0, speed / maxSpeed)
+
+        // Lean into the current turn, only while actually rolling.
+        var leanTarget = 0.0
+        switch game.currentTurnCue {
+        case .left:  leanTarget = -0.16 * moving
+        case .right: leanTarget =  0.16 * moving
+        default:     leanTarget = 0
+        }
+        lean = Easing.smoothed(lean, toward: reduceMotion ? 0 : leanTarget, rate: 5, dt: dt)
+
+        // Squash when she slows hard / stops at a light; the spring bounces it back.
+        if !reduceMotion {
+            if prevDrivePrompt != .stop && game.drivePrompt == .stop {
+                squash.nudge(3.0)
+            } else {
+                let decel = (prevSpeed - speed) / dt
+                if decel > 30 { squash.nudge(min(decel, 120) * 0.02) }
+            }
+        }
+        squash.step(toward: 0, dt: dt)
+
+        // Breathe gently when parked; bounce on a fresh pickup or a honk.
+        let bob = (!reduceMotion && speed < 1.0) ? 0.03 * sin(elapsed * 2.0) : 0.0
+        if game.currentPassengerId != nil && prevPassengerId == nil && !reduceMotion {
+            hop.nudge(3.5)
+        }
+        if honk && !reduceMotion { wiggle = 0.22; hop.nudge(1.5) }
+        hop.step(toward: bob, dt: dt)
+        wiggle = Easing.smoothed(wiggle, toward: 0, rate: 8, dt: dt)
+
+        updateFace(game: game, dt: dt)
+
+        prevSpeed = speed
+        prevPassengerId = game.currentPassengerId
+        prevDrivePrompt = game.drivePrompt
+    }
+
+    /// Blinks on a natural rhythm and eases the pupils toward whatever Amelia is
+    /// heading for, so her eyes feel attentive rather than glassy.
+    private func updateFace(game: GameSession, dt: Double) {
+        guard let face else { return }
+
+        if elapsed >= nextBlink {
+            blinkUntil = elapsed + 0.12
+            nextBlink = elapsed + Double.random(in: 2.2...5.0)
+        }
+        let blinking = elapsed < blinkUntil
+        let eyeY: Float = blinking ? 0.12 : 1.0
+        for eye in face.eyes { eye.scale = [1, eyeY, 1] }
+
+        // Glance toward the current destination (bus faces +x; z is its left/right).
+        var lateral = 0.0
+        if !reduceMotion, let target = game.currentTarget {
+            let dx = target.position.x - game.bus.position.x
+            let dz = target.position.z - game.bus.position.z
+            let bearing = atan2(dz, dx) - game.bus.heading
+            lateral = max(-1.0, min(1.0, sin(bearing)))
+        }
+        lookX = Easing.smoothed(lookX, toward: lateral, rate: 6, dt: dt)
+        lookY = Easing.smoothed(lookY, toward: 0, rate: 6, dt: dt)
+        let amp: Float = 0.05
+        for (i, pupil) in face.pupils.enumerated() {
+            let rest = face.pupilRest[i]
+            pupil.position = [rest.x, rest.y + Float(lookY) * amp, rest.z + Float(lookX) * amp]
+        }
     }
 
     /// Places the ambient NPC friends at their home places, and the episode's

@@ -208,6 +208,53 @@
 
 ---
 
+## Character Life & Charm (Pixar feel — render-only, runs alongside Phase 2/3)
+
+Procedural personality over placeholder geometry; no Core/gameplay change (see
+`GAME_DESIGN.md` §4a). Smallest-first, one PR each. Art-free, so it ships now and
+swaps to USDZ later by id. All Reduce-Motion aware; original-IP (D-IP-1).
+
+### CL-01 — Amelia comes alive (the bus)
+- **Milestone:** now · **Priority:** P1
+- **Outcome:** the bus blinks, looks toward her destination, squashes on stops,
+  leans into turns, breathes when idle, hops on pickup, wiggles on a honk.
+- **Acceptance:** a `FaceRig` makes the eyes addressable; a pure `Easing`/`Spring`
+  util lives in the Core with unit tests (CI green); motion eases/overshoots (not
+  linear); honors Reduce Motion; Core untouched.
+- **Dependencies:** A2-08/A2-09 (scene + bus). **Complexity:** M · **AI-suitable:**
+  Yes · **Human review:** Yes (Simulator: does she feel alive?)
+
+### CL-02 — The neighborhood is alive (NPCs/passengers)
+- **Milestone:** next · **Priority:** P1
+- **Outcome:** NPCs/passengers idle-bob, blink, turn to watch the bus, wave, hop
+  when boarded; reuse the `FaceRig` for `character()`.
+- **Acceptance:** ambient + the episode rider all show life; no Core change.
+- **Dependencies:** CL-01. **Complexity:** M · **AI-suitable:** Yes
+
+### CL-03 — The world reacts (honk-reacts + props)
+- **Milestone:** next · **Priority:** P1
+- **Outcome:** honk → friends wave, ducks/birds scatter, props boing; landmarks
+  animate (flag flutter, lighthouse beam, sign spin). Completes the Agency-pass
+  "world reacts" verb (`MODES_AND_DIRECTION.md`).
+- **Acceptance:** honk read from `InputIntents.honkPressed` in the render loop; no
+  Core change. **Dependencies:** CL-01. **Complexity:** M · **AI-suitable:** Yes
+
+### CL-04 — Juice (particles & feedback)
+- **Milestone:** later · **Priority:** P2
+- **Outcome:** wheel dust puffs, star bursts, hearts, gentle camera bounce on
+  honk/pickup, confetti into the reward screen.
+- **Acceptance:** lightweight, within the perf budget (R-PERF-1); Reduce-Motion
+  aware. **Dependencies:** CL-01. **Complexity:** M · **AI-suitable:** Yes
+
+### CL-05 — Cozy world mood (day/dusk/night + weather)
+- **Milestone:** later · **Priority:** P2
+- **Outcome:** a day→dusk→night lighting/material wash (headlights, glowing
+  windows, stars) + soft weather (puddle splashes); ties to §16.
+- **Acceptance:** cheap lighting/material tweaks; no gameplay impact.
+- **Dependencies:** A2-08. **Complexity:** M · **AI-suitable:** Yes
+
+---
+
 ## Phase 3 — First complete episode
 
 ### E3-01 — Author a second episode as data

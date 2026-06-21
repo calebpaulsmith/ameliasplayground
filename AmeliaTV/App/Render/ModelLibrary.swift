@@ -11,6 +11,15 @@ import AppKit
 typealias PlatformColor = NSColor
 #endif
 
+/// Addressable face parts of a character so the engine can give it life: blink
+/// (squash the eyes), and look (offset the pupils from their neutral position).
+/// Built once with the entity and animated each frame (GAME_DESIGN.md §4a).
+struct FaceRig {
+    let eyes: [ModelEntity]            // the white sclera spheres
+    let pupils: [ModelEntity]          // the dark pupils
+    let pupilRest: [SIMD3<Float>]      // each pupil's neutral local position
+}
+
 /// Resolves a model **id** to a RealityKit `Entity`, loading a USDZ from the app
 /// bundle when present and otherwise returning a primitive placeholder. This is
 /// the swap-without-code-changes guarantee from docs/tvos/ (F1-06): gameplay
@@ -37,16 +46,32 @@ enum ModelLibrary {
     /// "friendly vehicle" genre look in original geometry (D-IP-1). Resolves a
     /// `bus.usdz` if present, else a coloured placeholder box.
     static func busEntity(placeholderColor: PlatformColor) -> Entity {
+        busRig(placeholderColor: placeholderColor).root
+    }
+
+    /// Like `busEntity`, but also returns a `FaceRig` so the engine can blink and
+    /// look around (Character Life pass — docs/tvos/GAME_DESIGN.md §4a). The eyes
+    /// are kept addressable instead of anonymous children.
+    static func busRig(placeholderColor: PlatformColor) -> (root: Entity, face: FaceRig) {
         let bus = entity(id: "bus", placeholderColor: placeholderColor, size: [1.6, 1.1, 0.9])
+        var eyes: [ModelEntity] = []
+        var pupils: [ModelEntity] = []
+        var rest: [SIMD3<Float>] = []
         for z in [Float(-0.24), 0.24] {
             let white = sphere(radius: 0.17, color: .white)
             white.position = [0.78, 0.18, z]
+            white.name = "eye"
             bus.addChild(white)
+            eyes.append(white)
             let pupil = sphere(radius: 0.075, color: PlatformColor(red: 0.1, green: 0.12, blue: 0.16, alpha: 1))
-            pupil.position = [0.9, 0.18, z]
+            let p: SIMD3<Float> = [0.9, 0.18, z]
+            pupil.position = p
+            pupil.name = "pupil"
             bus.addChild(pupil)
+            pupils.append(pupil)
+            rest.append(p)
         }
-        return bus
+        return (bus, FaceRig(eyes: eyes, pupils: pupils, pupilRest: rest))
     }
 
     static func ground(size: Float, color: PlatformColor) -> ModelEntity {

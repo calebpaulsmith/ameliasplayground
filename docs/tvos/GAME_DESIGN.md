@@ -128,6 +128,43 @@ Planned launch episodes (themes, not all in the slice):
   familiarity ("Hi Amelia, it's me again!").
 - A friends/collection screen (later) tracks who you've met.
 
+### 4a. Character Life & Charm (Pixar feel — "personality, not robots")
+
+The thing that makes kids **fall in love with the world**: everything has
+personality, the world *reacts* to the child, and every action has juice. This is
+a **render-layer** workstream — procedural animation over today's placeholder
+geometry, swappable to USDZ later by id — and needs **no Core/gameplay change**
+(it only observes existing `GameSession` state). It deepens the "Warm characters"
+pillar (`PRODUCT_VISION.md`) and the Agency pass (`MODES_AND_DIRECTION.md`).
+
+**Principles (the Pixar lens):**
+- **Everything is a character** — the bus, houses, the traffic light, the mailbox
+  have eyes/moods; nothing is inert set-dressing.
+- **Anticipation → action → reaction** — wind-up before a honk, overshoot-and-settle
+  after. Robots snap; characters **squash & stretch** (springs, never linear).
+- **The world notices the child** — drive past and a friend waves, a duck scurries,
+  flowers turn to look. Cause → delightful effect, every time.
+- **Warmth over challenge** — the hook is *love* (cozy ritual, surprise, friends who
+  are happy to see you), never loss. No dark patterns; honor **Reduce Motion**.
+
+**Per-element checklist (built smallest-first, one PR each):**
+1. **Amelia comes alive** *(built first)* — blink, eyes that look toward her
+   destination/passenger, squash on stops, lean into turns, idle "breathing", a
+   honk wiggle, a happy hop on pickup. (Foundations: a `FaceRig` so eyes are
+   addressable; a pure `Easing`/`Spring` util in the Core, unit-tested.)
+2. **The neighborhood is alive** — NPCs/passengers idle-bob, blink, turn to watch
+   the bus, wave, hop when boarded.
+3. **The world reacts** — honk-reacts (friends wave, ducks/birds scatter, props
+   boing); landmarks animate (flag flutters, lighthouse beam sweeps).
+4. **Juice** — wheel dust puffs, star bursts, hearts, a gentle camera bounce on
+   honk/pickup, confetti into the reward screen.
+5. **Cozy world mood** — day→dusk→night lighting wash (headlights, glowing windows,
+   stars) + soft weather (puddle splashes).
+
+**Rules:** all data-/state-driven and original-IP (D-IP-1); cheap per-frame
+transforms within the performance budget (R-PERF-1); the Game Core stays GPU-free
+(animation is the renderer's job, one-way observing Core state).
+
 ### 5. Route & navigation system
 
 The "where do I go" system. Must be understandable without reading.

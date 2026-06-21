@@ -116,6 +116,10 @@ win‑slower," all Siri‑Remote‑friendly:
 - **A world that reacts** — NPCs wave, the bus's eyes blink/react, small
   surprises (a duck crossing → a natural STOP moment).
 
+> The personality/animation side of this — "make it Pixar, not robots" — is its
+> own smallest‑first workstream: **`GAME_DESIGN.md` §4a (Character Life & Charm)**
+> and backlog **CL‑01…CL‑05**. CL‑01 ("Amelia comes alive") is built first.
+
 ---
 
 ## Educational layer (a bus driving a town is a perfect teacher)
