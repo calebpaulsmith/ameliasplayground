@@ -15,6 +15,9 @@ public final class GameSession: EpisodeWorld {
     public let core: GameCore
     public private(set) var save: SaveSlot
     private let persist: ((SaveSlot) -> Void)?
+    /// Optional effects/music. Like the speaker, the app supplies a procedural
+    /// AVAudioEngine; tests pass a spy (or nil). Audio is never required for play.
+    private let sound: SoundPlayer?
 
     // World state
     private var graph: RouteGraph
@@ -92,10 +95,12 @@ public final class GameSession: EpisodeWorld {
 
     public init(content: GameContent, save: SaveSlot,
                 speaker: LineSpeaker? = nil,
+                sound: SoundPlayer? = nil,
                 persist: ((SaveSlot) -> Void)? = nil) {
         self.content = content
         self.save = save
         self.persist = persist
+        self.sound = sound
         self.core = GameCore(save: save)
         self.dialogue = DialogueDirector(localizer: content.localizer,
                                          language: save.language, speaker: speaker)
@@ -132,6 +137,8 @@ public final class GameSession: EpisodeWorld {
         core.assistLevel = save.assistLevel
         core.reset(to: start, heading: heading)
         dialogue.clear()
+        sound?.setMusic(.driving)
+        sound?.play(.horn)
         let r = EpisodeRunner(episode: episode, world: self) { [weak self] event in
             self?.handle(event)
         }
@@ -143,27 +150,48 @@ public final class GameSession: EpisodeWorld {
         switch event {
         case let .speak(lineId, vars):
             dialogue.play(lineId, vars: vars)
+            cue(forLine: lineId)
         case let .setTarget(target):
             currentTarget = target
             awaitingChoice = false
         case let .board(passengerId):
             currentPassengerId = passengerId
+            sound?.play(.doorOpen)
         case .drop:
             currentPassengerId = nil
+            sound?.play(.doorClose)
         case .awaitChoice:
             awaitingChoice = true
         case .starSparkle:
             sparkleCount += 1
             save.award(stars: 1)
+            sound?.play(.starSparkle)
         case let .reward(stars, stickerId):
             save.award(stars: stars)
-            if let s = stickerId { save.grant(sticker: s) }
+            sound?.play(.reward)
+            if let s = stickerId { save.grant(sticker: s); sound?.play(.rewardSticker) }
         case .completed:
             if let id = activeEpisodeId { save.markComplete(episode: id) }
             finished = true
             currentTarget = nil
             awaitingChoice = false
+            sound?.setMusic(.reward)
             persist?(save)
+        }
+    }
+
+    /// Maps a few spoken lines to a matching effect so the world chimes when a
+    /// light goes green / a stop is praised, and gives a soft non-punishing bump
+    /// when the child is nudged to try the other way at a fork. Other lines play
+    /// no effect (the voice carries them).
+    private func cue(forLine lineId: String) {
+        switch lineId {
+        case "light.greenGo", "light.goodStop":
+            sound?.play(.chime)
+        case "nav.tryOtherWay":
+            sound?.play(.bump)
+        default:
+            break
         }
     }
 
@@ -175,6 +203,9 @@ public final class GameSession: EpisodeWorld {
 
         // Latch a discrete turn for the episode runner (choices).
         if input.discreteTurn != .none { pendingTurn = input.discreteTurn }
+
+        // The child can honk for a friendly toot any time (edge-triggered input).
+        if input.honkPressed { sound?.play(.horn) }
 
         // Lights.
         for key in lights.keys { lights[key]?.update(dt: dt) }
