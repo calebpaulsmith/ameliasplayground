@@ -84,10 +84,13 @@ def build_and_upload(scheme:, bundle_id:, destination:, app_platform:, match_pla
     xcargs: [
       "CODE_SIGNING_ALLOWED=YES",
       "CODE_SIGN_STYLE=Manual",
-      "CODE_SIGN_IDENTITY=Apple Distribution",
+      # Values with spaces must be quoted — xcargs is a raw shell string, and
+      # an unquoted "Apple Distribution" / "match AppStore <id>" gets split into
+      # extra arguments ("Unknown build action 'Distribution'").
+      "CODE_SIGN_IDENTITY=\"Apple Distribution\"",
       "DEVELOPMENT_TEAM=#{ENV.fetch('APPLE_TEAM_ID')}",
       "PRODUCT_BUNDLE_IDENTIFIER=#{bundle_id}",
-      "PROVISIONING_PROFILE_SPECIFIER=#{profile_name}",
+      "PROVISIONING_PROFILE_SPECIFIER=\"#{profile_name}\"",
       "CURRENT_PROJECT_VERSION=#{build_number}"
     ].join(" "),
     export_options: {
