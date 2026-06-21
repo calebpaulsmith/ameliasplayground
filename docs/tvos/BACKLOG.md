@@ -242,6 +242,12 @@ swaps to USDZ later by id. All Reduce-Motion aware; original-IP (D-IP-1).
   "world reacts" verb (`MODES_AND_DIRECTION.md`).
 - **Acceptance:** honk read from `InputIntents.honkPressed` in the render loop; no
   Core change. **Dependencies:** CL-01. **Complexity:** M · **AI-suitable:** Yes
+- **Status:** done — `NeighborhoodScene.updateAmbient` drives continuous landmark
+  life (school flag flutter, a new lighthouse beam sweep, bus-stop sign spin,
+  fountain spray, grouped cloud drift). A small bird flock perches near the stops
+  and `NeighborhoodScene.honk(busPos:)` scatters the nearby ones (spring back to
+  perch). Friends/rider wave back enthusiastically + hop on a honk. Reduce-Motion
+  aware; Core untouched.
 
 ### CL-04 — Juice (particles & feedback)
 - **Milestone:** later · **Priority:** P2
