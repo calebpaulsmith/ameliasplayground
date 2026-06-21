@@ -27,6 +27,7 @@ struct DriveSpikeView: View {
             HUDView(model: engine.hud,
                     onTurnLeft: { engine.chooseTurn(.left) },
                     onTurnRight: { engine.chooseTurn(.right) },
+                    onFind: { engine.pickFind($0) },
                     onContinue: { dismiss() })
                 .environmentObject(session)
 
@@ -83,8 +84,14 @@ final class SpikeEngine: ObservableObject {
     // Lets the fork choice be made without a controller (e.g. on iPad).
     private var pendingTouchTurn: InputIntents.DiscreteTurn = .none
 
+    // A "spot it" answer picked from an on-screen card, applied on the next tick.
+    private var pendingFind: String?
+
     /// Called by the HUD's on-screen LEFT/RIGHT buttons.
     func chooseTurn(_ turn: InputIntents.DiscreteTurn) { pendingTouchTurn = turn }
+
+    /// Called by the HUD's "spot it" answer cards.
+    func pickFind(_ optionId: String) { pendingFind = optionId }
 
     /// Maps Game Core ground units to RealityKit meters for a couch-scale view.
     private let scale: Float = 0.12
@@ -169,6 +176,7 @@ final class SpikeEngine: ObservableObject {
             intents.discreteTurn = pendingTouchTurn
         }
         pendingTouchTurn = .none
+        if let f = pendingFind { game.answerFind(f); pendingFind = nil }
         game.tick(dt: dt, input: intents)
 
         // When the episode finishes, Mom praises the player once (reward screen).
@@ -278,6 +286,8 @@ final class SpikeEngine: ObservableObject {
         next.drivePrompt = game.drivePrompt
         next.destinationNameId = game.currentTargetNameId
         next.awaitingChoice = game.awaitingChoice
+        next.awaitingFind = game.awaitingFind
+        next.findOptions = game.findOptions
         next.finished = game.finished
         next.rewardStars = game.rewardPlan?.stars ?? game.sparkleCount
         next.rewardStickerId = game.rewardPlan?.stickerId

@@ -27,12 +27,15 @@ final class GameSessionTests: XCTestCase {
         session.start(episodeId: "first-day", at: Vec2.zero, heading: 0)
 
         var boardedPip = false
+        var sawSpotIt = false
         let dt = 1.0 / 60.0
         let maxSteps = 60 * 240   // 4 minutes of simulated time — generous budget
 
         var steps = 0
         while !session.finished && steps < maxSteps {
-            // The child "presses right" at the fork; harmless at other times.
+            // The child "presses right" at the fork and taps the correct answer at
+            // the "spot it" question; both are harmless at other times.
+            if session.awaitingFind { sawSpotIt = true; session.answerFind("red") }
             session.tick(dt: dt, input: InputIntents(discreteTurn: .right))
             if session.currentPassengerId == "pip" { boardedPip = true }
             steps += 1
@@ -40,6 +43,7 @@ final class GameSessionTests: XCTestCase {
 
         XCTAssertTrue(session.finished, "episode did not complete within the step budget")
         XCTAssertTrue(boardedPip, "passenger never boarded")
+        XCTAssertTrue(sawSpotIt, "the spot-it question never appeared")
         XCTAssertGreaterThanOrEqual(session.save.stars, 3, "reward stars not awarded")
         XCTAssertTrue(session.save.stickers.contains("first-day"), "sticker not granted")
         XCTAssertTrue(session.save.completedEpisodes.contains("first-day"), "episode not marked complete")
@@ -59,6 +63,7 @@ final class GameSessionTests: XCTestCase {
         let dt = 1.0 / 60.0
         var steps = 0
         while !session.finished && steps < 60 * 240 {
+            if session.awaitingFind { session.answerFind("red") }
             session.tick(dt: dt, input: InputIntents(discreteTurn: .right))
             switch session.drivePrompt {
             case .stop: sawStop = true
@@ -106,6 +111,7 @@ final class GameSessionTests: XCTestCase {
         let dt = 1.0 / 60.0
         var steps = 0
         while !session.finished && steps < 60 * 240 {
+            if session.awaitingFind { session.answerFind("red") }
             session.tick(dt: dt, input: InputIntents(discreteTurn: .right))
             steps += 1
         }
