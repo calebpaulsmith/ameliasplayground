@@ -54,6 +54,23 @@ public struct Vehicle: Codable, Equatable, Sendable {
 
 /// One step of an episode. Tagged union mirroring drive/missions.js beats,
 /// generalized for the native game (see GAME_DESIGN.md §2).
+/// One tappable answer in a `find` ("spot it!") beat. Presentation-light and
+/// data-driven: an optional colour swatch, an optional SF-Symbol icon, and an
+/// optional bilingual label — the renderer shows whatever is provided.
+public struct FindOption: Codable, Equatable, Sendable {
+    public var id: String
+    public var color: String?      // hex swatch, e.g. "#ff5e7a"
+    public var iconId: String?     // SF Symbol name, e.g. "car.fill"
+    public var labelId: String?    // bilingual string id for a caption
+
+    public init(id: String, color: String? = nil, iconId: String? = nil, labelId: String? = nil) {
+        self.id = id
+        self.color = color
+        self.iconId = iconId
+        self.labelId = labelId
+    }
+}
+
 public enum Beat: Codable, Equatable, Sendable {
     case say(lineId: String)
     case driveTo(placeId: String, arriveLineId: String?)
@@ -61,6 +78,10 @@ public enum Beat: Codable, Equatable, Sendable {
     case dropoff(passengerId: String, placeId: String)
     case lightStop(lightId: String)
     case choice(promptLineId: String, correct: Turn)
+    /// "Spot it!" — the voice names something and the child taps the matching
+    /// option. The first explicit *learning* beat (colors / counting / shapes).
+    /// No failure: a wrong tap is gently re-prompted, never punished.
+    case find(promptLineId: String, options: [FindOption], correctId: String)
     case cutscene(id: String)
     case reward(stars: Int, stickerId: String?)
 
@@ -70,6 +91,7 @@ public enum Beat: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case type, lineId, placeId, arriveLineId, passengerId, atStop
         case lightId, promptLineId, correct, id, stars, stickerId
+        case options, correctId
     }
 
     public init(from decoder: Decoder) throws {
@@ -99,6 +121,12 @@ public enum Beat: Codable, Equatable, Sendable {
             self = .choice(
                 promptLineId: try c.decode(String.self, forKey: .promptLineId),
                 correct: try c.decode(Turn.self, forKey: .correct)
+            )
+        case "find":
+            self = .find(
+                promptLineId: try c.decode(String.self, forKey: .promptLineId),
+                options: try c.decode([FindOption].self, forKey: .options),
+                correctId: try c.decode(String.self, forKey: .correctId)
             )
         case "cutscene":
             self = .cutscene(id: try c.decode(String.self, forKey: .id))
@@ -138,6 +166,11 @@ public enum Beat: Codable, Equatable, Sendable {
             try c.encode("choice", forKey: .type)
             try c.encode(promptLineId, forKey: .promptLineId)
             try c.encode(correct, forKey: .correct)
+        case let .find(promptLineId, options, correctId):
+            try c.encode("find", forKey: .type)
+            try c.encode(promptLineId, forKey: .promptLineId)
+            try c.encode(options, forKey: .options)
+            try c.encode(correctId, forKey: .correctId)
         case let .cutscene(id):
             try c.encode("cutscene", forKey: .type)
             try c.encode(id, forKey: .id)

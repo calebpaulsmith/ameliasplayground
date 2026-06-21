@@ -115,6 +115,7 @@ private final class MockWorld: EpisodeWorld {
     var lights: [String: Vec2]
     var lightStates: [String: TrafficLight.State] = [:]
     var queuedTurn: InputIntents.DiscreteTurn = .none
+    var queuedFindAnswer: String?
 
     init(places: [String: Vec2], lights: [String: Vec2] = [:]) {
         self.places = places
@@ -126,6 +127,10 @@ private final class MockWorld: EpisodeWorld {
     func consumeDiscreteTurn() -> InputIntents.DiscreteTurn {
         defer { queuedTurn = .none }
         return queuedTurn
+    }
+    func consumeFindAnswer() -> String? {
+        defer { queuedFindAnswer = nil }
+        return queuedFindAnswer
     }
 }
 
@@ -198,6 +203,46 @@ final class EpisodeRunnerTests: XCTestCase {
         world.busPosition = Vec2(88, 44); world.busSpeed = 0
         runner.update(dt: 1.0 / 60)
         XCTAssertTrue(events.contains(.reward(stars: 3, stickerId: "first-day")))
+        XCTAssertEqual(events.last, .completed)
+        XCTAssertTrue(runner.finished)
+    }
+
+    func testFindBeatRewardsCorrectAndForgivesWrong() {
+        var events: [EpisodeEvent] = []
+        let options = [
+            FindOption(id: "red", color: "#ff0000"),
+            FindOption(id: "blue", color: "#0000ff"),
+            FindOption(id: "green", color: "#00ff00")
+        ]
+        let ep = Episode(id: "t", titleId: "episode.firstDay.title", neighborhood: "n", beats: [
+            .find(promptLineId: "find.redPrompt", options: options, correctId: "red"),
+            .reward(stars: 2, stickerId: nil)
+        ])
+        let world = MockWorld(places: [:])
+        let runner = EpisodeRunner(episode: ep, world: world) { events.append($0) }
+
+        runner.start()
+        XCTAssertTrue(events.contains(.awaitFind(promptLineId: "find.redPrompt", options: options)))
+        XCTAssertTrue(events.contains(.speak(lineId: "find.redPrompt", vars: [:])))
+
+        // No answer yet -> nothing happens, no failure.
+        runner.update(dt: 1.0 / 60)
+        XCTAssertFalse(runner.finished)
+
+        // A wrong tap is gently re-prompted, not punished, and does not advance.
+        world.queuedFindAnswer = "blue"
+        let beforeWrong = events.count
+        runner.update(dt: 1.0 / 60)
+        XCTAssertTrue(events.contains(.speak(lineId: "find.tryAgain", vars: [:])))
+        XCTAssertFalse(events.contains(.starSparkle))
+        XCTAssertFalse(runner.finished)
+        XCTAssertGreaterThan(events.count, beforeWrong)
+
+        // The correct tap sparkles and advances to the reward + completion.
+        world.queuedFindAnswer = "red"
+        runner.update(dt: 1.0 / 60)
+        XCTAssertTrue(events.contains(.starSparkle))
+        XCTAssertTrue(events.contains(.reward(stars: 2, stickerId: nil)))
         XCTAssertEqual(events.last, .completed)
         XCTAssertTrue(runner.finished)
     }

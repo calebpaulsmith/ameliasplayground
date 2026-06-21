@@ -21,12 +21,17 @@ public final class GameSession: EpisodeWorld {
     private var lights: [String: TrafficLight]
     private var runner: EpisodeRunner?
     private var pendingTurn: InputIntents.DiscreteTurn = .none
+    private var pendingFindAnswer: String?
 
     // Observable-ish state for the HUD / renderer
     public private(set) var currentTarget: EpisodeTarget?
     public private(set) var currentTurnCue: TurnCue = .straight
     public private(set) var currentPassengerId: String?
     public private(set) var awaitingChoice = false
+    /// A "spot it" question is on screen; `findOptions` are the tappable answers.
+    public private(set) var awaitingFind = false
+    public private(set) var findOptions: [FindOption] = []
+    public private(set) var findPromptId: String?
     public private(set) var sparkleCount = 0
     public private(set) var finished = false
     public private(set) var activeEpisodeId: String?
@@ -129,6 +134,10 @@ public final class GameSession: EpisodeWorld {
         currentPassengerId = nil
         currentTarget = nil
         awaitingChoice = false
+        awaitingFind = false
+        findOptions = []
+        findPromptId = nil
+        pendingFindAnswer = nil
         core.assistLevel = save.assistLevel
         core.reset(to: start, heading: heading)
         dialogue.clear()
@@ -146,15 +155,21 @@ public final class GameSession: EpisodeWorld {
         case let .setTarget(target):
             currentTarget = target
             awaitingChoice = false
+            clearFind()
         case let .board(passengerId):
             currentPassengerId = passengerId
         case .drop:
             currentPassengerId = nil
         case .awaitChoice:
             awaitingChoice = true
+        case let .awaitFind(promptLineId, options):
+            awaitingFind = true
+            findOptions = options
+            findPromptId = promptLineId
         case .starSparkle:
             sparkleCount += 1
             save.award(stars: 1)
+            clearFind()                 // a sparkle during a "spot it" = correct answer
         case let .reward(stars, stickerId):
             save.award(stars: stars)
             if let s = stickerId { save.grant(sticker: s) }
@@ -163,6 +178,7 @@ public final class GameSession: EpisodeWorld {
             finished = true
             currentTarget = nil
             awaitingChoice = false
+            clearFind()
             persist?(save)
         }
     }
@@ -236,6 +252,23 @@ public final class GameSession: EpisodeWorld {
     public func consumeDiscreteTurn() -> InputIntents.DiscreteTurn {
         defer { pendingTurn = .none }
         return pendingTurn
+    }
+
+    /// The renderer/HUD calls this when the child taps a "spot it" option.
+    public func answerFind(_ optionId: String) {
+        guard awaitingFind else { return }
+        pendingFindAnswer = optionId
+    }
+
+    public func consumeFindAnswer() -> String? {
+        defer { pendingFindAnswer = nil }
+        return pendingFindAnswer
+    }
+
+    private func clearFind() {
+        awaitingFind = false
+        findOptions = []
+        findPromptId = nil
     }
 
     // MARK: - Lookups for the renderer

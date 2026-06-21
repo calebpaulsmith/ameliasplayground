@@ -92,6 +92,16 @@ final class ContentLoaderTests: XCTestCase {
                 case let .choice(promptLineId, _):
                     XCTAssertTrue(loc.hasTranslation(promptLineId, .en),
                                   "episode \(ep.id): choice prompt \(promptLineId) not localized")
+                case let .find(promptLineId, options, correctId):
+                    XCTAssertTrue(loc.hasTranslation(promptLineId, .en),
+                                  "episode \(ep.id): find prompt \(promptLineId) not localized")
+                    let ids = Set(options.map(\.id))
+                    XCTAssertTrue(ids.contains(correctId),
+                                  "episode \(ep.id): find correctId \(correctId) is not an option")
+                    for o in options where o.labelId != nil {
+                        XCTAssertTrue(loc.hasTranslation(o.labelId!, .en),
+                                      "episode \(ep.id): find option \(o.id) label not localized")
+                    }
                 case .lightStop, .cutscene, .reward:
                     break
                 }

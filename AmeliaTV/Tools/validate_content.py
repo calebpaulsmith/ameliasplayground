@@ -127,7 +127,7 @@ def validate():
     episode_files = sorted(episode_dir.glob("*.json")) if episode_dir.exists() else []
     require(len(episode_files) > 0, "expected at least one episode in Content/episodes/")
     known_beats = {"say", "driveTo", "pickup", "dropoff", "lightStop",
-                   "choice", "cutscene", "reward"}
+                   "choice", "find", "cutscene", "reward"}
     for f in episode_files:
         ep = load_json(f"episodes/{f.name}")
         if ep is None:
@@ -164,6 +164,24 @@ def validate():
                     err(f"episode {eid} beat[{j}] choice promptLineId not bilingual")
                 if b.get("correct") not in ("left", "right"):
                     err(f"episode {eid} beat[{j}] choice correct must be left|right")
+            if t == "find":
+                if not is_localized(b.get("promptLineId", "")):
+                    err(f"episode {eid} beat[{j}] find promptLineId not bilingual")
+                opts = b.get("options")
+                if not isinstance(opts, list) or len(opts) < 2:
+                    err(f"episode {eid} beat[{j}] find needs an options array of ≥2")
+                    opts = []
+                opt_ids = set()
+                for k, o in enumerate(opts):
+                    if "id" not in o:
+                        err(f"episode {eid} beat[{j}] find option[{k}] missing \"id\"")
+                    else:
+                        opt_ids.add(o["id"])
+                    lab = o.get("labelId")
+                    if lab is not None and not is_localized(lab):
+                        err(f"episode {eid} beat[{j}] find option \"{o.get('id')}\" labelId not bilingual")
+                if b.get("correctId") not in opt_ids:
+                    err(f"episode {eid} beat[{j}] find correctId \"{b.get('correctId')}\" is not one of its options")
             if t == "reward" and not isinstance(b.get("stars"), int):
                 err(f"episode {eid} beat[{j}] reward stars must be an integer")
 
