@@ -67,6 +67,7 @@ final class GarageEngine: ObservableObject {
     @Published var subtitle: String = ""
 
     private let speaker = SpeechSpeaker()
+    private let audio = ProceduralAudio()
     private let root = Entity()
     private var bus = Entity()
     private var mom = Entity()
@@ -129,6 +130,7 @@ final class GarageEngine: ObservableObject {
 
     func start(session: AppSession) {
         subtitle = session.string("garage.welcome")
+        audio.setMusic(.garage)
         if !didGreet {
             didGreet = true
             speaker.speak(subtitle, language: session.language)
@@ -149,6 +151,7 @@ final class GarageEngine: ObservableObject {
         timer?.invalidate()
         timer = nil
         speaker.stopSpeaking()
+        audio.stopAll()
     }
 
     /// Parks the Rescue Team members who live at the garage beside the lift, so

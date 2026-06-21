@@ -49,6 +49,7 @@ final class SpikeEngine: ObservableObject {
 
     private let input = GameControllerInput()
     private let speaker = SpeechSpeaker()
+    private let audio = ProceduralAudio()
     private var game: GameSession?
     private var places: [Place] = []
 
@@ -111,6 +112,7 @@ final class SpikeEngine: ObservableObject {
             content: session.content,
             save: session.save,
             speaker: speaker,
+            sound: audio,
             persist: { [weak session] slot in
                 Task { @MainActor in session?.persist(slot) }
             }
@@ -140,6 +142,7 @@ final class SpikeEngine: ObservableObject {
         timer?.invalidate()
         timer = nil
         speaker.stopSpeaking()
+        audio.stopAll()
     }
 
     private func step() {
@@ -159,6 +162,9 @@ final class SpikeEngine: ObservableObject {
         let p = game.bus.position
         bus.position = [Float(p.x) * scale, 0.55, Float(p.z) * scale]
         bus.orientation = simd_quatf(angle: Float(-game.bus.heading), axis: [0, 1, 0])
+
+        // Engine hum rises and falls with how fast Amelia is rolling.
+        audio.setEngineIntensity(abs(game.bus.speed) / game.core.assistLevel.maxSpeed)
 
         updateBeacon(target: game.currentTarget)
         updateRider(game: game)
