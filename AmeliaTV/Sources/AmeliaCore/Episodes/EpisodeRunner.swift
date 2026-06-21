@@ -26,6 +26,7 @@ public enum EpisodeEvent: Equatable, Sendable {
     case board(passengerId: String)
     case drop(passengerId: String, placeId: String)
     case awaitChoice(promptLineId: String)
+    case awaitFind(promptLineId: String, options: [FindOption])
     case starSparkle
     case reward(stars: Int, stickerId: String?)
     case completed
@@ -41,6 +42,13 @@ public protocol EpisodeWorld: AnyObject {
     func lightState(_ lightId: String) -> TrafficLight.State
     /// Returns and consumes the most recent discrete left/right press (for choices).
     func consumeDiscreteTurn() -> InputIntents.DiscreteTurn
+    /// Returns and consumes the id of the most recently tapped "spot it" option.
+    func consumeFindAnswer() -> String?
+}
+
+public extension EpisodeWorld {
+    // Default so existing worlds/tests that never use `find` need no changes.
+    func consumeFindAnswer() -> String? { nil }
 }
 
 /// Plays an `Episode` beat by beat, emitting `EpisodeEvent`s. Driven by
@@ -131,6 +139,10 @@ public final class EpisodeRunner {
             emit(.speak(lineId: promptLineId, vars: [:]))
             promptedChoice = true
 
+        case let .find(promptLineId, options, _):
+            emit(.awaitFind(promptLineId: promptLineId, options: options))
+            emit(.speak(lineId: promptLineId, vars: [:]))
+
         case .cutscene:
             wait = sayDwell
 
@@ -192,6 +204,15 @@ public final class EpisodeRunner {
                 advance()
             } else {
                 emit(.speak(lineId: "nav.tryOtherWay", vars: [:]))
+            }
+
+        case let .find(_, _, correctId):
+            guard let answer = world.consumeFindAnswer() else { return }
+            if answer == correctId {
+                emit(.starSparkle)
+                advance()
+            } else {
+                emit(.speak(lineId: "find.tryAgain", vars: [:]))   // gentle, no penalty
             }
 
         default:

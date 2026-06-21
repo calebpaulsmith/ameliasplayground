@@ -24,6 +24,7 @@ public final class GameSession: EpisodeWorld {
     private var lights: [String: TrafficLight]
     private var runner: EpisodeRunner?
     private var pendingTurn: InputIntents.DiscreteTurn = .none
+    private var pendingFindAnswer: String?
     private var collectedIds: Set<String> = []
 
     /// How close the bus must pass to scoop a collectible (world units). Generous,
@@ -35,6 +36,10 @@ public final class GameSession: EpisodeWorld {
     public private(set) var currentTurnCue: TurnCue = .straight
     public private(set) var currentPassengerId: String?
     public private(set) var awaitingChoice = false
+    /// A "spot it" question is on screen; `findOptions` are the tappable answers.
+    public private(set) var awaitingFind = false
+    public private(set) var findOptions: [FindOption] = []
+    public private(set) var findPromptId: String?
     public private(set) var sparkleCount = 0
     /// Collectibles scooped this run (each also awards its stars).
     public private(set) var collectedCount = 0
@@ -167,6 +172,10 @@ public final class GameSession: EpisodeWorld {
         currentPassengerId = nil
         currentTarget = nil
         awaitingChoice = false
+        awaitingFind = false
+        findOptions = []
+        findPromptId = nil
+        pendingFindAnswer = nil
         core.assistLevel = save.assistLevel
         core.reset(to: start, heading: heading)
         dialogue.clear()
@@ -187,6 +196,7 @@ public final class GameSession: EpisodeWorld {
         case let .setTarget(target):
             currentTarget = target
             awaitingChoice = false
+            clearFind()
         case let .board(passengerId):
             currentPassengerId = passengerId
             sound?.play(.doorOpen)
@@ -195,10 +205,15 @@ public final class GameSession: EpisodeWorld {
             sound?.play(.doorClose)
         case .awaitChoice:
             awaitingChoice = true
+        case let .awaitFind(promptLineId, options):
+            awaitingFind = true
+            findOptions = options
+            findPromptId = promptLineId
         case .starSparkle:
             sparkleCount += 1
             save.award(stars: 1)
             sound?.play(.starSparkle)
+            clearFind()                 // a sparkle during a "spot it" = correct answer
         case let .reward(stars, stickerId):
             save.award(stars: stars)
             sound?.play(.reward)
@@ -208,6 +223,7 @@ public final class GameSession: EpisodeWorld {
             finished = true
             currentTarget = nil
             awaitingChoice = false
+            clearFind()
             sound?.setMusic(.reward)
             persist?(save)
         }
@@ -323,6 +339,25 @@ public final class GameSession: EpisodeWorld {
 
     /// Whether a given collectible has been scooped (for the renderer to hide it).
     public func isCollected(_ id: String) -> Bool { collectedIds.contains(id) }
+
+    // MARK: - "Spot it" (find) answers
+
+    /// The renderer/HUD calls this when the child taps a "spot it" option.
+    public func answerFind(_ optionId: String) {
+        guard awaitingFind else { return }
+        pendingFindAnswer = optionId
+    }
+
+    public func consumeFindAnswer() -> String? {
+        defer { pendingFindAnswer = nil }
+        return pendingFindAnswer
+    }
+
+    private func clearFind() {
+        awaitingFind = false
+        findOptions = []
+        findPromptId = nil
+    }
 
     // MARK: - Lookups for the renderer
 
