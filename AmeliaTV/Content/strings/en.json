@@ -4,7 +4,12 @@
   "ui.letsGo": "Let's go!",
   "ui.go": "GO",
   "ui.stop": "STOP",
+  "ui.settings": "Settings",
+  "ui.close": "Done",
   "lang.choose": "Choose a language",
+  "settings.title": "Settings",
+  "settings.language": "Language",
+  "title.tagline": "Amelia's Bus Adventure",
 
   "garage.welcome": "Good morning, Amelia! Your bus is all fixed and ready. Let's go!",
   "garage.stickers": "My Stickers",

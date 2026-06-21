@@ -1,12 +1,15 @@
 import SwiftUI
 import AmeliaCore
 
-/// Phase 1 shell: a friendly title, a big language choice, and a button into the
-/// rendering/input spike. This is intentionally minimal — the splash/garage/
-/// adventure-board UI is Phase 2 (A2-07, A2-11).
+/// The title screen. One clear path forward: a big, pre-focused "Let's go!" that
+/// drops straight into the garage — no language wall in front of a young child
+/// (the game starts in English; Spanish lives in Settings). A small Settings
+/// button is the only secondary affordance.
 struct RootView: View {
     @EnvironmentObject private var session: AppSession
     @State private var showingGarage = false
+    @State private var showingSettings = false
+    @FocusState private var goFocused: Bool
 
     var body: some View {
         ZStack {
@@ -17,53 +20,46 @@ struct RootView: View {
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 48) {
+            VStack(spacing: 40) {
                 Text("Amelia")
                     .font(.system(size: 96, weight: .heavy, design: .rounded))
                     .foregroundStyle(Color(red: 0.12, green: 0.43, blue: 0.81))
 
-                Text(session.string("lang.choose"))
-                    .font(.system(size: 36, weight: .semibold, design: .rounded))
+                Text(session.string("title.tagline"))
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
-
-                HStack(spacing: 32) {
-                    ForEach(Language.allCases, id: \.self) { lang in
-                        Button {
-                            session.setLanguage(lang)
-                        } label: {
-                            Text(lang.displayName)
-                                .font(.system(size: 32, weight: .bold, design: .rounded))
-                                .frame(minWidth: 240)
-                                .padding(.vertical, 8)
-                                .overlay(alignment: .bottom) {
-                                    if session.language == lang {
-                                        Capsule().frame(height: 6)
-                                            .foregroundStyle(Color(red: 0.12, green: 0.43, blue: 0.81))
-                                    }
-                                }
-                        }
-                        #if os(tvOS)
-                        .buttonStyle(.card)        // tvOS focus-aware card style
-                        #else
-                        .buttonStyle(.bordered)    // iPad/iOS: tappable bordered button
-                        #endif
-                    }
-                }
 
                 Button {
                     showingGarage = true
                 } label: {
                     Text(session.string("ui.letsGo"))
-                        .font(.system(size: 40, weight: .heavy, design: .rounded))
-                        .frame(minWidth: 360, minHeight: 80)
+                        .font(.system(size: 44, weight: .heavy, design: .rounded))
+                        .frame(minWidth: 420, minHeight: 92)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Color(red: 0.12, green: 0.43, blue: 0.81))
+                .focused($goFocused)
+
+                Button {
+                    showingSettings = true
+                } label: {
+                    Label(session.string("ui.settings"), systemImage: "gearshape.fill")
+                        .font(.system(size: 26, weight: .semibold, design: .rounded))
+                        .padding(.vertical, 4)
+                }
+                .buttonStyle(.bordered)
             }
             .padding(80)
         }
+        // Land the remote on the big "Let's go!" so a child can start immediately.
+        .defaultFocus($goFocused, true)
+        .onAppear { goFocused = true }
         .fullScreenCover(isPresented: $showingGarage) {
             GarageView()
+                .environmentObject(session)
+        }
+        .fullScreenCover(isPresented: $showingSettings) {
+            SettingsView()
                 .environmentObject(session)
         }
     }

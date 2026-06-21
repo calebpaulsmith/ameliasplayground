@@ -4,7 +4,12 @@
   "ui.letsGo": "¡Vamos!",
   "ui.go": "VAMOS",
   "ui.stop": "ALTO",
+  "ui.settings": "Ajustes",
+  "ui.close": "Listo",
   "lang.choose": "Elige un idioma",
+  "settings.title": "Ajustes",
+  "settings.language": "Idioma",
+  "title.tagline": "La Aventura del Autobús de Amelia",
 
   "garage.welcome": "¡Buenos días, Amelia! Tu autobús está arreglado y listo. ¡Vamos!",
   "garage.stickers": "Mis Calcomanías",

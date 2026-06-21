@@ -70,7 +70,11 @@ enum ModelLibrary {
             bus.addChild(pupil)
             pupils.append(pupil)
             rest.append(p)
+            addEyeHighlight(to: bus, near: p, radius: 0.03)
         }
+        // The bits that turn two eyes into a face: rosy cheeks and a big happy grin.
+        addCheeks(to: bus, atX: 0.81, y: -0.02, spacing: 0.40, radius: 0.12)
+        addSmile(to: bus, atX: 0.83, y: -0.20, width: 0.46, beadRadius: 0.05, lift: 0.13)
         return (bus, FaceRig(eyes: eyes, pupils: pupils, pupilRest: rest))
     }
 
@@ -86,6 +90,42 @@ enum ModelLibrary {
         return ModelEntity(mesh: mesh, materials: [material])
     }
 
+    /// A glossy white catch-light on a pupil — the little dot that makes eyes read
+    /// as alive rather than as flat black beads. Placed up-and-out on the +x face.
+    private static func addEyeHighlight(to node: Entity, near pupil: SIMD3<Float>, radius: Float) {
+        let hi = sphere(radius: radius, color: .white)
+        hi.position = [pupil.x + radius * 0.6, pupil.y + radius * 0.9, pupil.z - radius * 0.9]
+        node.addChild(hi)
+    }
+
+    /// Two soft, rosy cheeks on the +x face — instant "cute". Flattened against the
+    /// face so they read as a blush, not as bumps.
+    private static func addCheeks(to node: Entity, atX x: Float, y: Float, spacing: Float, radius: Float) {
+        for z in [-spacing, spacing] {
+            let cheek = sphere(radius: radius,
+                               color: PlatformColor(red: 1.0, green: 0.60, blue: 0.66, alpha: 0.92))
+            cheek.scale = [0.28, 0.8, 1]
+            cheek.position = [x, y, z]
+            node.addChild(cheek)
+        }
+    }
+
+    /// A cheerful upturned smile on the +x face: a row of little dark beads in a
+    /// shallow arc that lifts at the corners. Purely cosmetic (no FaceRig handle).
+    private static func addSmile(to node: Entity, atX x: Float, y: Float,
+                                 width: Float, beadRadius: Float, lift: Float) {
+        let count = 5
+        let dark = PlatformColor(red: 0.30, green: 0.16, blue: 0.18, alpha: 1)
+        for i in 0..<count {
+            let t = Float(i) / Float(count - 1)        // 0…1 left → right
+            let u = (t - 0.5) * 2                        // -1…1
+            let bead = sphere(radius: beadRadius, color: dark)
+            bead.scale = [0.45, 1, 1]                    // flatten against the face
+            bead.position = [x, y + u * u * lift, (t - 0.5) * width]
+            node.addChild(bead)
+        }
+    }
+
     /// A friendly Rescue-Team vehicle, built from primitives with two big eyes on
     /// its forward (+x) windshield. Distinct silhouette per `role`. Loads
     /// `\(modelRef).usdz` if present, else builds an original placeholder.
@@ -99,18 +139,25 @@ enum ModelLibrary {
                                     : builtGroundVehicle(role: role, color: color)
     }
 
-    /// Two eyes (white + pupil) on the +x face at the given height/forward x.
+    /// A whole friendly face on the +x face: two eyes (white + pupil + catch-light),
+    /// rosy cheeks, and a happy grin — so every rescue friend looks cute, not boxy.
     private static func addEyes(to node: Entity, atX x: Float, y: Float,
                                spacing: Float = 0.18, scale: Float = 1) {
         for z in [-spacing, spacing] {
             let white = sphere(radius: 0.13 * scale, color: .white)
             white.position = [x, y, z]
             node.addChild(white)
+            let p: SIMD3<Float> = [x + 0.1 * scale, y, z]
             let pupil = sphere(radius: 0.055 * scale,
                                color: PlatformColor(red: 0.1, green: 0.12, blue: 0.16, alpha: 1))
-            pupil.position = [x + 0.1 * scale, y, z]
+            pupil.position = p
             node.addChild(pupil)
+            addEyeHighlight(to: node, near: p, radius: 0.022 * scale)
         }
+        addCheeks(to: node, atX: x, y: y - 0.17 * scale,
+                  spacing: spacing + 0.07 * scale, radius: 0.085 * scale)
+        addSmile(to: node, atX: x + 0.02 * scale, y: y - 0.30 * scale,
+                 width: spacing * 2.2, beadRadius: 0.04 * scale, lift: 0.10 * scale)
     }
 
     private static func wheel() -> ModelEntity {
@@ -242,6 +289,27 @@ enum ModelLibrary {
             node.addChild(pupil)
             pupils.append(pupil)
             rest.append(p)
+            let hi = sphere(radius: 0.014, color: .white)
+            hi.position = [p.x + 0.01, p.y + 0.018, p.z + 0.02]
+            node.addChild(hi)
+        }
+
+        // Rosy cheeks + a small grin so people look friendly too (face is on +z).
+        for x in [Float(-0.17), 0.17] {
+            let cheek = sphere(radius: 0.05,
+                               color: PlatformColor(red: 1.0, green: 0.60, blue: 0.66, alpha: 0.92))
+            cheek.scale = [1, 0.8, 0.28]
+            cheek.position = [x, 0.88, 0.21]
+            node.addChild(cheek)
+        }
+        for i in 0..<5 {
+            let t = Float(i) / 4
+            let u = (t - 0.5) * 2
+            let bead = sphere(radius: 0.022,
+                              color: PlatformColor(red: 0.30, green: 0.16, blue: 0.18, alpha: 1))
+            bead.scale = [1, 1, 0.45]
+            bead.position = [(t - 0.5) * 0.16, 0.84 + u * u * 0.04, 0.245]
+            node.addChild(bead)
         }
 
         func arm(side: Float) -> Entity {
