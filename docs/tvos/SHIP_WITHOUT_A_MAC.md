@@ -74,6 +74,36 @@ exactly **`release`**:
    > Paste the `.p8` **text** directly (open it as a text file and copy all of it,
    > including the `-----BEGIN PRIVATE KEY-----` lines). No base64 needed.
 
+### A6. Set up signing storage (fastlane match)
+
+App Store (TestFlight) builds need a **distribution certificate + provisioning
+profile**. We use **fastlane match**, which creates them from your API key and
+stores them *encrypted* in a private repo so every build reuses them — **no Mac,
+no registered devices**. (Apple requires a registered *device* only for
+*development* signing, which TestFlight doesn't use; distribution signing needs
+none — that's why match is the clean no-Mac path.)
+
+1. Create a **new, PRIVATE** GitHub repo to hold the encrypted certs, e.g.
+   `amelia-certs`. Leave it empty.
+2. Create a **Personal Access Token** GitHub can use to read/write that repo
+   (Settings → Developer settings → *Fine-grained tokens* → grant **Contents:
+   Read and write** on just that repo; or a classic token with `repo` scope).
+3. Compute the basic-auth value: it's the base64 of `your-username:the-token`.
+   On any computer/phone with a terminal: `printf 'USER:TOKEN' | base64`. (Or use
+   any base64 tool.)
+4. Add these **Environment secrets** to the same **`release`** environment:
+
+   | Secret name                     | Value                                                       |
+   |---------------------------------|-------------------------------------------------------------|
+   | `MATCH_GIT_URL`                 | HTTPS url of the private certs repo (e.g. `https://github.com/you/amelia-certs.git`) |
+   | `MATCH_PASSWORD`                | A passphrase you choose (encrypts the stored certs — keep it safe) |
+   | `MATCH_GIT_BASIC_AUTHORIZATION` | The base64 string from step 3                               |
+
+5. **Run the one-time bootstrap:** GitHub → **Actions** → **match-setup** →
+   **Run workflow** → **Approve**. This creates the distribution cert + both App
+   Store profiles and pushes them (encrypted) to your certs repo. You only do
+   this once (re-running is safe).
+
 That's the whole one-time setup.
 
 ---
