@@ -63,10 +63,11 @@ final class AudioTests: XCTestCase {
 
         session.start(episodeId: "first-day", at: .zero, heading: 0)
 
-        // Auto-drive to the fork without pressing anything.
+        // Auto-drive to the fork, answering the "spot it" question on the way.
         let dt = 1.0 / 60.0
         var steps = 0
         while !session.awaitingChoice && steps < 60 * 240 {
+            if session.awaitingFind { session.answerFind("red") }
             session.tick(dt: dt, input: .neutral)
             steps += 1
         }
