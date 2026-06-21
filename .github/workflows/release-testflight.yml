@@ -65,6 +65,13 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: fastlane ios beta
+      - name: Show xcodebuild log on failure
+        if: failure()
+        run: |
+          echo "==== errors / validation ===="
+          grep -iE "error:|fail|validat|icon|provision|entitlement" ~/Library/Logs/gym/AmeliaPad-AmeliaPad.log 2>/dev/null | tail -n 100 || true
+          echo "==== last 150 lines ===="
+          tail -n 150 ~/Library/Logs/gym/AmeliaPad-AmeliaPad.log 2>/dev/null || true
       - name: Clean up API key
         if: always()
         working-directory: AmeliaTV
@@ -106,6 +113,13 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: fastlane tvos beta
+      - name: Show xcodebuild log on failure
+        if: failure()
+        run: |
+          echo "==== errors / validation ===="
+          grep -iE "error:|fail|validat|icon|provision|entitlement" ~/Library/Logs/gym/AmeliaTV-AmeliaTV.log 2>/dev/null | tail -n 100 || true
+          echo "==== last 150 lines ===="
+          tail -n 150 ~/Library/Logs/gym/AmeliaTV-AmeliaTV.log 2>/dev/null || true
       - name: Clean up API key
         if: always()
         working-directory: AmeliaTV
