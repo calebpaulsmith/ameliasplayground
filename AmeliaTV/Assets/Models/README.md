@@ -6,9 +6,11 @@ automatically — no code changes. This is the "swap art behind an id" guarantee
 real model replaces the placeholder the moment a file with the matching name is in
 the app bundle.
 
-Authoring pipeline: model in **GLB**, convert to **USDZ** for runtime (Reality
-Converter / `usdzconvert`). Commit the `.usdz` here. Everything stays in this Git
-repo — see "Storage" below.
+Authoring pipeline: easiest is an **AI text/image→3D** tool that exports **USDZ**
+directly (Meshy / Tripo), or model in GLB and convert to USDZ (Blender / online —
+no Mac needed). Commit the `.usdz` here. Everything stays in this Git repo — see
+"Storage" below. **Full step-by-step + recommended tools + style prompts:
+[`docs/tvos/ART_PIPELINE.md`](../../../docs/tvos/ART_PIPELINE.md).**
 
 ## File names the game looks for
 
