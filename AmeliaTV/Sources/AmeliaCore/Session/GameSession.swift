@@ -21,6 +21,11 @@ public final class GameSession: EpisodeWorld {
     private var lights: [String: TrafficLight]
     private var runner: EpisodeRunner?
     private var pendingTurn: InputIntents.DiscreteTurn = .none
+    private var collectedIds: Set<String> = []
+
+    /// How close the bus must pass to scoop a collectible (world units). Generous,
+    /// because a young child only nudges toward it (no failure for a near miss).
+    private let collectibleRadius: Double = 9
 
     // Observable-ish state for the HUD / renderer
     public private(set) var currentTarget: EpisodeTarget?
@@ -28,6 +33,8 @@ public final class GameSession: EpisodeWorld {
     public private(set) var currentPassengerId: String?
     public private(set) var awaitingChoice = false
     public private(set) var sparkleCount = 0
+    /// Collectibles scooped this run (each also awards its stars).
+    public private(set) var collectedCount = 0
     public private(set) var finished = false
     public private(set) var activeEpisodeId: String?
 
@@ -126,6 +133,8 @@ public final class GameSession: EpisodeWorld {
         activeEpisodeId = episodeId
         finished = false
         sparkleCount = 0
+        collectedCount = 0
+        collectedIds.removeAll()
         currentPassengerId = nil
         currentTarget = nil
         awaitingChoice = false
@@ -186,6 +195,9 @@ public final class GameSession: EpisodeWorld {
         core.tick(dt: dt, input: input)
         runner?.update(dt: dt)
 
+        // Scoop any collectible the bus just drove near.
+        collectPickups()
+
         // Refresh the HUD turn cue.
         currentTurnCue = computeTurnCue()
     }
@@ -237,6 +249,25 @@ public final class GameSession: EpisodeWorld {
         defer { pendingTurn = .none }
         return pendingTurn
     }
+
+    // MARK: - Collectibles
+
+    /// Scoops every uncollected collectible the bus is currently near, awarding
+    /// its stars. Pure proximity — no aiming required, and missing one is fine.
+    private func collectPickups() {
+        guard !content.collectibles.isEmpty else { return }
+        let p = core.bus.position
+        for c in content.collectibles where !collectedIds.contains(c.id) {
+            if c.position.vec.distance(to: p) <= collectibleRadius {
+                collectedIds.insert(c.id)
+                collectedCount += 1
+                save.award(stars: c.reward)
+            }
+        }
+    }
+
+    /// Whether a given collectible has been scooped (for the renderer to hide it).
+    public func isCollected(_ id: String) -> Bool { collectedIds.contains(id) }
 
     // MARK: - Lookups for the renderer
 

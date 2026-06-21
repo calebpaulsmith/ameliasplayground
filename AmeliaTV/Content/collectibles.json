@@ -1,0 +1,7 @@
+[
+  { "id": "c1", "kind": "balloon", "position": { "x": 22, "z": 0 },  "color": "#ff5e7a" },
+  { "id": "c2", "kind": "coin",    "position": { "x": 55, "z": 11 }, "color": "#ffd23f" },
+  { "id": "c3", "kind": "balloon", "position": { "x": 77, "z": 33 }, "color": "#5ec8ff" },
+  { "id": "c4", "kind": "coin",    "position": { "x": 44, "z": 22 }, "color": "#ffd23f" },
+  { "id": "c5", "kind": "balloon", "position": { "x": 22, "z": 11 }, "color": "#9b8cff" }
+]

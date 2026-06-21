@@ -6,6 +6,7 @@ import AmeliaCore
 /// thin, stateless reflection of core state (docs/tvos/GAME_DESIGN.md §5, A2-10).
 struct HUDModel: Equatable {
     var stars: Int = 0
+    var collected: Int = 0
     var subtitle: String = ""
     var turnCue: TurnCue = .straight
     var drivePrompt: GameSession.DrivePrompt = .go
@@ -47,6 +48,7 @@ struct HUDView: View {
             VStack {
                 HStack(alignment: .top) {
                     StarCounter(count: model.stars)
+                    if model.collected > 0 { CollectibleCounter(count: model.collected) }
                     Spacer()
                     if let nameId = model.destinationNameId {
                         DestinationBadge(name: session.string(nameId))
@@ -143,6 +145,25 @@ private struct StarCounter: View {
                 .animation(.snappy, value: count)
         }
         .padding(.horizontal, 28).padding(.vertical, 14)
+        .background(.ultraThinMaterial, in: Capsule())
+    }
+}
+
+/// A little tally of balloons/coins scooped on the route — appears only once the
+/// child has grabbed their first one.
+private struct CollectibleCounter: View {
+    let count: Int
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "balloon.fill")
+                .foregroundStyle(Color(red: 1.0, green: 0.37, blue: 0.48))
+            Text("\(count)")
+                .font(.system(size: 38, weight: .heavy, design: .rounded))
+                .foregroundStyle(.primary)
+                .contentTransition(.numericText())
+                .animation(.snappy, value: count)
+        }
+        .padding(.horizontal, 22).padding(.vertical, 12)
         .background(.ultraThinMaterial, in: Capsule())
     }
 }
