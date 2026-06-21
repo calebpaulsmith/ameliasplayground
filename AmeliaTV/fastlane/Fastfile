@@ -74,6 +74,19 @@ def build_and_upload(scheme:, bundle_id:, destination:, app_platform:, match_pla
     api_key: key, bundle_id: bundle_id, match_platform: match_platform, readonly: true
   )
   build_number = next_build_number(key, bundle_id, app_platform)
+  # Apply manual App Store signing to the APP target only. Passing these as
+  # global xcargs broke the build because they also hit the AmeliaCore Swift
+  # package ("AmeliaCore does not support provisioning profiles"). The scheme and
+  # the app target share a name, so `scheme` is the target to sign.
+  update_code_signing_settings(
+    use_automatic_signing: false,
+    path: "AmeliaTV.xcodeproj",
+    targets: [scheme],
+    team_id: ENV.fetch("APPLE_TEAM_ID"),
+    bundle_identifier: bundle_id,
+    code_sign_identity: "Apple Distribution",
+    profile_name: profile_name
+  )
   build_app(
     project: "AmeliaTV.xcodeproj",
     scheme: scheme,
@@ -81,18 +94,9 @@ def build_and_upload(scheme:, bundle_id:, destination:, app_platform:, match_pla
     destination: destination,
     output_directory: "build",
     output_name: "#{scheme}.ipa",
-    xcargs: [
-      "CODE_SIGNING_ALLOWED=YES",
-      "CODE_SIGN_STYLE=Manual",
-      # Values with spaces must be quoted — xcargs is a raw shell string, and
-      # an unquoted "Apple Distribution" / "match AppStore <id>" gets split into
-      # extra arguments ("Unknown build action 'Distribution'").
-      "CODE_SIGN_IDENTITY=\"Apple Distribution\"",
-      "DEVELOPMENT_TEAM=#{ENV.fetch('APPLE_TEAM_ID')}",
-      "PRODUCT_BUNDLE_IDENTIFIER=#{bundle_id}",
-      "PROVISIONING_PROFILE_SPECIFIER=\"#{profile_name}\"",
-      "CURRENT_PROJECT_VERSION=#{build_number}"
-    ].join(" "),
+    # Only project-wide settings here (safe for every target); per-target signing
+    # is set above via update_code_signing_settings.
+    xcargs: "CODE_SIGNING_ALLOWED=YES CURRENT_PROJECT_VERSION=#{build_number}",
     export_options: {
       method: "app-store",
       signingStyle: "manual",
