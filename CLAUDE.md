@@ -30,6 +30,9 @@ Start with [`docs/tvos/`](docs/tvos/):
 - `GAME_DESIGN.md` — the whole-game design & systems.
 - `TECHNICAL_ARCHITECTURE.md` — **engine decision** + structure + CI.
 - `VERTICAL_SLICE.md` — the first thing we build (10–15 min adventure).
+- `MODES_AND_DIRECTION.md` — **agreed product direction**: the three play modes
+  (incl. **Free Drive**), the player-agency push, the educational layer, and the
+  world-architecture changes Free Drive forces. Read this for "where we're going."
 - `ROADMAP.md` — phases 0→5 and beyond.
 - `BACKLOG.md` — implementation-ready, item-level work.
 - `RISKS_AND_DECISIONS.md` — assumptions, risks, decisions, facts vs. judgement.
@@ -41,6 +44,23 @@ Apple TV 4K.** Input via **GameController** (Siri Remote + MFi/PS/Xbox). Build &
 test on **GitHub-hosted macOS runners** with stock Xcode. Chosen over SceneKit
 (deprecated) and Unity (heavyweight, AI/Git-unfriendly, poor fit for the
 privacy/Kids constraints). Rationale + sources in `TECHNICAL_ARCHITECTURE.md`.
+
+## Product direction (the three modes) — see `docs/tvos/MODES_AND_DIRECTION.md`
+
+The game has **three play modes**, all under the no-harsh-failure rule:
+**Adventure** (guided story episodes — built today), **Free Drive** (open,
+objective-free roaming), and a **Jobs/Helper** mode (proposed; pick-up-and-deliver).
+These are a different axis from the **three driving levels** (`AssistLevel`:
+Auto-Drive / Assisted / Free Steering) which scale the *controls* with the child.
+
+**Key consequence:** **Free Drive requires a genuinely drivable world.** Today the
+bus auto-drives in straight lines to waypoints and roads are cosmetic; Free Drive
+needs `RouteGraph` to evolve into a **drivable `RoadNetwork`** (intersections +
+lane'd road segments, authored as data) that *both* Adventure routing and Free
+Drive steering consume. Don't paint us into a corner: give new world data real
+positions so the network can adopt it later. The current build focus is the
+**"Agency pass"** (verbs: honk-reacts, collectibles, a `find`/"spot it" beat) to
+turn the passive ride into a game. Full plan + open decisions live in the doc.
 
 ## Non-negotiable constraints (apply to all native-game work)
 
@@ -128,7 +148,14 @@ Phases 0–1 are merged to `main`; Phase 2 (the vertical slice) is well underway
 - **HUD**: big GO/STOP, pulsing turn arrow, destination beacon, minimap.
 - **Garage + Mechanic Mom** intro scene and the **reward/sticker** screen.
 - **Splash/language** polish (RootView is minimal today).
-- **Audio**: music themes + SFX (only TTS voice exists).
+- ~~**Audio**: music themes + SFX (only TTS voice exists).~~ **A2-13 done:** a
+  procedural `AVAudioEngine` synth (`App/Audio/ProceduralAudio.swift`) plays
+  garage/driving/reward music beds, a speed-reactive engine hum, and a synthesized
+  SFX set (horn, door, star sparkle, light chime, gentle bump, reward + sticker
+  flourish), mixed below the TTS voice. The Core stays GPU/AV-free: `GameSession`
+  emits `SoundCue`/`MusicTheme` intents through a `SoundPlayer` protocol
+  (spy-tested headlessly). The remaining audio work is the *art-directed* pass
+  (E3-03): real samples / hero voice swapped in behind the same ids.
 - **Human play-test** on the tvOS Simulator / a real Apple TV (see TESTING.md).
 
 ## Next steps (start here next session)

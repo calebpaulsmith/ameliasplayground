@@ -14,6 +14,10 @@ struct HUDModel: Equatable {
     var awaitingChoice: Bool = false
     var finished: Bool = false
 
+    // Reward screen (A2-12): what the finished episode awarded.
+    var rewardStars: Int = 0
+    var rewardStickerId: String? = nil
+
     // Minimap (world units; the map computes its own bounds from the places).
     var busX: Double = 0
     var busZ: Double = 0
@@ -41,8 +45,25 @@ struct HUDView: View {
     /// devices with no controller). No-ops by default.
     var onTurnLeft: () -> Void = {}
     var onTurnRight: () -> Void = {}
+    /// Tapped on the reward screen's "back to the garage" button.
+    var onContinue: () -> Void = {}
 
     var body: some View {
+        ZStack {
+            if model.finished {
+                // The episode is over: the reward screen takes over the whole HUD.
+                RewardView(stars: model.rewardStars,
+                           stickerId: model.rewardStickerId,
+                           onContinue: onContinue)
+                    .environmentObject(session)
+            } else {
+                drivingHUD
+            }
+        }
+    }
+
+    /// The live driving overlay (stars, GO/STOP, turn arrow, minimap, subtitle).
+    private var drivingHUD: some View {
         ZStack {
             // Top row: stars (left) and destination (right).
             VStack {
@@ -60,14 +81,12 @@ struct HUDView: View {
             // Center guidance: the big GO/STOP badge with the turn arrow.
             VStack(spacing: 28) {
                 Spacer()
-                if !model.finished {
-                    TurnArrow(cue: model.turnCue)
-                    DrivePromptBadge(prompt: model.drivePrompt,
-                                     go: session.string("ui.go"),
-                                     stop: session.string("ui.stop"))
-                    if model.awaitingChoice {
-                        ChoiceButtons(onLeft: onTurnLeft, onRight: onTurnRight)
-                    }
+                TurnArrow(cue: model.turnCue)
+                DrivePromptBadge(prompt: model.drivePrompt,
+                                 go: session.string("ui.go"),
+                                 stop: session.string("ui.stop"))
+                if model.awaitingChoice {
+                    ChoiceButtons(onLeft: onTurnLeft, onRight: onTurnRight)
                 }
                 Spacer()
             }
@@ -89,15 +108,6 @@ struct HUDView: View {
                     }
                     Spacer()
                 }
-            }
-
-            if model.finished {
-                Text(session.string("reward.complete"))
-                    .font(.system(size: 44, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Color(red: 0.12, green: 0.43, blue: 0.81))
-                    .multilineTextAlignment(.center)
-                    .padding(36)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28))
             }
         }
         .padding(56)

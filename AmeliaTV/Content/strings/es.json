@@ -48,5 +48,10 @@
   "light.goodStop": "¡Muy bien! Te paraste en el rojo. ",
 
   "episode.firstDay.title": "El Primer Día",
-  "reward.complete": "¡Lo lograste! Mamá te da un gran abrazo. "
+  "reward.complete": "¡Lo lograste! Mamá te da un gran abrazo. ",
+  "reward.greatDriving": "¡Muy bien conducido, Amelia!",
+  "reward.starsEarned": "¡Ganaste {n} estrellas!",
+  "reward.newSticker": "¡Nueva calcomanía!",
+  "ui.backToGarage": "Volver al taller",
+  "sticker.first-day": "Conductora del Primer Día"
 }
