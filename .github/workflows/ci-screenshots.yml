@@ -87,7 +87,7 @@ jobs:
 
           shoot title 4
           shoot garage 5
-          shoot drive 8       # let the intro card fade and the bus start rolling
+          shoot drive 12      # let the bus get out onto the street, past the garage
 
       - name: Upload screenshots (artifact for humans)
         if: always()
