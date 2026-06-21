@@ -74,6 +74,16 @@ These are the exact things that broke. Bake them in from the start.
 - **Provide an app icon before the first upload.** iOS needs a 1024² icon; tvOS
   **requires** layered **Brand Assets** (App Icon + Top Shelf) or the archive
   fails validation. Generate placeholders programmatically so art never blocks.
+- **tvOS App Icon image stacks have TWO non-obvious rules — satisfy both:**
+  1. each `.imagestack` must have **at least 2 layers**, and
+  2. the **bottom-most** layer (the *last* entry in the stack's `Contents.json`
+     `layers` array) must be a **fully opaque** bitmap (no alpha).
+  So: transparent foreground layer on top, opaque background layer last. A
+  single layer fails rule 1; a transparent bottom layer fails rule 2. (These only
+  surface at *archive/App Store* validation, not in Simulator builds — and
+  xcbeautify hides them, so dump the raw `actool` log to see them.) Required
+  brand-asset slots: App Icon (400×240), App Icon - App Store (1280×768),
+  Top Shelf Image (1920×720), Top Shelf Image Wide (2320×720).
 - Set `INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO` (local/no-custom-crypto
   apps) so TestFlight stops asking export-compliance every build.
 - **Auto-increment the build number**: `latest_testflight_build_number(...) + 1`
@@ -159,7 +169,22 @@ These are the exact things that broke. Bake them in from the start.
 | `No profile matching 'match AppStore …'` | tvOS profile name suffix | read `MATCH_PROVISIONING_PROFILE_MAPPING` |
 | `-authenticationKeyPath must be absolute` | relative key path | make it absolute |
 | 2nd upload: build number used | hardcoded build number | auto-increment from TestFlight |
-| archive `Validate <App>.app` exit 65 | usually missing/invalid app icon | provide real icon assets; read the dumped gym log |
+| archive `Validate <App>.app` exit 65 | usually the tvOS app icon | see icon rules in §1; read the dumped `actool` log |
+| `image stack must have at least 2 layers` | tvOS icon stack has 1 layer | ≥2 layers, opaque bottom (§1) |
+| `last image stack layer … must be fully opaque` | transparent layer is on the bottom | put the opaque layer **last** in `layers` |
+
+---
+
+## 3b. "It uploaded but the build isn't in TestFlight"
+
+The upload step returns before Apple finishes processing (`skip_waiting_for_build_processing`), so a green CI run ≠ an installable build yet. Check, in order:
+
+1. **Right app + platform.** iOS and tvOS are **separate App Store Connect apps** (separate bundle ids). The tvOS build is under the **tvOS** app's TestFlight tab — not the iOS app, and there's a per-platform toggle.
+2. **Still processing.** tvOS often takes **10–30+ min**. It shows "Processing", then becomes available.
+3. **Check your account email.** If processing finds a problem (bad binary, icon, compliance), Apple **emails you** and the build silently won't appear. That email is the real error.
+4. **Missing Compliance.** Even with `ITSAppUsesNonExemptEncryption=NO` it can show a "Manage"/missing-compliance prompt — answer it once.
+5. **Internal testing wiring.** Add the build to an **Internal** testing group, ensure your Apple ID is a user in *Users and Access* and in that group, and **accept the invite**.
+6. **On the device.** Open the **TestFlight** app on the Apple TV, signed in with the **same Apple ID** that's the internal tester. New builds can take a few minutes to surface there.
 
 ---
 

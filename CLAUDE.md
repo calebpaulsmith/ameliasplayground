@@ -195,11 +195,10 @@ the playable loop, its full presentation, the agency pass, and the whole
 **To ship:** Actions → run **`release-testflight`** (NOT "Re-run" of an old run —
 that replays the old commit) → Approve. No need to re-run `match-setup`.
 
-**Status:** ✅ **iOS/iPad uploads to TestFlight.** 🔧 tvOS still failing at the
-archive-time **`Validate AmeliaTV.app`** step (exit 65) — error text only in the
-runner's gym log, so the workflow now dumps it on failure. Prime suspect: the
-tvOS **app icon / Brand Assets** (the only tvOS-specific difference from the
-working iOS build).
+**Status:** ✅ **Both iOS/iPad and tvOS build + upload to TestFlight.** Full,
+portable write-up (best practices + step-by-step + every error) lives in
+[`docs/APPLE_DEPLOYMENT_PLAYBOOK.md`](docs/APPLE_DEPLOYMENT_PLAYBOOK.md) — copy
+that into future app repos.
 
 **Gotchas already fixed (don't reintroduce):**
 1. tvOS/iOS uploads need an **app icon** + `ITSAppUsesNonExemptEncryption=NO`;
@@ -216,6 +215,13 @@ working iOS build).
 6. match names **non-iOS** profiles with a platform suffix
    (`match AppStore <id> tvos`) → read the name from
    `MATCH_PROVISIONING_PROFILE_MAPPING`, don't reconstruct it.
+7. tvOS **App Icon image stacks** must have **≥2 layers** AND a **fully opaque
+   bottom layer** (opaque layer goes *last* in the stack's `layers`). Only fails
+   at archive/App Store validation, and xcbeautify hides it — dump the raw
+   `actool` log. (`Tools/make_icons.py` now does this correctly.)
+8. Uploads return before Apple finishes **processing**; a green run ≠ an
+   installable build. tvOS processing can take 10–30 min and the tvOS build lives
+   under the **tvOS** app record (separate from iOS). See the playbook §3b.
 
 ## Next steps (start here next session)
 
