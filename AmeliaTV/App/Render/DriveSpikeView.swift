@@ -819,11 +819,12 @@ final class SpikeEngine: ObservableObject {
     }
 
     private func positionCamera() {
-        // Pulled back and higher than the original close chase cam so the busy town
-        // doesn't crowd the (small) phone screen and you can read the road ahead.
+        // A behind-and-above chase view: high enough to see the road and the lined
+        // streets ahead, with only a small sideways offset so the near row of houses
+        // sits beside the camera instead of blocking the bus.
         let bp = bus.position
-        camera.position = [bp.x - 9.5, bp.y + 7 + Float(cameraKick.value), bp.z + 9.5]
-        camera.look(at: [bp.x, bp.y + 0.6, bp.z], from: camera.position, relativeTo: nil)
+        camera.position = [bp.x - 10, bp.y + 8 + Float(cameraKick.value), bp.z + 4.5]
+        camera.look(at: [bp.x + 2.5, bp.y + 0.5, bp.z], from: camera.position, relativeTo: nil)
     }
 }
 

@@ -1,8 +1,8 @@
 [
   { "id": "garage", "nameId": "place.garage", "kind": "garage", "position": { "x": 0, "z": 0 }, "beaconColor": "#ffd23f" },
-  { "id": "stopA",  "nameId": "place.stopA",  "kind": "busStop", "position": { "x": 44, "z": 0 }, "beaconColor": "#2ee6d6" },
-  { "id": "park",   "nameId": "place.park",   "kind": "park",   "position": { "x": 88, "z": 44 }, "beaconColor": "#57b85a" },
-  { "id": "school", "nameId": "place.school", "kind": "school", "position": { "x": 44, "z": 88 }, "beaconColor": "#ffd23f" },
-  { "id": "market", "nameId": "place.market", "kind": "market", "position": { "x": 132, "z": 132 }, "beaconColor": "#ff7e5f" },
-  { "id": "beach",  "nameId": "place.beach",  "kind": "beach",  "position": { "x": 176, "z": 0 }, "beaconColor": "#3fb6e6" }
+  { "id": "stopA",  "nameId": "place.stopA",  "kind": "busStop", "position": { "x": 70, "z": 0 }, "beaconColor": "#2ee6d6" },
+  { "id": "park",   "nameId": "place.park",   "kind": "park",   "position": { "x": 150, "z": 0 }, "beaconColor": "#57b85a" },
+  { "id": "school", "nameId": "place.school", "kind": "school", "position": { "x": 150, "z": 110 }, "beaconColor": "#ffd23f" },
+  { "id": "market", "nameId": "place.market", "kind": "market", "position": { "x": 50, "z": 140 }, "beaconColor": "#ff7e5f" },
+  { "id": "beach",  "nameId": "place.beach",  "kind": "beach",  "position": { "x": -60, "z": 60 }, "beaconColor": "#3fb6e6" }
 ]
