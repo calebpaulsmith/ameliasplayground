@@ -30,7 +30,6 @@ struct DriveSpikeView: View {
             HUDView(model: engine.hud,
                     onTurnLeft: { engine.chooseTurn(.left) },
                     onTurnRight: { engine.chooseTurn(.right) },
-                    onFind: { engine.pickFind($0) },
                     onContinue: { dismiss() })
                 .environmentObject(session)
 
@@ -121,8 +120,14 @@ final class SpikeEngine: ObservableObject {
     // Lets the fork choice be made without a controller (e.g. on iPad).
     private var pendingTouchTurn: InputIntents.DiscreteTurn = .none
 
-    // A "spot it" answer picked from an on-screen card, applied on the next tick.
-    private var pendingFind: String?
+    // The in-world "spot it" beat: coloured balloons float ahead of the bus and the
+    // child steers to aim at one and beeps the horn to pick it — selection is the
+    // bus's own verbs (steer + honk), so it's part of driving and works on every
+    // controller and the Siri Remote. No floating cards.
+    private var findRig: Entity?                                  // follows the bus's facing
+    private var findBalloons: [(id: String, node: Entity)] = []  // left→right, in option order
+    private var findAimIndex = 0                                 // which balloon is highlighted
+    private var findActive = false
 
     // --- Character Life: Amelia's expressive state (GAME_DESIGN.md §4a). ---
     // Springs/eased values driven each frame; springs give the playful "boing".
@@ -148,9 +153,6 @@ final class SpikeEngine: ObservableObject {
 
     /// Called by the HUD's on-screen LEFT/RIGHT buttons.
     func chooseTurn(_ turn: InputIntents.DiscreteTurn) { pendingTouchTurn = turn }
-
-    /// Called by the HUD's "spot it" answer cards.
-    func pickFind(_ optionId: String) { pendingFind = optionId }
 
     /// Maps Game Core ground units to RealityKit meters for a couch-scale view.
     private let scale: Float = 0.12
@@ -223,6 +225,8 @@ final class SpikeEngine: ObservableObject {
         riderGreeted = false
         prevSparkleCount = 0
         moodNight = -1
+        findActive = false
+        clearFindBalloons()
         #if canImport(UIKit)
         reduceMotion = UIAccessibility.isReduceMotionEnabled
         #endif
@@ -237,8 +241,11 @@ final class SpikeEngine: ObservableObject {
         buildCollectibles(session: session)
 
         lastTick = Date()
+        // The timer fires on the main run loop, so step runs synchronously on the
+        // main actor — no per-frame `Task` hop (which adds latency/jank and can
+        // pile up under load). assumeIsolated is valid because we're on main.
         let t = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.step() }
+            MainActor.assumeIsolated { self?.step() }
         }
         RunLoop.main.add(t, forMode: .common)
         timer = t
@@ -264,7 +271,6 @@ final class SpikeEngine: ObservableObject {
         }
         pendingTouchTurn = .none
         let honk = intents.honkPressed
-        if let f = pendingFind { game.answerFind(f); pendingFind = nil }
         game.tick(dt: dt, input: intents)
 
         // When the episode finishes, Mom praises the player once (reward screen).
@@ -306,9 +312,9 @@ final class SpikeEngine: ObservableObject {
         for friend in friends { animateCharacter(friend, busPos: bus.position, dt: dt, honk: honk) }
         updateRider(game: game, busPos: bus.position, dt: dt, honk: honk)
         updateCollectibles(game: game)
+        updateFindBeat(game: game, steer: intents.steer, pick: honk || intents.confirmPressed)
         juice.update(dt: Float(dt))
-        let states = Dictionary(uniqueKeysWithValues: game.lightSnapshot().map { ($0.id, $0.state) })
-        neighborhood?.updateLights(states)
+        neighborhood?.updateLights(game.lightSnapshot())
         neighborhood?.updateAmbient(elapsed: elapsed, dt: dt)
         updateMood()
         positionCamera()
@@ -568,6 +574,80 @@ final class SpikeEngine: ObservableObject {
         }
     }
 
+    /// The in-world "spot it" beat. While the game is waiting for a find answer,
+    /// coloured balloons float ahead of the bus; the child steers to aim (the aimed
+    /// balloon swells and bobs) and beeps the horn to pick it. Selection is driving,
+    /// not a menu — so it works with the Siri Remote and every controller. The Core
+    /// is untouched: this only reads `awaitingFind`/`findOptions` and calls back
+    /// `answerFind` (a wrong beep is gently re-prompted, never punished).
+    private func updateFindBeat(game: GameSession, steer: Double, pick: Bool) {
+        guard game.awaitingFind else {
+            if findActive { clearFindBalloons(); findActive = false }
+            return
+        }
+        if !findActive {
+            spawnFindBalloons(game.findOptions)
+            findActive = true
+        }
+        let n = findBalloons.count
+        guard n > 0 else { return }
+
+        // Keep the balloons floating just ahead of the bus, in its facing.
+        let p = game.bus.position
+        findRig?.position = [Float(p.x) * scale, 0, Float(p.z) * scale]
+        findRig?.orientation = simd_quatf(angle: Float(-game.bus.heading), axis: [0, 1, 0])
+
+        // Aim with the steering axis: full-left → leftmost balloon, full-right →
+        // rightmost. The aimed one swells and bobs so the child sees their choice.
+        let s = max(-1.0, min(1.0, steer))
+        findAimIndex = min(n - 1, max(0, Int((s + 1) / 2 * Double(n - 1) + 0.5)))
+        for (i, entry) in findBalloons.enumerated() {
+            let aimed = i == findAimIndex
+            let bob = reduceMotion ? 0 : Float(sin(elapsed * 3.0 + Double(i))) * 0.12
+            entry.node.position.y = 1.9 + bob + (aimed ? 0.35 : 0)
+            let sc: Float = aimed ? 1.35 : 0.8
+            entry.node.scale = [sc, sc, sc]
+            if !reduceMotion {
+                entry.node.orientation = simd_quatf(angle: Float(elapsed * (aimed ? 1.6 : 0.4)),
+                                                    axis: [0, 1, 0])
+            }
+        }
+
+        // Beep the horn (or click select) to choose the aimed balloon.
+        if pick { game.answerFind(findBalloons[findAimIndex].id) }
+    }
+
+    /// Builds one floating balloon per find option, ordered left→right ahead of the
+    /// bus. Colours come straight from the option data (the same ids the Core scores).
+    private func spawnFindBalloons(_ options: [FindOption]) {
+        clearFindBalloons()
+        let rig = Entity()
+        let n = options.count
+        let spread: Float = 3.4
+        for (i, opt) in options.enumerated() {
+            let color = ModelLibrary.color(hex: opt.color) ?? .gray
+            let balloon = ModelLibrary.balloon(color: color)
+            let z = n > 1 ? (Float(i) / Float(n - 1) - 0.5) * 2 * spread : 0
+            balloon.position = [4.4, 1.9, z]     // ahead (+x) of the bus, spread across
+            rig.addChild(balloon)
+            findBalloons.append((id: opt.id, node: balloon))
+        }
+        root.addChild(rig)
+        findRig = rig
+        findAimIndex = n / 2                      // default to the middle
+    }
+
+    /// Pops the find balloons out of the world (with a little sparkle when they were
+    /// actually present — i.e. the child just answered correctly).
+    private func clearFindBalloons() {
+        if !reduceMotion {
+            for entry in findBalloons { juice.burst(at: entry.node.position, kind: .sparkle, count: 6) }
+        }
+        findRig?.removeFromParent()
+        findRig = nil
+        findBalloons.removeAll()
+    }
+
     private func updateBeacon(target: EpisodeTarget?) {
         guard let target else { beacon.isEnabled = false; return }
         beacon.isEnabled = true
@@ -586,7 +666,6 @@ final class SpikeEngine: ObservableObject {
         next.destinationNameId = game.currentTargetNameId
         next.awaitingChoice = game.awaitingChoice
         next.awaitingFind = game.awaitingFind
-        next.findOptions = game.findOptions
         next.finished = game.finished
         next.rewardStars = game.rewardPlan?.stars ?? game.sparkleCount
         next.rewardStickerId = game.rewardPlan?.stickerId

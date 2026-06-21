@@ -48,8 +48,9 @@
   "m.home": "¡Buen trabajo! Regresa a casa, al taller.",
 
   "nav.tryOtherWay": "¡Probemos por aquí!",
-  "find.tryAgain": "¡Casi! ¡Prueba con otro!",
-  "find.spotRedHouse": "¿Puedes encontrar la ROJA?",
+  "find.tryAgain": "¡Casi! ¡Dirígete a otro y toca la bocina!",
+  "find.spotRedBalloon": "¡Toca la bocina en el globo ROJO!",
+  "ui.findHint": "¡Conduce y toca la bocina!",
   "color.red": "Rojo",
   "color.blue": "Azul",
   "color.yellow": "Amarillo",

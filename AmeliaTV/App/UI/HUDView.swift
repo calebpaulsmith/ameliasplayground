@@ -12,9 +12,9 @@ struct HUDModel: Equatable {
     var drivePrompt: GameSession.DrivePrompt = .go
     var destinationNameId: String? = nil
     var awaitingChoice: Bool = false
-    // "Spot it" (find) question: the tappable answer options, if one is active.
+    // "Spot it" (find) question is active: the answer balloons float in the 3D world
+    // and the child steers + beeps to pick one, so the HUD only shows a gentle hint.
     var awaitingFind: Bool = false
-    var findOptions: [FindOption] = []
     var finished: Bool = false
 
     // Reward screen (A2-12): what the finished episode awarded.
@@ -48,8 +48,6 @@ struct HUDView: View {
     /// devices with no controller). No-ops by default.
     var onTurnLeft: () -> Void = {}
     var onTurnRight: () -> Void = {}
-    /// Tapped a "spot it" answer option (passes the chosen option id).
-    var onFind: (String) -> Void = { _ in }
     /// Tapped on the reward screen's "back to the garage" button.
     var onContinue: () -> Void = {}
 
@@ -94,9 +92,7 @@ struct HUDView: View {
                     ChoiceButtons(onLeft: onTurnLeft, onRight: onTurnRight)
                 }
                 if model.awaitingFind {
-                    FindCards(options: model.findOptions,
-                              label: { $0.map { session.string($0) } },
-                              onPick: onFind)
+                    FindHint(text: session.string("ui.findHint"))
                 }
                 Spacer()
             }
@@ -153,39 +149,28 @@ private struct ChoiceButtons: View {
     }
 }
 
-/// Big tappable answer cards for a "spot it" question — a coloured swatch with an
-/// optional caption. Focusable with the Siri Remote/controller; no wrong-answer
-/// penalty (a miss is just gently re-prompted by the game).
-private struct FindCards: View {
-    let options: [FindOption]
-    /// Resolves an optional bilingual label id to display text.
-    let label: (String?) -> String?
-    let onPick: (String) -> Void
+/// A gentle, wordless-friendly nudge during a "spot it" question: the answer
+/// balloons live in the 3D world (the child steers to aim and beeps the horn to
+/// pick), so the HUD just shows a pulsing horn so a young child knows to beep.
+private struct FindHint: View {
+    let text: String
+    @State private var pulse = false
 
     var body: some View {
-        HStack(spacing: 40) {
-            ForEach(options, id: \.id) { option in
-                Button { onPick(option.id) } label: {
-                    VStack(spacing: 12) {
-                        RoundedRectangle(cornerRadius: 28)
-                            .fill(Color(hex: option.color) ?? .gray)
-                            .frame(width: 150, height: 150)
-                            .overlay(
-                                option.iconId.map { Image(systemName: $0)
-                                    .font(.system(size: 64, weight: .black))
-                                    .foregroundStyle(.white) }
-                            )
-                            .shadow(radius: 10, y: 6)
-                        if let text = label(option.labelId) {
-                            Text(text)
-                                .font(.system(size: 26, weight: .bold, design: .rounded))
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-            }
+        HStack(spacing: 16) {
+            Image(systemName: "horn.fill")
+                .font(.system(size: 44, weight: .black))
+                .foregroundStyle(.white)
+            Text(text)
+                .font(.system(size: 30, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
         }
+        .padding(.horizontal, 36).padding(.vertical, 18)
+        .background(Capsule().fill(Color(red: 0.95, green: 0.55, blue: 0.20)))
+        .shadow(radius: 10, y: 6)
+        .scaleEffect(pulse ? 1.06 : 0.96)
+        .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
+        .onAppear { pulse = true }
         .padding(.top, 12)
     }
 }
