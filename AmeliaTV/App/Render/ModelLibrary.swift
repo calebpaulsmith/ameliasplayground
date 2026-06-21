@@ -209,6 +209,15 @@ enum ModelLibrary {
     /// A small, friendly NPC figure: a rounded body, a head, and two eyes facing
     /// forward (+z). Original placeholder geometry; swap a USDZ in later by id.
     static func character(color: PlatformColor) -> Entity {
+        characterRig(color: color).root
+    }
+
+    /// Like `character`, but keeps the eyes addressable (a `FaceRig` for blink +
+    /// look) and returns the right-arm pivot so the engine can make the NPC wave —
+    /// the Character Life pass (docs/tvos/GAME_DESIGN.md §4a). Arms hang from the
+    /// shoulders as pivots, so rotating a pivot swings the whole arm.
+    static func characterRig(color: PlatformColor)
+        -> (root: Entity, face: FaceRig, waveArm: Entity) {
         let node = Entity()
         let body = placeholderBox(color: color, size: [0.5, 0.7, 0.42])
         body.position = [0, 0.35, 0]
@@ -216,15 +225,38 @@ enum ModelLibrary {
         let head = sphere(radius: 0.26, color: color)
         head.position = [0, 0.92, 0]
         node.addChild(head)
+
+        var eyes: [ModelEntity] = []
+        var pupils: [ModelEntity] = []
+        var rest: [SIMD3<Float>] = []
         for x in [Float(-0.1), 0.1] {
             let white = sphere(radius: 0.07, color: .white)
             white.position = [x, 0.96, 0.20]
+            white.name = "eye"
             node.addChild(white)
+            eyes.append(white)
             let pupil = sphere(radius: 0.032, color: PlatformColor(white: 0.1, alpha: 1))
-            pupil.position = [x, 0.96, 0.25]
+            let p: SIMD3<Float> = [x, 0.96, 0.25]
+            pupil.position = p
+            pupil.name = "pupil"
             node.addChild(pupil)
+            pupils.append(pupil)
+            rest.append(p)
         }
-        return node
+
+        func arm(side: Float) -> Entity {
+            let pivot = Entity()
+            pivot.position = [side * 0.30, 0.58, 0.04]
+            let limb = placeholderBox(color: color, size: [0.12, 0.34, 0.14])
+            limb.position = [0, -0.17, 0]          // hang below the shoulder pivot
+            pivot.addChild(limb)
+            node.addChild(pivot)
+            return pivot
+        }
+        _ = arm(side: -1)
+        let waveArm = arm(side: 1)
+
+        return (node, FaceRig(eyes: eyes, pupils: pupils, pupilRest: rest), waveArm)
     }
 
     /// A floating balloon collectible: a rounded body, a knot, and a string.

@@ -230,6 +230,10 @@ swaps to USDZ later by id. All Reduce-Motion aware; original-IP (D-IP-1).
   when boarded; reuse the `FaceRig` for `character()`.
 - **Acceptance:** ambient + the episode rider all show life; no Core change.
 - **Dependencies:** CL-01. **Complexity:** M · **AI-suitable:** Yes
+- **Status:** done — `characterRig` (eyes addressable + a wave arm) reused for every
+  NPC and the rider; a shared `animateCharacter` does idle-bob, staggered blink,
+  turn-to-watch the passing bus, glance, and wave-when-near, with an excited hop as
+  the bus pulls up and a delighted hop on delivery. Reduce-Motion aware; Core untouched.
 
 ### CL-03 — The world reacts (honk-reacts + props)
 - **Milestone:** next · **Priority:** P1

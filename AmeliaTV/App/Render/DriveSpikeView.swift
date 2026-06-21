@@ -48,6 +48,35 @@ struct DriveSpikeView: View {
     }
 }
 
+/// A neighborhood character (ambient friend or the episode rider) plus the small
+/// eased/sprung state that gives it life — kept next to its entity so the engine
+/// can animate it each frame. Pure data; the Core is untouched (GAME_DESIGN §4a).
+private final class CharacterActor {
+    let node: Entity
+    let face: FaceRig
+    let waveArm: Entity
+    var home: SIMD3<Float>
+    let baseYaw: Double
+    let phase: Double            // idle-bob phase, staggered so they don't sync
+    var nextBlink: Double
+    var blinkUntil: Double = -1
+    var look: Double = 0         // eased pupil glance
+    var yaw: Double              // eased turn-to-watch
+    var wave: Double = 0         // eased wave amount (0…1)
+    var hop = SpringValue(stiffness: 200, damping: 14)
+
+    init(rig: (root: Entity, face: FaceRig, waveArm: Entity), home: SIMD3<Float>, baseYaw: Double) {
+        node = rig.root
+        face = rig.face
+        waveArm = rig.waveArm
+        self.home = home
+        self.baseYaw = baseYaw
+        yaw = baseYaw
+        phase = Double.random(in: 0 ... (2 * Double.pi))
+        nextBlink = Double.random(in: 1.0...4.0)
+    }
+}
+
 /// Owns the GameSession, the RealityKit entities, and the per-frame loop. Kept
 /// out of SwiftUI so it can mutate entity transforms directly each tick.
 @MainActor
@@ -72,12 +101,16 @@ final class SpikeEngine: ObservableObject {
     private var lastTick = Date()
     private var elapsed: Double = 0
 
-    // The episode passenger ("rider") who waits at the stop, boards, then exits.
-    private var rider = Entity()
+    // The episode passenger ("rider") who waits at the stop, boards, then exits,
+    // plus the ambient NPC friends who live around the neighborhood. All are given
+    // life (idle-bob, blink, turn-to-watch, wave) by `animateCharacter`.
+    private var friends: [CharacterActor] = []
+    private var riderActor: CharacterActor?
     private var plan: GameSession.PassengerPlan?
     private var pickupPos: Vec2?
     private var dropoffPos: Vec2?
     private var riderBoardedOnce = false
+    private var riderGreeted = false  // one-shot excited hop as the bus pulls up
     private var spokeReward = false   // speak Mom's praise once, when the episode ends
 
     // Collectibles (balloons / coins) scattered along the route; hidden once the
@@ -159,6 +192,10 @@ final class SpikeEngine: ObservableObject {
         self.game = game
         self.places = session.content.places
         self.spokeReward = false
+        friends.removeAll()
+        riderActor = nil
+        riderBoardedOnce = false
+        riderGreeted = false
         #if canImport(UIKit)
         reduceMotion = UIAccessibility.isReduceMotionEnabled
         #endif
@@ -226,7 +263,8 @@ final class SpikeEngine: ObservableObject {
         audio.setEngineIntensity(abs(game.bus.speed) / game.core.assistLevel.maxSpeed)
 
         updateBeacon(target: game.currentTarget)
-        updateRider(game: game)
+        for friend in friends { animateCharacter(friend, busPos: bus.position, dt: dt) }
+        updateRider(game: game, busPos: bus.position, dt: dt)
         updateCollectibles(game: game)
         let states = Dictionary(uniqueKeysWithValues: game.lightSnapshot().map { ($0.id, $0.state) })
         neighborhood?.updateLights(states)
@@ -309,41 +347,107 @@ final class SpikeEngine: ObservableObject {
     }
 
     /// Places the ambient NPC friends at their home places, and the episode's
-    /// rider waiting at the pickup stop. The rider is animated in `step`.
+    /// rider waiting at the pickup stop — each rigged so it can come alive
+    /// (idle-bob, blink, turn-to-watch, wave). Animated every frame in `step`.
     private func buildPassengers(session: AppSession, game: GameSession) {
         let plan = game.passengerPlan
         self.plan = plan
 
         for p in session.content.passengers where p.id != plan?.passengerId {
             guard let place = session.content.places.first(where: { $0.id == p.homePlace }) else { continue }
-            let npc = ModelLibrary.character(color: ModelLibrary.color(hex: p.color) ?? .gray)
-            npc.position = groundPos(place.position.vec, offsetX: 1.8)
-            root.addChild(npc)
+            let rig = ModelLibrary.characterRig(color: ModelLibrary.color(hex: p.color) ?? .gray)
+            let home = groundPos(place.position.vec, offsetX: 1.8)
+            rig.root.position = home
+            root.addChild(rig.root)
+            friends.append(CharacterActor(rig: rig, home: home, baseYaw: restYaw(at: home)))
         }
 
         guard let plan,
               let rp = session.content.passengers.first(where: { $0.id == plan.passengerId }) else { return }
         pickupPos = game.place(plan.pickupPlaceId)?.position.vec
         dropoffPos = game.place(plan.dropoffPlaceId)?.position.vec
-        rider = ModelLibrary.character(color: ModelLibrary.color(hex: rp.color) ?? .orange)
-        if let pickupPos { rider.position = groundPos(pickupPos, offsetX: 1.2) }
-        root.addChild(rider)
+        let rig = ModelLibrary.characterRig(color: ModelLibrary.color(hex: rp.color) ?? .orange)
+        let home = pickupPos.map { groundPos($0, offsetX: 1.2) } ?? [0, 0, 0]
+        rig.root.position = home
+        root.addChild(rig.root)
+        riderActor = CharacterActor(rig: rig, home: home, baseYaw: restYaw(at: home))
     }
 
-    /// Updates the rider: waiting at the stop, hidden while aboard, then standing
-    /// at the drop-off once delivered.
-    private func updateRider(game: GameSession) {
-        guard plan != nil else { return }
+    /// A character's resting facing: turned roughly toward the neighborhood centre
+    /// so the cast looks "in", until the passing bus pulls their gaze.
+    private func restYaw(at home: SIMD3<Float>) -> Double {
+        Double(atan2(-home.x, -home.z))
+    }
+
+    /// Updates the rider: waiting at the stop (with an excited hop as the bus pulls
+    /// up), hidden while aboard, then standing at the drop-off — with a delighted
+    /// hop the moment it's delivered, thrilled to be home.
+    private func updateRider(game: GameSession, busPos: SIMD3<Float>, dt: Double) {
+        guard let actor = riderActor else { return }
         let aboard = game.currentPassengerId == plan?.passengerId
         if aboard {
             riderBoardedOnce = true
-            rider.isEnabled = false
-        } else if riderBoardedOnce {
-            rider.isEnabled = true
-            if let dropoffPos { rider.position = groundPos(dropoffPos, offsetX: 1.2) }
-        } else {
-            rider.isEnabled = true
+            actor.node.isEnabled = false
+            return
         }
+        if riderBoardedOnce {
+            if !actor.node.isEnabled {            // first frame back: hop home, happy
+                if let dropoffPos { actor.home = groundPos(dropoffPos, offsetX: 1.2) }
+                actor.hop.nudge(reduceMotion ? 0 : 3.5)
+                actor.node.isEnabled = true
+            }
+        } else {
+            actor.node.isEnabled = true
+            if !riderGreeted {                    // a one-time excited bounce on arrival
+                let dx = busPos.x - actor.node.position.x, dz = busPos.z - actor.node.position.z
+                if (dx * dx + dz * dz).squareRoot() < 2.6 {
+                    riderGreeted = true
+                    actor.hop.nudge(reduceMotion ? 0 : 2.5)
+                }
+            }
+        }
+        animateCharacter(actor, busPos: busPos, dt: dt)
+    }
+
+    /// Gives a character life from the bus's position: a gentle idle bob, a
+    /// staggered blink, a turn-to-watch as the bus passes, a glance, and a wave
+    /// hello when it's close. Eased/sprung so nothing snaps; Reduce-Motion aware.
+    private func animateCharacter(_ a: CharacterActor, busPos: SIMD3<Float>, dt: Double) {
+        let dx = Double(busPos.x - a.home.x)
+        let dz = Double(busPos.z - a.home.z)
+        let near = !reduceMotion && (dx * dx + dz * dz).squareRoot() < 5.0
+
+        // Idle bob (gated by Reduce Motion) plus any delight hop from boarding/arrival.
+        let bob = reduceMotion ? 0 : 0.035 * sin(elapsed * 2.2 + a.phase)
+        a.hop.step(toward: 0, dt: dt)
+        a.node.position = [a.home.x, a.home.y + Float(bob) + Float(a.hop.value), a.home.z]
+
+        // Turn to watch the passing bus, else settle back to the resting facing.
+        let targetYaw = near ? atan2(dx, dz) : a.baseYaw
+        a.yaw = Easing.smoothed(a.yaw, toward: targetYaw, rate: 4, dt: dt)
+        a.node.orientation = simd_quatf(angle: Float(a.yaw), axis: [0, 1, 0])
+
+        // Blink on a natural, staggered rhythm (kept even under Reduce Motion).
+        if elapsed >= a.nextBlink {
+            a.blinkUntil = elapsed + 0.12
+            a.nextBlink = elapsed + Double.random(in: 2.4...5.5)
+        }
+        let eyeY: Float = elapsed < a.blinkUntil ? 0.12 : 1.0
+        for eye in a.face.eyes { eye.scale = [1, eyeY, 1] }
+
+        // Glance toward the bus (eyes are children, so work in the head's frame).
+        let lateral = near ? max(-1.0, min(1.0, sin(atan2(dx, dz) - a.yaw))) : 0.0
+        a.look = Easing.smoothed(a.look, toward: lateral, rate: 6, dt: dt)
+        for (i, pupil) in a.face.pupils.enumerated() {
+            let r = a.face.pupilRest[i]
+            pupil.position = [r.x + Float(a.look) * 0.03, r.y, r.z]
+        }
+
+        // Wave hello while the bus is close: raise the arm and flutter it.
+        a.wave = Easing.smoothed(a.wave, toward: near ? 1.0 : 0.0, rate: 5, dt: dt)
+        let raise = Float(a.wave) * 2.2
+        let flutter = Float(a.wave) * 0.35 * Float(sin(elapsed * 9.0))
+        a.waveArm.orientation = simd_quatf(angle: raise + flutter, axis: [0, 0, 1])
     }
 
     private func groundPos(_ v: Vec2, offsetX: Float = 0) -> SIMD3<Float> {
