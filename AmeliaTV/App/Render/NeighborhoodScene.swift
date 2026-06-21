@@ -41,6 +41,13 @@ final class NeighborhoodScene {
     private var clouds: [Entity] = []           // drift across the sky
     private var birds: [Bird] = []              // perch, then scatter on a honk
 
+    // Cozy-mood elements that respond to the time of day (CL-05): window panes and
+    // lamp globes glow warm as night falls, and stars fade in overhead.
+    private var windowPanes: [ModelEntity] = []
+    private var lampGlobes: [ModelEntity] = []
+    private var stars: [ModelEntity] = []
+    private var lastNight: Float = -1           // throttles night material rebuilds
+
     /// Maps Game Core ground units to scene meters (matches the engine's bus).
     private let scale: Float
 
@@ -55,6 +62,7 @@ final class NeighborhoodScene {
         buildVehicles(content)
         buildBirds(content)
         buildClouds()
+        buildStars()
     }
 
     /// Parks the Rescue Team vehicles near their home places, spreading multiple
@@ -207,7 +215,9 @@ final class NeighborhoodScene {
     private func lampPost(at p: SIMD3<Float>) {
         root.addChild(block(col(0.25, 0.26, 0.28), [0.12, 2.2, 0.12], at: [p.x, 1.1, p.z]))
         root.addChild(block(col(0.25, 0.26, 0.28), [0.5, 0.1, 0.12], at: [p.x + 0.2, 2.1, p.z]))
-        root.addChild(ball(col(1.0, 0.93, 0.6), 0.16, at: [p.x + 0.4, 2.05, p.z]))
+        let globe = ball(col(1.0, 0.93, 0.6), 0.16, at: [p.x + 0.4, 2.05, p.z])
+        root.addChild(globe)
+        lampGlobes.append(globe)
     }
 
     private func roundTree(at p: SIMD3<Float>, leaf: PlatformColor, s: Float = 1) {
@@ -245,8 +255,10 @@ final class NeighborhoodScene {
     private func windows(into g: Entity, count: Int, y: Float, faceZ: Float, spacing: Float) {
         let start = -Float(count - 1) / 2 * spacing
         for i in 0..<count {
-            g.addChild(block(col(0.75, 0.90, 1.0), [0.45, 0.55, 0.06],
-                             at: [start + Float(i) * spacing, y, faceZ]))
+            let pane = block(col(0.75, 0.90, 1.0), [0.45, 0.55, 0.06],
+                             at: [start + Float(i) * spacing, y, faceZ])
+            g.addChild(pane)
+            windowPanes.append(pane)
         }
     }
 
@@ -463,6 +475,54 @@ final class NeighborhoodScene {
             root.addChild(cloud)
             clouds.append(cloud)
         }
+    }
+
+    // MARK: - Cozy mood (time of day: window glow, lamp glow, stars)
+
+    /// Scatters little unlit stars high overhead, hidden by day (scale 0) and faded
+    /// in at night by `setNight`. Unlit so they shine regardless of the sun.
+    private func buildStars() {
+        for _ in 0..<44 {
+            let star = ball(.white, 0.16, at: [Float.random(in: -42...42),
+                                               Float.random(in: 13...20),
+                                               Float.random(in: -42...42)])
+            star.model?.materials = [UnlitMaterial(color: .white)]
+            star.scale = .zero
+            star.isEnabled = false
+            root.addChild(star)
+            stars.append(star)
+        }
+    }
+
+    /// Drives the time-of-day wash, `f` in 0 (bright day) … 1 (gentle night). Windows
+    /// and lamp globes glow warm (unlit, so they "light up"), and the stars fade in.
+    /// Throttled so materials only rebuild when the light meaningfully changes.
+    func setNight(_ f: Float) {
+        let n = max(0, min(1, f))
+        guard abs(n - lastNight) >= 0.015 else { return }
+        lastNight = n
+
+        // Windows: cool glass by day → warm glow by night (unlit, so they "light up").
+        let day = SIMD3<Float>(0.75, 0.90, 1.0), warm = SIMD3<Float>(1.0, 0.86, 0.5)
+        let glass = UnlitMaterial(color: rgb(day + (warm - day) * n))
+        for pane in windowPanes { pane.model?.materials = [glass] }
+
+        // Lamp globes brighten into the dusk.
+        let l = 0.55 + 0.45 * n
+        let lamp = UnlitMaterial(color: rgb([l, l * 0.92, l * 0.6]))
+        for globe in lampGlobes { globe.model?.materials = [lamp] }
+
+        // Stars fade/scale in once it's properly dim.
+        let s = max(0, (n - 0.15) / 0.85)
+        for star in stars {
+            star.isEnabled = s > 0.02
+            let sz = 0.12 + 0.14 * s
+            star.scale = [sz, sz, sz]
+        }
+    }
+
+    private func rgb(_ c: SIMD3<Float>) -> PlatformColor {
+        PlatformColor(red: CGFloat(c.x), green: CGFloat(c.y), blue: CGFloat(c.z), alpha: 1)
     }
 
     // MARK: - Birds (perch near the stops; scatter when Amelia honks)

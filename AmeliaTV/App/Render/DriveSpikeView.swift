@@ -140,6 +140,10 @@ final class SpikeEngine: ObservableObject {
     private var dustAccum = 0.0                      // throttles rolling-dust puffs
     private var cameraKick = SpringValue(stiffness: 90, damping: 11)  // bounce on big moments
     private let juice = JuiceEmitter()               // hand-animated sparkle/heart/dust bursts
+    private let sun = DirectionalLight()             // dimmed at night by updateMood
+    private let fill = DirectionalLight()            // constant soft fill (never go black)
+    private var headlights: [ModelEntity] = []       // bus lamps, glow at night
+    private var moodNight: Float = -1                // throttles night material updates
     private var reduceMotion = false                // tvOS "Reduce Motion" accessibility
 
     /// Called by the HUD's on-screen LEFT/RIGHT buttons.
@@ -158,6 +162,16 @@ final class SpikeEngine: ObservableObject {
         bus.position = [0, 0.55, 0]
         root.addChild(bus)
 
+        // Headlights on the bus's forward (+x) face — dim by day, glowing at night
+        // (driven by `updateMood`); unlit so they read as lit lamps.
+        for z in [Float(-0.28), 0.28] {
+            let hl = ModelLibrary.sphere(radius: 0.12, color: .white)
+            hl.scale = [0.4, 0.9, 0.9]
+            hl.position = [0.82, 0.30, z]
+            bus.addChild(hl)
+            headlights.append(hl)
+        }
+
         // A bright floating pillar marking where to drive next. Hidden until the
         // episode sets a target; it bobs gently so a young child can spot it.
         beacon = ModelLibrary.placeholderBox(
@@ -167,10 +181,15 @@ final class SpikeEngine: ObservableObject {
         beacon.isEnabled = false
         root.addChild(beacon)
 
-        let light = DirectionalLight()
-        light.light.intensity = 4000
-        light.orientation = simd_quatf(angle: -.pi / 3, axis: [1, 0.4, 0])
-        root.addChild(light)
+        // The sun (dimmed at night by `updateMood`) plus a constant soft fill so the
+        // world never goes black — readability is a hard constraint for young kids.
+        sun.light.intensity = 4200
+        sun.orientation = simd_quatf(angle: -.pi / 3, axis: [1, 0.4, 0])
+        root.addChild(sun)
+
+        fill.light.intensity = 1500
+        fill.orientation = simd_quatf(angle: -.pi / 4, axis: [-0.6, 0.5, -0.3])
+        root.addChild(fill)
 
         let cam = PerspectiveCamera()
         cam.camera.fieldOfViewInDegrees = 55
@@ -203,6 +222,7 @@ final class SpikeEngine: ObservableObject {
         riderBoardedOnce = false
         riderGreeted = false
         prevSparkleCount = 0
+        moodNight = -1
         #if canImport(UIKit)
         reduceMotion = UIAccessibility.isReduceMotionEnabled
         #endif
@@ -290,8 +310,31 @@ final class SpikeEngine: ObservableObject {
         let states = Dictionary(uniqueKeysWithValues: game.lightSnapshot().map { ($0.id, $0.state) })
         neighborhood?.updateLights(states)
         neighborhood?.updateAmbient(elapsed: elapsed, dt: dt)
+        updateMood()
         positionCamera()
         publishHUD(game)
+    }
+
+    /// Slowly washes the world from day to a gentle, readable night and back: the sun
+    /// dims while windows, lamps, stars and the bus headlights glow. Held at bright
+    /// day under Reduce Motion so the scene stays calm and predictable.
+    private func updateMood() {
+        let night: Float
+        if reduceMotion {
+            night = 0
+        } else {
+            let daylight = 0.5 + 0.5 * cos(elapsed * 2 * .pi / 220)   // 1 day → 0 night
+            night = Float(1 - daylight) * 0.8                          // capped: never fully dark
+        }
+        sun.light.intensity = 4200 - 2200 * night
+
+        guard abs(night - moodNight) >= 0.015 else { return }
+        moodNight = night
+        let b = 0.22 + 0.78 * night                                    // headlight brightness
+        let lamp = UnlitMaterial(color: PlatformColor(red: CGFloat(b), green: CGFloat(b * 0.95),
+                                                      blue: CGFloat(b * 0.8), alpha: 1))
+        for hl in headlights { hl.model?.materials = [lamp] }
+        neighborhood?.setNight(night)
     }
 
     /// Drives Amelia's personality each frame from Core state — eased values and
