@@ -85,6 +85,30 @@ public final class GameSession: EpisodeWorld {
         guard let pid = passengerId, let pu = pickup, let dp = dropoff else { return nil }
         return PassengerPlan(passengerId: pid, pickupPlaceId: pu, dropoffPlaceId: dp)
     }
+
+    /// The stars + sticker the active episode awards on completion, read straight
+    /// from its `reward` beat. Lets the reward screen (A2-12) show what was earned
+    /// without hardcoding it — same data-driven pattern as `passengerPlan`.
+    public struct RewardPlan: Equatable, Sendable {
+        public let stars: Int
+        public let stickerId: String?
+        public init(stars: Int, stickerId: String?) {
+            self.stars = stars
+            self.stickerId = stickerId
+        }
+    }
+
+    public var rewardPlan: RewardPlan? {
+        guard let id = activeEpisodeId,
+              let episode = content.episodes.first(where: { $0.id == id }) else { return nil }
+        for beat in episode.beats {
+            if case let .reward(stars, stickerId) = beat {
+                return RewardPlan(stars: stars, stickerId: stickerId)
+            }
+        }
+        return nil
+    }
+
     public var language: Language {
         get { dialogue.language }
         set { dialogue.language = newValue; save.language = newValue }
