@@ -267,6 +267,12 @@ swaps to USDZ later by id. All Reduce-Motion aware; original-IP (D-IP-1).
   windows, stars) + soft weather (puddle splashes); ties to §16.
 - **Acceptance:** cheap lighting/material tweaks; no gameplay impact.
 - **Dependencies:** A2-08. **Complexity:** M · **AI-suitable:** Yes
+- **Status:** done — `SpikeEngine.updateMood` runs a slow day→dusk→night→dawn wash:
+  the sun dims (with a constant fill light so it never goes black — readability is a
+  hard constraint), and `NeighborhoodScene.setNight` glows the windows + lamp globes
+  warm (unlit) and fades stars in overhead; the bus gains headlights that light up at
+  night. Night is capped (never fully dark) and **held at bright day under Reduce
+  Motion**. Material updates throttled; Core untouched. Completes the CL charm arc.
 
 ---
 
