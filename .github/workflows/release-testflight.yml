@@ -61,6 +61,9 @@ jobs:
           ASC_API_KEY_PATH: ${{ github.workspace }}/AmeliaTV/fastlane/AuthKey.p8
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: fastlane ios beta
       - name: Clean up API key
         if: always()
@@ -99,6 +102,9 @@ jobs:
           ASC_API_KEY_PATH: ${{ github.workspace }}/AmeliaTV/fastlane/AuthKey.p8
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           TVOS_BUNDLE_ID: ${{ secrets.TVOS_BUNDLE_ID }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
         run: fastlane tvos beta
       - name: Clean up API key
         if: always()

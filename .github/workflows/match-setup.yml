@@ -1,0 +1,63 @@
+name: match-setup
+
+# ONE-TIME signing bootstrap. Creates the Apple Distribution certificate + App
+# Store provisioning profiles for the iOS and tvOS apps via the App Store Connect
+# API key, and stores them ENCRYPTED in your private match repo. After this runs
+# once, `release-testflight` just fetches them (readonly) on every build.
+#
+# Run this manually AFTER adding the match secrets (see
+# docs/tvos/SHIP_WITHOUT_A_MAC.md). Manual-only + protected `release` environment,
+# same as the release workflow. Safe to re-run; it reuses what already exists.
+#
+# Required secrets on the `release` environment (in addition to the App Store
+# Connect API key set used by release-testflight):
+#   MATCH_GIT_URL                  (HTTPS url of your PRIVATE certs repo)
+#   MATCH_PASSWORD                 (passphrase that encrypts the stored certs)
+#   MATCH_GIT_BASIC_AUTHORIZATION  (base64 of "user:token" for that repo)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: match-setup
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Bootstrap App Store signing (match)
+    runs-on: macos-15
+    environment: release          # protected: requires manual approval; holds secrets
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest Xcode
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest/Contents/Developer"; fi
+          xcodebuild -version
+      - name: Write App Store Connect API key
+        working-directory: AmeliaTV
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          mkdir -p fastlane
+          printf '%s' "$ASC_API_KEY_P8" > fastlane/AuthKey.p8
+      - name: Create distribution certs + profiles
+        working-directory: AmeliaTV
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY_PATH: ${{ github.workspace }}/AmeliaTV/fastlane/AuthKey.p8
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
+          TVOS_BUNDLE_ID: ${{ secrets.TVOS_BUNDLE_ID }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+        run: fastlane bootstrap_signing
+      - name: Clean up API key
+        if: always()
+        working-directory: AmeliaTV
+        run: rm -f fastlane/AuthKey.p8
