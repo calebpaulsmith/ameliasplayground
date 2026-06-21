@@ -90,8 +90,8 @@ final class SpikeEngine: ObservableObject {
     // --- Character Life: Amelia's expressive state (GAME_DESIGN.md §4a). ---
     // Springs/eased values driven each frame; springs give the playful "boing".
     private var lean = 0.0                          // roll into turns
-    private var squash = Spring(stiffness: 220, damping: 16)   // squash on a stop
-    private var hop = Spring(stiffness: 200, damping: 14)      // bounce on pickup/honk
+    private var squash = SpringValue(stiffness: 220, damping: 16)   // squash on a stop
+    private var hop = SpringValue(stiffness: 200, damping: 14)      // bounce on pickup/honk
     private var lookX = 0.0, lookY = 0.0            // eased pupil gaze
     private var wiggle = 0.0                        // honk happy-wiggle
     private var nextBlink = 1.5

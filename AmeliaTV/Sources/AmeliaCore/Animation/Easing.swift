@@ -27,7 +27,10 @@ public enum Easing {
 /// "boing" that feels playful rather than mechanical. Pure value type, integrated
 /// each frame toward a `target`; `nudge` injects an impulse (a honk wiggle, a
 /// happy hop). Defaults are underdamped for a gentle bounce.
-public struct Spring: Equatable, Sendable {
+///
+/// Named `SpringValue` (not `Spring`) to avoid colliding with `SwiftUI.Spring`
+/// in the render layer.
+public struct SpringValue: Equatable, Sendable {
     public var value: Double
     public var velocity: Double
     public var stiffness: Double

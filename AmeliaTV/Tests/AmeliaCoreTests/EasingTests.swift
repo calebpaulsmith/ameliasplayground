@@ -30,7 +30,7 @@ final class EasingTests: XCTestCase {
     }
 
     func testSpringSettlesOnTarget() {
-        var s = Spring(value: 0)
+        var s = SpringValue(value: 0)
         for _ in 0..<600 { s.step(toward: 1, dt: 1.0 / 60) }
         XCTAssertEqual(s.value, 1, accuracy: 0.01, "spring did not settle on the target")
         XCTAssertEqual(s.velocity, 0, accuracy: 0.01, "spring never came to rest")
@@ -38,7 +38,7 @@ final class EasingTests: XCTestCase {
 
     func testUnderdampedSpringOvershootsThenReturns() {
         // A nudge from rest should bounce past zero at least once, then settle.
-        var s = Spring(value: 0)
+        var s = SpringValue(value: 0)
         s.nudge(8)
         var maxValue = 0.0
         for _ in 0..<600 {
