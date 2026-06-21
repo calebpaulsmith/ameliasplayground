@@ -24,6 +24,7 @@ targets:
     deploymentTarget: "26.0"
     sources:
       - path: App
+      - path: Resources/tvOS/Assets.xcassets   # app icon + top-shelf (tvOS only)
       - path: Content
         type: folder        # folder reference: whole tree copied into the bundle
         buildPhase: resources
@@ -39,9 +40,12 @@ targets:
         GENERATE_INFOPLIST_FILE: "YES"
         CURRENT_PROJECT_VERSION: "1"
         MARKETING_VERSION: "0.1.0"
-        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: "App Icon & Top Shelf Image"
         INFOPLIST_KEY_CFBundleDisplayName: "Amelia"
         INFOPLIST_KEY_GCSupportsControllerUserInteraction: "YES"
+        # No custom encryption (local TTS / no network) — skips the per-build
+        # export-compliance prompt in TestFlight.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: "NO"
         # No signing for normal CI; the protected release workflow handles it.
         CODE_SIGNING_ALLOWED: "NO"
 
@@ -56,6 +60,7 @@ targets:
     deploymentTarget: "18.0"
     sources:
       - path: App
+      - path: Resources/iOS/Assets.xcassets    # app icon (iOS/iPad only)
       - path: Content
         type: folder        # folder reference: whole tree copied into the bundle
         buildPhase: resources
@@ -71,7 +76,8 @@ targets:
         GENERATE_INFOPLIST_FILE: "YES"
         CURRENT_PROJECT_VERSION: "1"
         MARKETING_VERSION: "0.1.0"
-        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: "AppIcon"
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: "NO"
         INFOPLIST_KEY_CFBundleDisplayName: "Amelia"
         INFOPLIST_KEY_GCSupportsControllerUserInteraction: "YES"
         INFOPLIST_KEY_UIRequiresFullScreen: "YES"
