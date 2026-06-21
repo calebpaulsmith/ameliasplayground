@@ -108,7 +108,7 @@ final class GarageEngine: ObservableObject {
         root.addChild(bus)
 
         // Mechanic Mom, beside the bus, with a little wrench.
-        mom = ModelLibrary.character(color: .init(red: 0.18, green: 0.66, blue: 0.62, alpha: 1))
+        mom = ModelLibrary.character(modelRef: "mom", color: .init(red: 0.18, green: 0.66, blue: 0.62, alpha: 1))
         mom.position = [2.4, 0, 0.6]
         let wrench = ModelLibrary.placeholderBox(
             color: .init(white: 0.85, alpha: 1), size: [0.1, 0.5, 0.1])

@@ -17,25 +17,41 @@ no Mac needed). Commit the `.usdz` here. Everything stays in this Git repo — s
 `ModelLibrary` resolves these ids today (anything not present falls back to a
 cute placeholder, so partial art is fine):
 
-| File              | What it is                         | Comes from            |
-|-------------------|------------------------------------|-----------------------|
-| `bus.usdz`        | Amelia, the hero bus               | hard-coded id `"bus"` |
-| `veh_fire.usdz`   | Pim, the fire truck                | `vehicles.json` modelRef |
-| `veh_tow.usdz`    | Hux, the tow truck                 | `vehicles.json` modelRef |
-| `veh_amb.usdz`    | Bea, the ambulance                 | `vehicles.json` modelRef |
-| `veh_heli.usdz`   | Skip, the helicopter               | `vehicles.json` modelRef |
+| File                    | What it is                    | Comes from               |
+|-------------------------|-------------------------------|--------------------------|
+| `bus.usdz`              | Amelia, the hero bus          | hard-coded id `"bus"`    |
+| `veh_fire.usdz`         | Pim, the fire truck           | `vehicles.json` modelRef |
+| `veh_tow.usdz`          | Hux, the tow truck            | `vehicles.json` modelRef |
+| `veh_amb.usdz`          | Bea, the ambulance            | `vehicles.json` modelRef |
+| `veh_heli.usdz`         | Skip, the helicopter          | `vehicles.json` modelRef |
+| `passenger_bear.usdz`   | Pip (the rider)               | `passengers.json` modelRef |
+| `passenger_bunny.usdz`  | Lola                          | `passengers.json` modelRef |
+| `passenger_frog.usdz`   | Tomas                         | `passengers.json` modelRef |
+| `passenger_cat.usdz`    | Mia                           | `passengers.json` modelRef |
+| `mom.usdz`              | Mechanic Mom (garage)         | hard-coded id `"mom"`    |
+| `place_garage.usdz`     | the home garage district      | `place_<id>` (places.json) |
+| `place_stopA.usdz`      | the bus stop                  | `place_<id>` |
+| `place_park.usdz`       | the park                      | `place_<id>` |
+| `place_school.usdz`     | the school                    | `place_<id>` |
+| `place_market.usdz`     | the market                    | `place_<id>` |
+| `place_beach.usdz`      | the seaside                   | `place_<id>` |
 
-> **Not wired yet:** passenger characters (`passenger_*`) and place props render
-> as primitives for now, because the engine animates their faces/arms directly
-> (blink, look, wave). Loading a USDZ for them needs a small follow-up so the rig
-> still drives the loaded model. The bus + rescue vehicles work today.
+The whole cast + districts are swappable. A character USDZ replaces the rigged
+placeholder wholesale (it carries its own face/pose), so the engine's
+blink/look/wave animation simply doesn't apply to it — model the expression in.
+A `place_<id>.usdz` replaces that district's primitive landmark + dressing, so
+include its own ground/base.
 
 ## Conventions for a model to drop in cleanly
 
-- **Forward face = +X.** The engine puts eyes/headlights on +X and turns the bus
-  so +X faces the camera. Model the front along +X.
-- **Origin at the wheels** (y = 0 on the ground), roughly **1.6 × 1.1 × 0.9** units
-  for the bus so it matches the placeholder's scale; vehicles ~1.5 wide.
+- **Vehicles face +X** (bus, rescue friends): the engine puts eyes/headlights on
+  +X and turns them so +X faces the camera. **Characters face +Z** (passengers,
+  Mom) — their face is on +Z.
+- **Origin on the ground** (y = 0): wheels for vehicles, feet for characters, base
+  for places.
+- **Scale (scene meters):** bus ≈ **1.6 × 1.1 × 0.9**, vehicles ~1.5 wide,
+  characters ~1.2 tall, place landmarks a few meters (the placeholder buildings
+  are ~2.5–4 m).
 - Keep it **low-poly + baked textures** (tvOS / iPhone GPU budget), **original IP
   only** (no Tayo/Cars/Pixar likeness — see RISKS_AND_DECISIONS D-IP-1).
 

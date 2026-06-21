@@ -27,13 +27,17 @@ struct FaceRig {
 /// USDZ named after the id.
 enum ModelLibrary {
 
+    /// Loads `\(name).usdz` from the app bundle, or nil if absent/unloadable. The
+    /// one place we resolve real art so every model id swaps in the same way.
+    static func loadUSDZ(_ name: String) -> Entity? {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "usdz"),
+              let loaded = try? Entity.load(contentsOf: url) else { return nil }
+        return loaded
+    }
+
     /// Loads `\(id).usdz` from the bundle, or builds a colored placeholder box.
     static func entity(id: String, placeholderColor: PlatformColor, size: SIMD3<Float>) -> Entity {
-        if let url = Bundle.main.url(forResource: id, withExtension: "usdz"),
-           let loaded = try? Entity.load(contentsOf: url) {
-            return loaded
-        }
-        return placeholderBox(color: placeholderColor, size: size)
+        loadUSDZ(id) ?? placeholderBox(color: placeholderColor, size: size)
     }
 
     static func placeholderBox(color: PlatformColor, size: SIMD3<Float>) -> ModelEntity {
@@ -57,8 +61,7 @@ enum ModelLibrary {
     /// (it carries its own face), and the rig is empty (the engine's face animation
     /// safely no-ops). Otherwise we build a cute, recognisable placeholder bus.
     static func busRig(placeholderColor: PlatformColor) -> (root: Entity, face: FaceRig) {
-        if let url = Bundle.main.url(forResource: "bus", withExtension: "usdz"),
-           let loaded = try? Entity.load(contentsOf: url) {
+        if let loaded = loadUSDZ("bus") {
             return (loaded, FaceRig(eyes: [], pupils: [], pupilRest: []))
         }
         return builtBus(color: placeholderColor)
@@ -189,10 +192,7 @@ enum ModelLibrary {
     /// `\(modelRef).usdz` if present, else builds an original placeholder.
     /// All-original designs (D-IP-1).
     static func vehicle(modelRef: String, role: String, color: PlatformColor) -> Entity {
-        if let url = Bundle.main.url(forResource: modelRef, withExtension: "usdz"),
-           let loaded = try? Entity.load(contentsOf: url) {
-            return loaded
-        }
+        if let loaded = loadUSDZ(modelRef) { return loaded }
         return role == "helicopter" ? builtHelicopter(color: color)
                                     : builtGroundVehicle(role: role, color: color)
     }
@@ -312,17 +312,24 @@ enum ModelLibrary {
     }
 
     /// A small, friendly NPC figure: a rounded body, a head, and two eyes facing
-    /// forward (+z). Original placeholder geometry; swap a USDZ in later by id.
-    static func character(color: PlatformColor) -> Entity {
-        characterRig(color: color).root
+    /// forward (+z). Original placeholder geometry; a `\(modelRef).usdz` swaps it.
+    static func character(modelRef: String? = nil, color: PlatformColor) -> Entity {
+        characterRig(modelRef: modelRef, color: color).root
     }
 
     /// Like `character`, but keeps the eyes addressable (a `FaceRig` for blink +
     /// look) and returns the right-arm pivot so the engine can make the NPC wave —
     /// the Character Life pass (docs/tvos/GAME_DESIGN.md §4a). Arms hang from the
     /// shoulders as pivots, so rotating a pivot swings the whole arm.
-    static func characterRig(color: PlatformColor)
+    ///
+    /// If `\(modelRef).usdz` is in the bundle it's returned as-is (it carries its
+    /// own face/pose); the rig is empty and a dummy wave pivot is returned, so the
+    /// engine's blink/look/wave animation safely no-ops on the real model.
+    static func characterRig(modelRef: String? = nil, color: PlatformColor)
         -> (root: Entity, face: FaceRig, waveArm: Entity) {
+        if let modelRef, let loaded = loadUSDZ(modelRef) {
+            return (loaded, FaceRig(eyes: [], pupils: [], pupilRest: []), Entity())
+        }
         let node = Entity()
         let body = placeholderBox(color: color, size: [0.5, 0.7, 0.42])
         body.position = [0, 0.35, 0]

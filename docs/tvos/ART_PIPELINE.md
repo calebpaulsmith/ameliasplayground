@@ -79,10 +79,15 @@ targets already; a matching file replaces the placeholder automatically.
 | `veh_tow.usdz` | Hux, tow truck | "…friendly tow truck, green, small hook arm at the back" |
 | `veh_amb.usdz` | Bea, ambulance | "…tiny ambulance, cream/white, a red cross, gentle look" |
 | `veh_heli.usdz` | Skip, helicopter | "…cheerful little helicopter, yellow, rounded cockpit, top rotor" |
+| `passenger_bear/bunny/frog/cat.usdz` | the riders (Pip, Lola, Tomas, Mia) | "…cute toddler-style <animal> character, standing, friendly face" |
+| `mom.usdz` | Mechanic Mom | "…friendly cartoon mechanic mom, overalls, standing" |
+| `place_garage/stopA/park/school/market/beach.usdz` | the districts/landmarks | "…cozy low-poly <place>, cartoon, on a small ground base" |
 
-> Passenger characters (`passenger_*`) and place props don't load USDZ **yet** —
-> the engine hand-animates their faces/arms. Wiring USDZ for them is a small
-> follow-up (ask me); the bus + four rescue vehicles work today.
+> **The whole cast + districts are swappable now.** A character/place USDZ replaces
+> the rigged placeholder wholesale (it carries its own face/pose/landmark), so the
+> engine's blink/look/wave animation just doesn't apply — model the expression in.
+> Remember: **vehicles face +X, characters face +Z** (see the Conventions table in
+> `AmeliaTV/Assets/Models/README.md`).
 
 ---
 

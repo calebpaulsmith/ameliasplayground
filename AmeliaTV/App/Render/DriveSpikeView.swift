@@ -434,7 +434,8 @@ final class SpikeEngine: ObservableObject {
 
         for p in session.content.passengers where p.id != plan?.passengerId {
             guard let place = session.content.places.first(where: { $0.id == p.homePlace }) else { continue }
-            let rig = ModelLibrary.characterRig(color: ModelLibrary.color(hex: p.color) ?? .gray)
+            let rig = ModelLibrary.characterRig(modelRef: p.modelRef,
+                                                color: ModelLibrary.color(hex: p.color) ?? .gray)
             let home = groundPos(place.position.vec, offsetX: 1.8)
             rig.root.position = home
             root.addChild(rig.root)
@@ -445,7 +446,8 @@ final class SpikeEngine: ObservableObject {
               let rp = session.content.passengers.first(where: { $0.id == plan.passengerId }) else { return }
         pickupPos = game.place(plan.pickupPlaceId)?.position.vec
         dropoffPos = game.place(plan.dropoffPlaceId)?.position.vec
-        let rig = ModelLibrary.characterRig(color: ModelLibrary.color(hex: rp.color) ?? .orange)
+        let rig = ModelLibrary.characterRig(modelRef: rp.modelRef,
+                                            color: ModelLibrary.color(hex: rp.color) ?? .orange)
         let home = pickupPos.map { groundPos($0, offsetX: 1.2) } ?? [0, 0, 0]
         rig.root.position = home
         root.addChild(rig.root)

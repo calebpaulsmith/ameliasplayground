@@ -270,6 +270,15 @@ final class NeighborhoodScene {
         let group = Entity()
         group.position = scenePos(place.position.vec, y: 0)
 
+        // Real art wins: a `place_<id>.usdz` replaces the whole primitive district
+        // (it carries its own landmark/dressing). The animated props the engine
+        // looks for stay nil, so `updateAmbient` safely skips them.
+        if let model = ModelLibrary.loadUSDZ("place_\(place.id)") {
+            group.addChild(model)
+            root.addChild(group)
+            return
+        }
+
         switch place.kind {
         case "busStop": padAndBuild(group, pad: col(0.74, 0.73, 0.70)) { self.buildBusStop(into: $0, tint: tint) }
         case "park":    padAndBuild(group, pad: col(0.44, 0.76, 0.42)) { self.buildPark(into: $0) }
