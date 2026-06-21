@@ -13,6 +13,7 @@ struct GarageView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var engine = GarageEngine()
     @State private var showingDrive = false
+    @FocusState private var goFocused: Bool
 
     var body: some View {
         ZStack {
@@ -49,10 +50,17 @@ struct GarageView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(Color(red: 0.12, green: 0.43, blue: 0.81))
                 .padding(.top, 24)
+                .focused($goFocused)
             }
             .padding(56)
         }
-        .onAppear { engine.start(session: session) }
+        // Pre-focus the big "Let's go!" so the remote can start the drive at once,
+        // instead of landing on the small "Back" button (or nowhere) over the scene.
+        .defaultFocus($goFocused, true)
+        .onAppear {
+            engine.start(session: session)
+            goFocused = true
+        }
         .onDisappear { engine.stop() }
         .fullScreenCover(isPresented: $showingDrive, onDismiss: { engine.start(session: session) }) {
             DriveSpikeView().environmentObject(session)
@@ -220,6 +228,7 @@ struct GarageView: View {
     @EnvironmentObject private var session: AppSession
     @Environment(\.dismiss) private var dismiss
     @State private var showingDrive = false
+    @FocusState private var goFocused: Bool
 
     var body: some View {
         VStack(spacing: 32) {
@@ -228,10 +237,13 @@ struct GarageView: View {
                 .multilineTextAlignment(.center)
             Button(session.string("ui.letsGo")) { showingDrive = true }
                 .buttonStyle(.borderedProminent)
+                .focused($goFocused)
             Button(session.string("ui.back")) { dismiss() }
                 .buttonStyle(.bordered)
         }
         .padding(80)
+        .defaultFocus($goFocused, true)
+        .onAppear { goFocused = true }
         .fullScreenCover(isPresented: $showingDrive) {
             DriveSpikeView().environmentObject(session)
         }
