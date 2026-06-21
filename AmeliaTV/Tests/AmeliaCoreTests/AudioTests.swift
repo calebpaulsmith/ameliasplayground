@@ -36,6 +36,7 @@ final class AudioTests: XCTestCase {
         let dt = 1.0 / 60.0
         var steps = 0
         while !session.finished && steps < 60 * 240 {
+            if session.awaitingFind { session.answerFind("red") }
             session.tick(dt: dt, input: InputIntents(discreteTurn: .right))
             steps += 1
         }

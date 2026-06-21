@@ -44,6 +44,10 @@
 
   "nav.tryOtherWay": "¡Probemos por aquí!",
   "find.tryAgain": "¡Casi! ¡Prueba con otro!",
+  "find.spotRedHouse": "¿Puedes encontrar la ROJA?",
+  "color.red": "Rojo",
+  "color.blue": "Azul",
+  "color.yellow": "Amarillo",
   "light.redStop": "Rojo. Alto, espera aquí.",
   "light.greenGo": "¡Verde! Ya podemos ir.",
   "light.goodStop": "¡Muy bien! Te paraste en el rojo. ",

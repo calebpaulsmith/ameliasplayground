@@ -7,6 +7,13 @@
     { "type": "say", "lineId": "m.goStop" },
     { "type": "driveTo", "placeId": "stopA", "arriveLineId": "m.pickup" },
     { "type": "pickup", "passengerId": "pip", "atStop": "stopA" },
+    { "type": "find", "promptLineId": "find.spotRedHouse",
+      "options": [
+        { "id": "red",    "color": "#e8453c", "labelId": "color.red" },
+        { "id": "blue",   "color": "#3f7fe8", "labelId": "color.blue" },
+        { "id": "yellow", "color": "#f2c037", "labelId": "color.yellow" }
+      ],
+      "correctId": "red" },
     { "type": "say", "lineId": "m.dropoffHint" },
     { "type": "lightStop", "lightId": "light1" },
     { "type": "choice", "promptLineId": "m.chooseRight", "correct": "right" },
