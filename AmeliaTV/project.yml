@@ -91,6 +91,9 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: "Amelia"
         INFOPLIST_KEY_GCSupportsControllerUserInteraction: "YES"
         INFOPLIST_KEY_UIRequiresFullScreen: "YES"
+        # Landscape-only. The generic (no ~iphone/~ipad suffix) key is the form the
+        # Info.plist generator reliably honours; the suffixed variants were being
+        # ignored, so the phone fell back to allowing portrait.
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         "INFOPLIST_KEY_UISupportedInterfaceOrientations~ipad": "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        "INFOPLIST_KEY_UISupportedInterfaceOrientations~iphone": "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         CODE_SIGNING_ALLOWED: "NO"

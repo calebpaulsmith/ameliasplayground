@@ -1,0 +1,111 @@
+name: ci-screenshots
+
+# Renders the iPhone app in the iOS Simulator and uploads screenshots of each
+# screen as build artifacts — so layout/orientation can be reviewed without a Mac
+# (closes the "flying blind on UI" gap). Secret-free; never signs.
+on:
+  pull_request:
+    paths:
+      - 'AmeliaTV/**'
+      - '.github/workflows/ci-screenshots.yml'
+  push:
+    branches:
+      - 'claude/**'
+    paths:
+      - 'AmeliaTV/**'
+      - '.github/workflows/ci-screenshots.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # to publish the captured screenshots to the ci-screenshots branch
+
+concurrency:
+  group: ci-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    name: iPhone Simulator screenshots
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest/Contents/Developer"; fi
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: AmeliaTV
+        run: xcodegen generate
+
+      - name: Build AmeliaPad for the iOS Simulator
+        working-directory: AmeliaTV
+        run: |
+          xcodebuild build \
+            -project AmeliaTV.xcodeproj \
+            -scheme AmeliaPad \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Capture screenshots of each screen
+        working-directory: AmeliaTV
+        run: |
+          set -euo pipefail
+          APP="build/dd/Build/Products/Debug-iphonesimulator/AmeliaPad.app"
+          BUNDLE_ID=$(xcodebuild -project AmeliaTV.xcodeproj -scheme AmeliaPad -showBuildSettings 2>/dev/null \
+            | awk -F' = ' '/ PRODUCT_BUNDLE_IDENTIFIER /{print $2; exit}')
+          echo "App: $APP"
+          echo "Bundle id: $BUNDLE_ID"
+
+          # Pick the first available iPhone simulator (UDID is between parens).
+          DEVICE_ID=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')
+          echo "Simulator: $DEVICE_ID"
+
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl install "$DEVICE_ID" "$APP"
+
+          mkdir -p ../screenshots
+          shoot () {  # $1 = screen key, $2 = seconds to settle
+            local screen="$1" wait="$2"
+            xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" >/dev/null 2>&1 || true
+            SIMCTL_CHILD_SCREENSHOT_SCREEN="$screen" xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
+            sleep "$wait"
+            xcrun simctl io "$DEVICE_ID" screenshot "../screenshots/${screen}.png"
+            echo "captured ${screen}.png"
+          }
+
+          shoot title 4
+          shoot garage 5
+          shoot drive 8       # let the intro card fade and the bus start rolling
+
+      - name: Upload screenshots (artifact for humans)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulator-screenshots
+          path: screenshots/
+          if-no-files-found: warn
+
+      # Also publish to a force-updated `ci-screenshots` branch so they can be
+      # pulled and reviewed directly (artifacts aren't fetchable via the API).
+      - name: Publish screenshots to the ci-screenshots branch
+        if: always()
+        working-directory: screenshots
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [ -n "$(ls -A . 2>/dev/null)" ] || { echo "no screenshots to publish"; exit 0; }
+          git init -q
+          git checkout -q -b ci-screenshots
+          git add .
+          git -c user.email=actions@github.com -c user.name=ci \
+            commit -q -m "screenshots for ${GITHUB_SHA:0:7} on ${GITHUB_REF_NAME}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-screenshots

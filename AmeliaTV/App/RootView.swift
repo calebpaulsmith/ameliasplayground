@@ -9,6 +9,7 @@ struct RootView: View {
     @EnvironmentObject private var session: AppSession
     @State private var showingGarage = false
     @State private var showingSettings = false
+    @State private var showingDriveDirect = false
     @FocusState private var goFocused: Bool
 
     var body: some View {
@@ -54,7 +55,10 @@ struct RootView: View {
         }
         // Land the remote on the big "Let's go!" so a child can start immediately.
         .defaultFocus($goFocused, true)
-        .onAppear { goFocused = true }
+        .onAppear {
+            goFocused = true
+            jumpToScreenshotScreenIfRequested()
+        }
         .fullScreenCover(isPresented: $showingGarage) {
             GarageView()
                 .environmentObject(session)
@@ -62,6 +66,22 @@ struct RootView: View {
         .fullScreenCover(isPresented: $showingSettings) {
             SettingsView()
                 .environmentObject(session)
+        }
+        .fullScreenCover(isPresented: $showingDriveDirect) {
+            DriveSpikeView()
+                .environmentObject(session)
+        }
+    }
+
+    /// CI-only deep link: when `SCREENSHOT_SCREEN` is set (by the screenshot
+    /// workflow), jump straight to that screen so it can be captured. A no-op in
+    /// normal play (the variable is never set).
+    private func jumpToScreenshotScreenIfRequested() {
+        switch ProcessInfo.processInfo.environment["SCREENSHOT_SCREEN"] {
+        case "garage":   showingGarage = true
+        case "drive":    showingDriveDirect = true
+        case "settings": showingSettings = true
+        default:         break
         }
     }
 }
