@@ -111,9 +111,12 @@ turn the passive ride into a game. Full plan + open decisions live in the doc.
 - When uncertain about tvOS capabilities or tooling, **verify against official
   Apple/engine docs** and record facts vs. judgement in `RISKS_AND_DECISIONS.md`.
 
-## Current status (updated 2026-06-20)
+## Current status (updated 2026-06-21)
 
-Phases 0–1 are merged to `main`; Phase 2 (the vertical slice) is well underway.
+Phases 0–1 are merged to `main`; Phase 2 (the vertical slice) is **code-complete** —
+the playable loop, its full presentation, the agency pass, and the whole
+**Character Life & Charm** arc are all on `main`. What's left is **final art**, a
+**human Simulator play-test**, and the **A2-14 acceptance** pass.
 **How to test everything is in [`docs/tvos/TESTING.md`](docs/tvos/TESTING.md).**
 
 ### Done & merged to `main`
@@ -126,52 +129,60 @@ Phases 0–1 are merged to `main`; Phase 2 (the vertical slice) is well underway
 - **Phase 2 — gameplay backbone** (PR #10): `RouteGraph` (pathfinding + turn
   cues), `TrafficLight`, `EpisodeRunner` (beat state machine), `DialogueDirector`,
   and the `Light` content model — all unit-tested.
-
-### In review — green CI, **merge this first next session** (PR #11)
-- **Phase 2 — `GameSession` + playable loop:** the orchestrator (Auto-Drive,
-  episode events, rewards, local persistence), an `AVSpeech` speaker, and app
-  wiring so the **`first-day` episode runs end to end**. A headless `swift test`
-  plays the *real* episode to completion (reaches every target, boards the
-  passenger, awards + persists stars/sticker/completion). All 3 CI checks green.
+- **Phase 2 — `GameSession` + playable loop** (PR #11): the orchestrator
+  (Auto-Drive, episode events, rewards, local persistence), an `AVSpeech` speaker,
+  and app wiring so the **`first-day` episode runs end to end**. A headless
+  `swift test` plays the *real* episode to completion (reaches every target, boards
+  the passenger, awards + persists stars/sticker/completion).
+- **Phase 2 — presentation:** the **HUD** (GO/STOP, turn arrow, stars, subtitle,
+  beacon, minimap), the data-driven **neighborhood scene** (#16; roads, bus stop,
+  lit traffic light, park, garage, seaside), the **passenger**, the **garage +
+  Mechanic Mom** intro, and the **reward/sticker screen** (#15).
+- **Phase 2 — agency pass:** **collectibles** (#18) and the **"spot it"/find beat**
+  (#19, #21) — turning the passive ride into a game with verbs.
+- **Character Life & Charm — the whole arc is merged** (render-only, no Core
+  change; Reduce-Motion aware throughout): **CL-01** the bus comes alive (#22),
+  **CL-02** the neighborhood is alive (#23), **CL-03** the world reacts (#24),
+  **CL-04** juice — sparkles/hearts/dust/camera bounce (#26), **CL-05** cozy world
+  mood — day/dusk/night wash with glowing windows, headlights & stars (#28).
+  Foundations: a `FaceRig` (addressable eyes) and a pure, unit-tested
+  `Easing`/`SpringValue` util in `AmeliaCore`.
 
 ### What works today
 - The Game Core logic of the whole slice loop is **functionally complete and
   unit-tested** (drive → bus stop → red-light stop → left/right choice →
   drop-off → home → reward), playable with a Siri Remote via Auto-Drive.
-- The app builds for tvOS 26 and runs the episode with a **placeholder** bus on a
-  green plane: it auto-drives the route, speaks (TTS, EN/ES), and shows a live
-  subtitle + star count.
+- The app builds for tvOS 26 and runs the episode in a **full (placeholder-art)
+  neighborhood**: the bus auto-drives the route through a cozy town that's *alive*
+  — Amelia blinks/leans/squashes, friends wave, the world reacts to a honk, juice
+  bursts on the happy beats, and a gentle day→night mood washes over it — while she
+  speaks (TTS, EN/ES) and the HUD shows the turn arrow, subtitle, beacon + stars.
 
-### Not done yet (the rest of Phase 2 — "make it look like the game")
-- Real neighborhood **3D scene**: roads, bus-stop shelter, traffic light with lit
-  lamps, park, garage, passenger (placeholder primitives are fine; USDZ later).
-- **HUD**: big GO/STOP, pulsing turn arrow, destination beacon, minimap.
-- **Garage + Mechanic Mom** intro scene and the **reward/sticker** screen.
-- **Splash/language** polish (RootView is minimal today).
-- ~~**Audio**: music themes + SFX (only TTS voice exists).~~ **A2-13 done:** a
-  procedural `AVAudioEngine` synth (`App/Audio/ProceduralAudio.swift`) plays
-  garage/driving/reward music beds, a speed-reactive engine hum, and a synthesized
-  SFX set (horn, door, star sparkle, light chime, gentle bump, reward + sticker
-  flourish), mixed below the TTS voice. The Core stays GPU/AV-free: `GameSession`
-  emits `SoundCue`/`MusicTheme` intents through a `SoundPlayer` protocol
-  (spy-tested headlessly). The remaining audio work is the *art-directed* pass
-  (E3-03): real samples / hero voice swapped in behind the same ids.
-- **Human play-test** on the tvOS Simulator / a real Apple TV (see TESTING.md).
+### Not done yet (what's left of Phase 2)
+- **Final art.** Everything renders with **original placeholder primitives**; the
+  USDZ-behind-an-id swap (D-ART-1) is still open. Gameplay never waits on it.
+- **Human play-test** on the tvOS Simulator / a real Apple TV (see TESTING.md) —
+  the slice + charm arc are code-complete but **unverified by human eyes**. CL-05's
+  lighting especially wants a look; the one tuning knob is the day/night cycle
+  period (`220`) in `SpikeEngine.updateMood`.
+- **A2-14 integration & acceptance** pass against `docs/tvos/VERTICAL_SLICE.md`.
+- **Audio art pass (E3-03).** The procedural `AVAudioEngine` synth
+  (`App/Audio/ProceduralAudio.swift`) is done — music beds, a speed-reactive engine
+  hum, and a synthesized SFX set, all driven by Core `SoundCue`/`MusicTheme` intents
+  through a spy-tested `SoundPlayer` protocol (Core stays GPU/AV-free). What remains
+  is swapping real samples / a hero voice in behind the same ids.
+- **Splash/language** polish (RootView is still minimal).
 
 ## Next steps (start here next session)
 
-1. **Merge PR #11** (green) so the playable loop is on `main`.
-2. **Human smoke-test** per `docs/tvos/TESTING.md` (run the Simulator, press
-   "Let's go", watch the bus auto-drive and talk). Capture anything that feels off.
-3. Build the slice's presentation, smallest-first, each a own PR:
-   - **A2-10 HUD** (GO/STOP, turn arrow from `GameSession.currentTurnCue`,
-     star count, subtitle, beacon).
-   - **A2-08 neighborhood scene** (roads + stop + light + park + garage as
-     placeholders, positioned from `Content/places.json` / `lights.json`).
-   - **A2-09 passenger** entity (board/exit at the stop).
-   - **A2-07 garage + Mechanic Mom** intro; **A2-12 reward/sticker** screen.
-   - **A2-13 audio** pass.
-4. **A2-14 integration & acceptance pass** against `docs/tvos/VERTICAL_SLICE.md`.
+1. **Human smoke-test** per `docs/tvos/TESTING.md` (run the Simulator, press
+   "Let's go", watch the bus drive through the living town and talk). Capture
+   anything that feels off — especially the **CL-05 day/night** wash (too dark? too
+   fast? tune `updateMood`'s `220` period) and overall charm-arc feel.
+2. **A2-14 integration & acceptance pass** against `docs/tvos/VERTICAL_SLICE.md`.
+3. **Final art (D-ART-1):** source/commission USDZ and swap it in behind the
+   existing `ModelLibrary` ids — no gameplay code changes required.
+4. **Audio art pass (E3-03)** and **splash/language** polish.
 
 ## Outstanding questions / decisions (need the human)
 
