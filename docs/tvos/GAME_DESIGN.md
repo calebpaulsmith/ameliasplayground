@@ -130,6 +130,9 @@ Planned launch episodes (themes, not all in the slice):
 
 ### 4a. Character Life & Charm (Pixar feel — "personality, not robots")
 
+> **Status: shipped (CL-01…CL-05).** The whole arc below is merged to `main` as a
+> render-only pass (no Core change), pending a human Simulator play-test.
+
 The thing that makes kids **fall in love with the world**: everything has
 personality, the world *reacts* to the child, and every action has juice. This is
 a **render-layer** workstream — procedural animation over today's placeholder
@@ -147,19 +150,22 @@ pillar (`PRODUCT_VISION.md`) and the Agency pass (`MODES_AND_DIRECTION.md`).
 - **Warmth over challenge** — the hook is *love* (cozy ritual, surprise, friends who
   are happy to see you), never loss. No dark patterns; honor **Reduce Motion**.
 
-**Per-element checklist (built smallest-first, one PR each):**
-1. **Amelia comes alive** *(built first)* — blink, eyes that look toward her
+**Per-element checklist (built smallest-first, one PR each — all ✅ shipped):**
+1. ✅ **Amelia comes alive** (CL-01, #22) — blink, eyes that look toward her
    destination/passenger, squash on stops, lean into turns, idle "breathing", a
    honk wiggle, a happy hop on pickup. (Foundations: a `FaceRig` so eyes are
-   addressable; a pure `Easing`/`Spring` util in the Core, unit-tested.)
-2. **The neighborhood is alive** — NPCs/passengers idle-bob, blink, turn to watch
-   the bus, wave, hop when boarded.
-3. **The world reacts** — honk-reacts (friends wave, ducks/birds scatter, props
-   boing); landmarks animate (flag flutters, lighthouse beam sweeps).
-4. **Juice** — wheel dust puffs, star bursts, hearts, a gentle camera bounce on
-   honk/pickup, confetti into the reward screen.
-5. **Cozy world mood** — day→dusk→night lighting wash (headlights, glowing windows,
-   stars) + soft weather (puddle splashes).
+   addressable; a pure `Easing`/`SpringValue` util in the Core, unit-tested.)
+2. ✅ **The neighborhood is alive** (CL-02, #23) — NPCs/passengers idle-bob, blink,
+   turn to watch the bus, wave, hop when boarded.
+3. ✅ **The world reacts** (CL-03, #24) — honk-reacts (friends wave, birds scatter);
+   landmarks animate (flag flutters, lighthouse beam sweeps, sign spins, fountain).
+4. ✅ **Juice** (CL-04, #26) — in-world star/heart/dust bursts (a pooled hand-animated
+   `JuiceEmitter`) and a gentle camera bounce on honk/pickup/stop. *Dust emits from
+   the bus base (no wheel entities yet); reward-screen confetti already existed in
+   `RewardView`.*
+5. ✅ **Cozy world mood** (CL-05, #28) — a gentle day→dusk→night lighting wash
+   (dimming sun + constant fill so it never goes black; glowing windows, lamps,
+   headlights, stars). *Soft weather (puddle splashes) deferred as a nice-to-have.*
 
 **Rules:** all data-/state-driven and original-IP (D-IP-1); cheap per-frame
 transforms within the performance budget (R-PERF-1); the Game Core stays GPU-free
