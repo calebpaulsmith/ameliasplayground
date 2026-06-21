@@ -79,6 +79,9 @@ jobs:
             SIMCTL_CHILD_SCREENSHOT_SCREEN="$screen" xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
             sleep "$wait"
             xcrun simctl io "$DEVICE_ID" screenshot "../screenshots/${screen}.png"
+            # The app is landscape but the sim device frame is portrait, so the
+            # capture is rotated 90°. Rotate it upright (270° CW == 90° CCW).
+            sips -r 270 "../screenshots/${screen}.png" >/dev/null
             echo "captured ${screen}.png"
           }
 
