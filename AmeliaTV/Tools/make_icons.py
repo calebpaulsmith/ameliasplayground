@@ -183,11 +183,13 @@ def _imageset(parent, name, images_1x_2x):
 
 
 def _imagestack(parent, name, w, h, scales):
-    """A 2-layer parallax stack (back: sky+sun, front: bus). scales like ['1x']
-    or ['1x','2x']."""
+    """A single fully-opaque layer stack. tvOS requires the bottom-most layer of
+    an app-icon image stack to be a fully opaque bitmap, so a transparent
+    parallax foreground would fail asset validation. Placeholder icons don't need
+    real parallax, so we use one opaque layer (the whole scene)."""
     stack = os.path.join(parent, name + ".imagestack")
     os.makedirs(stack)
-    layers = [("Back", background), ("Front", lambda w, h: scene(w, h, True))]
+    layers = [("Content", lambda w, h: scene(w, h))]   # one opaque layer
     layer_entries = []
     for layer_name, render in layers:
         ldir = os.path.join(stack, layer_name + ".imagestacklayer")
