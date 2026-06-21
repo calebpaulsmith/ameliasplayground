@@ -823,8 +823,8 @@ final class SpikeEngine: ObservableObject {
         // streets ahead, with only a small sideways offset so the near row of houses
         // sits beside the camera instead of blocking the bus.
         let bp = bus.position
-        camera.position = [bp.x - 9, bp.y + 10.5 + Float(cameraKick.value), bp.z + 5]
-        camera.look(at: [bp.x + 0.5, bp.y + 0.2, bp.z], from: camera.position, relativeTo: nil)
+        camera.position = [bp.x - 6.5, bp.y + 6.5 + Float(cameraKick.value), bp.z + 4]
+        camera.look(at: [bp.x + 1.5, bp.y + 0.35, bp.z], from: camera.position, relativeTo: nil)
     }
 }
 
