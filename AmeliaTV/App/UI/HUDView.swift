@@ -61,6 +61,7 @@ struct HUDView: View {
                     .environmentObject(session)
             } else {
                 drivingHUD
+                    .adaptiveTVCanvas()
             }
         }
     }

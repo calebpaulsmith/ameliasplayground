@@ -50,6 +50,7 @@ struct RootView: View {
                 .buttonStyle(.bordered)
             }
             .padding(80)
+            .adaptiveTVCanvas()
         }
         // Land the remote on the big "Let's go!" so a child can start immediately.
         .defaultFocus($goFocused, true)
