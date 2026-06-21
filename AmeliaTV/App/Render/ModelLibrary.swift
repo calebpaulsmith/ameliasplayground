@@ -52,8 +52,67 @@ enum ModelLibrary {
     /// Like `busEntity`, but also returns a `FaceRig` so the engine can blink and
     /// look around (Character Life pass — docs/tvos/GAME_DESIGN.md §4a). The eyes
     /// are kept addressable instead of anonymous children.
+    ///
+    /// Real art wins outright: if `bus.usdz` is in the bundle it's returned as-is
+    /// (it carries its own face), and the rig is empty (the engine's face animation
+    /// safely no-ops). Otherwise we build a cute, recognisable placeholder bus.
     static func busRig(placeholderColor: PlatformColor) -> (root: Entity, face: FaceRig) {
-        let bus = entity(id: "bus", placeholderColor: placeholderColor, size: [1.6, 1.1, 0.9])
+        if let url = Bundle.main.url(forResource: "bus", withExtension: "usdz"),
+           let loaded = try? Entity.load(contentsOf: url) {
+            return (loaded, FaceRig(eyes: [], pupils: [], pupilRest: []))
+        }
+        return builtBus(color: placeholderColor)
+    }
+
+    /// A friendly little bus from primitives: a rounded body, a white roof, blue
+    /// side windows, four chunky wheels, a bumper — and the big animated face on
+    /// its forward (+x) windshield. Sized to match the old placeholder box (≈1.6 ×
+    /// 1.1 × 0.9) so face/headlight offsets and the ground line are unchanged.
+    private static func builtBus(color: PlatformColor) -> (root: Entity, face: FaceRig) {
+        let root = Entity()
+
+        // Body.
+        let body = placeholderBox(color: color, size: [1.6, 1.0, 0.9])
+        body.position = [0, 0.05, 0]
+        root.addChild(body)
+
+        // White roof cap, set back a touch so the face/windshield reads at the front.
+        let roof = placeholderBox(color: PlatformColor(red: 0.97, green: 0.97, blue: 0.99, alpha: 1),
+                                  size: [1.4, 0.2, 0.82])
+        roof.position = [-0.06, 0.6, 0]
+        root.addChild(roof)
+
+        // Blue side windows.
+        let glass = PlatformColor(red: 0.72, green: 0.88, blue: 1.0, alpha: 1)
+        for z in [Float(-0.46), 0.46] {
+            let win = placeholderBox(color: glass, size: [1.0, 0.34, 0.05])
+            win.position = [-0.12, 0.28, z]
+            root.addChild(win)
+        }
+
+        // Four chunky wheels (axle along z), resting on the same ground line as the
+        // old box (lowest point at y = -0.55).
+        let tyre = PlatformColor(white: 0.14, alpha: 1)
+        let hubColor = PlatformColor(white: 0.78, alpha: 1)
+        for x in [Float(-0.52), 0.52] {
+            for z in [Float(-0.47), 0.47] {
+                let w = sphere(radius: 0.2, color: tyre)
+                w.scale = [1, 1, 0.55]                     // flatten into a disc
+                w.position = [x, -0.35, z]
+                root.addChild(w)
+                let hub = sphere(radius: 0.07, color: hubColor)
+                hub.position = [x, -0.35, z + (z > 0 ? 0.12 : -0.12)]
+                root.addChild(hub)
+            }
+        }
+
+        // A pale front bumper.
+        let bumper = placeholderBox(color: PlatformColor(white: 0.88, alpha: 1), size: [0.14, 0.16, 0.78])
+        bumper.position = [0.78, -0.36, 0]
+        root.addChild(bumper)
+
+        // The face on the +x windshield: big eyes (white + pupil + catch-light),
+        // rosy cheeks and a happy grin — kept addressable for blink/look.
         var eyes: [ModelEntity] = []
         var pupils: [ModelEntity] = []
         var rest: [SIMD3<Float>] = []
@@ -61,21 +120,20 @@ enum ModelLibrary {
             let white = sphere(radius: 0.17, color: .white)
             white.position = [0.78, 0.18, z]
             white.name = "eye"
-            bus.addChild(white)
+            root.addChild(white)
             eyes.append(white)
             let pupil = sphere(radius: 0.075, color: PlatformColor(red: 0.1, green: 0.12, blue: 0.16, alpha: 1))
             let p: SIMD3<Float> = [0.9, 0.18, z]
             pupil.position = p
             pupil.name = "pupil"
-            bus.addChild(pupil)
+            root.addChild(pupil)
             pupils.append(pupil)
             rest.append(p)
-            addEyeHighlight(to: bus, near: p, radius: 0.03)
+            addEyeHighlight(to: root, near: p, radius: 0.03)
         }
-        // The bits that turn two eyes into a face: rosy cheeks and a big happy grin.
-        addCheeks(to: bus, atX: 0.81, y: -0.02, spacing: 0.40, radius: 0.12)
-        addSmile(to: bus, atX: 0.83, y: -0.20, width: 0.46, beadRadius: 0.05, lift: 0.13)
-        return (bus, FaceRig(eyes: eyes, pupils: pupils, pupilRest: rest))
+        addCheeks(to: root, atX: 0.81, y: -0.02, spacing: 0.40, radius: 0.12)
+        addSmile(to: root, atX: 0.83, y: -0.20, width: 0.46, beadRadius: 0.05, lift: 0.13)
+        return (root, FaceRig(eyes: eyes, pupils: pupils, pupilRest: rest))
     }
 
     static func ground(size: Float, color: PlatformColor) -> ModelEntity {
@@ -312,12 +370,22 @@ enum ModelLibrary {
             node.addChild(bead)
         }
 
+        // Two little shoes so the figure stands rather than floats.
+        for fx in [Float(-0.13), 0.13] {
+            let foot = placeholderBox(color: PlatformColor(white: 0.22, alpha: 1), size: [0.18, 0.12, 0.28])
+            foot.position = [fx, 0.06, 0.06]
+            node.addChild(foot)
+        }
+
         func arm(side: Float) -> Entity {
             let pivot = Entity()
             pivot.position = [side * 0.30, 0.58, 0.04]
             let limb = placeholderBox(color: color, size: [0.12, 0.34, 0.14])
             limb.position = [0, -0.17, 0]          // hang below the shoulder pivot
             pivot.addChild(limb)
+            let hand = sphere(radius: 0.08, color: color)   // a rounded hand at the end
+            hand.position = [0, -0.36, 0]
+            pivot.addChild(hand)
             node.addChild(pivot)
             return pivot
         }
