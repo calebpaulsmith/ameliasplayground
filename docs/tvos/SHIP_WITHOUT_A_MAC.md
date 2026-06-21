@@ -107,9 +107,13 @@ That's the whole one-time setup.
   instant and needs no review. Use it for yourself/family. *External* testing
   needs a quick Apple review — not needed for your own devices.
 - TestFlight builds **expire after 90 days**; just run the workflow again.
-- To bump the build number, edit `CURRENT_PROJECT_VERSION` in
-  `AmeliaTV/project.yml` (App Store Connect requires each upload's build number
-  to be higher than the last for the same version).
+- **Build numbers auto-increment.** fastlane reads the latest build already on
+  TestFlight and uploads one higher, so re-running never collides. (To bump the
+  human-facing *version*, edit `MARKETING_VERSION` in `AmeliaTV/project.yml`.)
+- **App icons are included** as friendly placeholders (a yellow bus under a sunny
+  sky) so uploads pass Apple's validation. Real art is decision **D-ART-1**;
+  regenerate/replace them via `python3 AmeliaTV/Tools/make_icons.py` (the
+  asset-catalog names stay the same, so no project changes needed to swap art).
 - You can run `ios`, `tvos`, or `both` independently.
 
 ## If a run fails
