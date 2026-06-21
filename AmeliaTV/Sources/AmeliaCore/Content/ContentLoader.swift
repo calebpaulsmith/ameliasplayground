@@ -60,6 +60,16 @@ public enum ContentLoader {
             lights = decoded
         }
 
+        // Collectibles are optional (balloons / coins scattered along routes).
+        var collectibles: [Collectible] = []
+        let collectiblesURL = directory.appendingPathComponent("collectibles.json")
+        if let data = try? Data(contentsOf: collectiblesURL) {
+            guard let decoded = try? decoder.decode([Collectible].self, from: data) else {
+                throw LoadError.decodeFailed("collectibles.json")
+            }
+            collectibles = decoded
+        }
+
         // Episodes: every *.json in episodes/.
         var episodes: [Episode] = []
         let episodesDir = directory.appendingPathComponent("episodes")
@@ -79,7 +89,7 @@ public enum ContentLoader {
 
         return GameContent(strings: strings, places: places,
                            passengers: passengers, vehicles: vehicles,
-                           lights: lights, episodes: episodes)
+                           lights: lights, collectibles: collectibles, episodes: episodes)
     }
 
     private static func decodeArray<T: Decodable>(at url: URL, name: String,

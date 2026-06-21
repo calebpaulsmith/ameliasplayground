@@ -122,6 +122,25 @@ def validate():
                     f"lights[{i}] position must have x and z")
             light_ids.add(lt.get("id"))
 
+    # --- collectibles (optional: balloons / coins along routes) ---
+    collectibles_path = CONTENT / "collectibles.json"
+    if collectibles_path.exists():
+        collectibles = load_json("collectibles.json") or []
+        require(isinstance(collectibles, list), "collectibles.json must be a JSON array")
+        seen_cids = set()
+        for i, c in enumerate(collectibles if isinstance(collectibles, list) else []):
+            for field in ("id", "kind", "position"):
+                require(field in c, f"collectibles[{i}] missing \"{field}\"")
+            cid = c.get("id")
+            if cid in seen_cids:
+                err(f"collectible \"{cid}\" has a duplicate id")
+            seen_cids.add(cid)
+            pos = c.get("position", {})
+            require(isinstance(pos, dict) and "x" in pos and "z" in pos,
+                    f"collectibles[{i}] position must have x and z")
+            if "stars" in c and (not isinstance(c["stars"], int) or c["stars"] < 0):
+                err(f"collectible \"{cid}\" stars must be a non-negative integer")
+
     # --- episodes ---
     episode_dir = CONTENT / "episodes"
     episode_files = sorted(episode_dir.glob("*.json")) if episode_dir.exists() else []

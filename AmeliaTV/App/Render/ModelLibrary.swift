@@ -202,6 +202,36 @@ enum ModelLibrary {
         return node
     }
 
+    /// A floating balloon collectible: a rounded body, a knot, and a string.
+    /// Original placeholder geometry; swap a USDZ in later by id.
+    static func balloon(color: PlatformColor) -> Entity {
+        let node = Entity()
+        let body = sphere(radius: 0.5, color: color)
+        body.scale = [1, 1.18, 1]
+        node.addChild(body)
+        let knot = sphere(radius: 0.1, color: color)
+        knot.position = [0, -0.55, 0]
+        node.addChild(knot)
+        let string = placeholderBox(color: PlatformColor(white: 0.96, alpha: 1), size: [0.03, 0.7, 0.03])
+        string.position = [0, -0.95, 0]
+        node.addChild(string)
+        return node
+    }
+
+    /// A spinning coin collectible: a flattened gold disc with a brighter inset
+    /// so it catches the eye as it turns.
+    static func coin(color: PlatformColor) -> Entity {
+        let node = Entity()
+        let disc = sphere(radius: 0.45, color: color)
+        disc.scale = [1, 1, 0.18]                     // flatten into a coin
+        node.addChild(disc)
+        let inset = sphere(radius: 0.30, color: PlatformColor(red: 1.0, green: 0.93, blue: 0.55, alpha: 1))
+        inset.scale = [1, 1, 0.22]
+        inset.position = [0, 0, 0.04]
+        node.addChild(inset)
+        return node
+    }
+
     /// Parses `#rrggbb` (case-insensitive) into a platform color; nil if unparseable.
     static func color(hex: String?) -> PlatformColor? {
         guard let hex else { return nil }

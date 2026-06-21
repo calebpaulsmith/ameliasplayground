@@ -147,6 +147,16 @@ These were verified against official/primary sources during planning (June 2026)
 - **D-IMPL-START-1 — When to start coding.**
   This planning PR is **documentation only** per the task. *Decide:* approve the
   plan and the first five issues (below) to begin Phase 1.
+- **D-WORLD-1 — Drivable world for Free Drive.**
+  Free Drive needs a genuinely drivable world, so `RouteGraph` (waypoint routing)
+  must evolve into a **drivable `RoadNetwork`** (intersections + lane'd road
+  segments, authored as data) that *both* Adventure routing and Free Drive
+  steering consume; rendered roads become the actual driving surface.
+  *Recommendation:* hand-authored `roads.json`, single friendly lanes, soft world
+  bounds (gentle U-turn, never a wall); build it when Free Drive is scheduled, but
+  give new world data real positions now so the network can adopt it.
+  *Decide:* confirm the third mode (Jobs/Helper?), when Free Drive unlocks, and the
+  road-authoring format. See `MODES_AND_DIRECTION.md`.
 
 ## Decisions already made in this plan (recorded)
 
@@ -161,6 +171,11 @@ These were verified against official/primary sources during planning (June 2026)
 - **DM-5** **Web game stays untouched**; native game in `AmeliaTV/`.
 - **DM-6** **Privacy posture is a hard constraint**, not a preference (no ads/
   analytics/accounts/chat/IAP/network; local-only saves; Kids-Category aligned).
+- **DM-7** **Three play modes** — **Adventure** (story episodes, built today),
+  **Free Drive** (open roaming), and a proposed **Jobs/Helper** mode — on a
+  separate axis from the three **driving levels** (`AssistLevel`: Auto/Assisted/
+  Free). Direction recorded in `MODES_AND_DIRECTION.md`. The immediate build focus
+  is the **Agency pass** (player verbs) to make the loop a game, not a ride.
 
 ## First five implementation issues to create next
 

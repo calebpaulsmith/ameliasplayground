@@ -49,5 +49,10 @@
   "light.goodStop": "Great job stopping at the red light! ",
 
   "episode.firstDay.title": "First Day Driving",
-  "reward.complete": "You did it! Mom gives you a big hug. "
+  "reward.complete": "You did it! Mom gives you a big hug. ",
+  "reward.greatDriving": "Great driving, Amelia!",
+  "reward.starsEarned": "You earned {n} stars!",
+  "reward.newSticker": "New sticker!",
+  "ui.backToGarage": "Back to the garage",
+  "sticker.first-day": "First Day Driver"
 }

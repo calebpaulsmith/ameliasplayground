@@ -15,6 +15,9 @@ public final class GameSession: EpisodeWorld {
     public let core: GameCore
     public private(set) var save: SaveSlot
     private let persist: ((SaveSlot) -> Void)?
+    /// Optional effects/music. Like the speaker, the app supplies a procedural
+    /// AVAudioEngine; tests pass a spy (or nil). Audio is never required for play.
+    private let sound: SoundPlayer?
 
     // World state
     private var graph: RouteGraph
@@ -22,6 +25,11 @@ public final class GameSession: EpisodeWorld {
     private var runner: EpisodeRunner?
     private var pendingTurn: InputIntents.DiscreteTurn = .none
     private var pendingFindAnswer: String?
+    private var collectedIds: Set<String> = []
+
+    /// How close the bus must pass to scoop a collectible (world units). Generous,
+    /// because a young child only nudges toward it (no failure for a near miss).
+    private let collectibleRadius: Double = 9
 
     // Observable-ish state for the HUD / renderer
     public private(set) var currentTarget: EpisodeTarget?
@@ -33,6 +41,8 @@ public final class GameSession: EpisodeWorld {
     public private(set) var findOptions: [FindOption] = []
     public private(set) var findPromptId: String?
     public private(set) var sparkleCount = 0
+    /// Collectibles scooped this run (each also awards its stars).
+    public private(set) var collectedCount = 0
     public private(set) var finished = false
     public private(set) var activeEpisodeId: String?
 
@@ -90,6 +100,30 @@ public final class GameSession: EpisodeWorld {
         guard let pid = passengerId, let pu = pickup, let dp = dropoff else { return nil }
         return PassengerPlan(passengerId: pid, pickupPlaceId: pu, dropoffPlaceId: dp)
     }
+
+    /// The stars + sticker the active episode awards on completion, read straight
+    /// from its `reward` beat. Lets the reward screen (A2-12) show what was earned
+    /// without hardcoding it — same data-driven pattern as `passengerPlan`.
+    public struct RewardPlan: Equatable, Sendable {
+        public let stars: Int
+        public let stickerId: String?
+        public init(stars: Int, stickerId: String?) {
+            self.stars = stars
+            self.stickerId = stickerId
+        }
+    }
+
+    public var rewardPlan: RewardPlan? {
+        guard let id = activeEpisodeId,
+              let episode = content.episodes.first(where: { $0.id == id }) else { return nil }
+        for beat in episode.beats {
+            if case let .reward(stars, stickerId) = beat {
+                return RewardPlan(stars: stars, stickerId: stickerId)
+            }
+        }
+        return nil
+    }
+
     public var language: Language {
         get { dialogue.language }
         set { dialogue.language = newValue; save.language = newValue }
@@ -97,10 +131,12 @@ public final class GameSession: EpisodeWorld {
 
     public init(content: GameContent, save: SaveSlot,
                 speaker: LineSpeaker? = nil,
+                sound: SoundPlayer? = nil,
                 persist: ((SaveSlot) -> Void)? = nil) {
         self.content = content
         self.save = save
         self.persist = persist
+        self.sound = sound
         self.core = GameCore(save: save)
         self.dialogue = DialogueDirector(localizer: content.localizer,
                                          language: save.language, speaker: speaker)
@@ -131,6 +167,8 @@ public final class GameSession: EpisodeWorld {
         activeEpisodeId = episodeId
         finished = false
         sparkleCount = 0
+        collectedCount = 0
+        collectedIds.removeAll()
         currentPassengerId = nil
         currentTarget = nil
         awaitingChoice = false
@@ -141,6 +179,8 @@ public final class GameSession: EpisodeWorld {
         core.assistLevel = save.assistLevel
         core.reset(to: start, heading: heading)
         dialogue.clear()
+        sound?.setMusic(.driving)
+        sound?.play(.horn)
         let r = EpisodeRunner(episode: episode, world: self) { [weak self] event in
             self?.handle(event)
         }
@@ -152,14 +192,17 @@ public final class GameSession: EpisodeWorld {
         switch event {
         case let .speak(lineId, vars):
             dialogue.play(lineId, vars: vars)
+            cue(forLine: lineId)
         case let .setTarget(target):
             currentTarget = target
             awaitingChoice = false
             clearFind()
         case let .board(passengerId):
             currentPassengerId = passengerId
+            sound?.play(.doorOpen)
         case .drop:
             currentPassengerId = nil
+            sound?.play(.doorClose)
         case .awaitChoice:
             awaitingChoice = true
         case let .awaitFind(promptLineId, options):
@@ -169,17 +212,35 @@ public final class GameSession: EpisodeWorld {
         case .starSparkle:
             sparkleCount += 1
             save.award(stars: 1)
+            sound?.play(.starSparkle)
             clearFind()                 // a sparkle during a "spot it" = correct answer
         case let .reward(stars, stickerId):
             save.award(stars: stars)
-            if let s = stickerId { save.grant(sticker: s) }
+            sound?.play(.reward)
+            if let s = stickerId { save.grant(sticker: s); sound?.play(.rewardSticker) }
         case .completed:
             if let id = activeEpisodeId { save.markComplete(episode: id) }
             finished = true
             currentTarget = nil
             awaitingChoice = false
             clearFind()
+            sound?.setMusic(.reward)
             persist?(save)
+        }
+    }
+
+    /// Maps a few spoken lines to a matching effect so the world chimes when a
+    /// light goes green / a stop is praised, and gives a soft non-punishing bump
+    /// when the child is nudged to try the other way at a fork. Other lines play
+    /// no effect (the voice carries them).
+    private func cue(forLine lineId: String) {
+        switch lineId {
+        case "light.greenGo", "light.goodStop":
+            sound?.play(.chime)
+        case "nav.tryOtherWay":
+            sound?.play(.bump)
+        default:
+            break
         }
     }
 
@@ -192,6 +253,9 @@ public final class GameSession: EpisodeWorld {
         // Latch a discrete turn for the episode runner (choices).
         if input.discreteTurn != .none { pendingTurn = input.discreteTurn }
 
+        // The child can honk for a friendly toot any time (edge-triggered input).
+        if input.honkPressed { sound?.play(.horn) }
+
         // Lights.
         for key in lights.keys { lights[key]?.update(dt: dt) }
 
@@ -201,6 +265,9 @@ public final class GameSession: EpisodeWorld {
         // Physics + episode logic.
         core.tick(dt: dt, input: input)
         runner?.update(dt: dt)
+
+        // Scoop any collectible the bus just drove near.
+        collectPickups()
 
         // Refresh the HUD turn cue.
         currentTurnCue = computeTurnCue()
@@ -253,6 +320,27 @@ public final class GameSession: EpisodeWorld {
         defer { pendingTurn = .none }
         return pendingTurn
     }
+
+    // MARK: - Collectibles
+
+    /// Scoops every uncollected collectible the bus is currently near, awarding
+    /// its stars. Pure proximity — no aiming required, and missing one is fine.
+    private func collectPickups() {
+        guard !content.collectibles.isEmpty else { return }
+        let p = core.bus.position
+        for c in content.collectibles where !collectedIds.contains(c.id) {
+            if c.position.vec.distance(to: p) <= collectibleRadius {
+                collectedIds.insert(c.id)
+                collectedCount += 1
+                save.award(stars: c.reward)
+            }
+        }
+    }
+
+    /// Whether a given collectible has been scooped (for the renderer to hide it).
+    public func isCollected(_ id: String) -> Bool { collectedIds.contains(id) }
+
+    // MARK: - "Spot it" (find) answers
 
     /// The renderer/HUD calls this when the child taps a "spot it" option.
     public func answerFind(_ optionId: String) {
