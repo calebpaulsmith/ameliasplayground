@@ -9,6 +9,9 @@
   "lang.choose": "Choose a language",
   "settings.title": "Settings",
   "settings.language": "Language",
+  "settings.voice": "Voice",
+  "settings.voiceOn": "On",
+  "settings.voiceOff": "Off",
   "title.tagline": "Amelia's Bus Adventure",
 
   "garage.welcome": "Good morning, Amelia! Your bus is all fixed and ready. Let's go!",

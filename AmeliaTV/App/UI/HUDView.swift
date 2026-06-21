@@ -93,26 +93,18 @@ struct HUDView: View {
                     ChoiceButtons(onLeft: onTurnLeft, onRight: onTurnRight)
                 }
                 if model.awaitingFind {
-                    FindHint(text: session.string("ui.findHint"))
+                    FindHint()
                 }
                 Spacer()
             }
 
-            // Bottom: minimap (left) and subtitle card (center).
+            // Bottom: minimap (left) and a brief, self-dismissing subtitle (center).
             VStack {
                 Spacer()
                 HStack(alignment: .bottom, spacing: 24) {
                     Minimap(model: model)
                         .frame(width: 240, height: 180)
-                    if !model.subtitle.isEmpty {
-                        Text(model.subtitle)
-                            .font(.system(size: 30, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: 820, alignment: .leading)
-                            .padding(24)
-                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
-                    }
+                    SubtitleBar(text: model.subtitle)
                     Spacer()
                 }
             }
@@ -150,29 +142,53 @@ private struct ChoiceButtons: View {
     }
 }
 
-/// A gentle, wordless-friendly nudge during a "spot it" question: the answer
-/// balloons live in the 3D world (the child steers to aim and beeps the horn to
-/// pick), so the HUD just shows a pulsing horn so a young child knows to beep.
+/// A wordless cue during a "spot it" question: the answer balloons live in the 3D
+/// world (steer to aim, beep to pick), so the HUD shows only a pulsing horn so a
+/// young child knows to beep — no sentence to read.
 private struct FindHint: View {
-    let text: String
     @State private var pulse = false
 
     var body: some View {
-        HStack(spacing: 16) {
-            Image(systemName: "horn.fill")
-                .font(.system(size: 44, weight: .black))
-                .foregroundStyle(.white)
-            Text(text)
-                .font(.system(size: 30, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+        Image(systemName: "horn.fill")
+            .font(.system(size: 48, weight: .black))
+            .foregroundStyle(.white)
+            .frame(width: 108, height: 108)
+            .background(Circle().fill(Color(red: 0.95, green: 0.55, blue: 0.20)))
+            .shadow(radius: 10, y: 6)
+            .scaleEffect(pulse ? 1.08 : 0.94)
+            .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
+            .onAppear { pulse = true }
+            .padding(.top, 12)
+    }
+}
+
+/// The spoken line, mirrored as a small caption that **fades itself out** a few
+/// seconds after it changes — so guidance is a brief glance, not a wall of text
+/// parked on screen. Smaller and lighter than before; the gameplay leads.
+private struct SubtitleBar: View {
+    let text: String
+    @State private var shown = false
+
+    var body: some View {
+        Group {
+            if shown && !text.isEmpty {
+                Text(text)
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: 620, alignment: .leading)
+                    .padding(.horizontal, 20).padding(.vertical, 14)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+                    .transition(.opacity)
+            }
         }
-        .padding(.horizontal, 36).padding(.vertical, 18)
-        .background(Capsule().fill(Color(red: 0.95, green: 0.55, blue: 0.20)))
-        .shadow(radius: 10, y: 6)
-        .scaleEffect(pulse ? 1.06 : 0.96)
-        .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: pulse)
-        .onAppear { pulse = true }
-        .padding(.top, 12)
+        // Re-runs whenever the line changes: show it, then quietly hide after 4s.
+        .task(id: text) {
+            guard !text.isEmpty else { return }
+            withAnimation(.easeIn(duration: 0.2)) { shown = true }
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            withAnimation(.easeOut(duration: 0.6)) { shown = false }
+        }
     }
 }
 

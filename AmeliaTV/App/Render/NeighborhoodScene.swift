@@ -55,8 +55,13 @@ final class NeighborhoodScene {
     /// Maps Game Core ground units to scene meters (matches the engine's bus).
     private let scale: Float
 
+    /// District centres (world units), so the street-lining houses can skip the
+    /// blocks where a landmark already sits.
+    private var placeCenters: [Vec2] = []
+
     init(content: GameContent, scale: Float) {
         self.scale = scale
+        placeCenters = content.places.map { $0.position.vec }
         buildGround()
         let segments = routeLoop(content: content)
         buildRoads(segments)
@@ -190,9 +195,15 @@ final class NeighborhoodScene {
         }
     }
 
-    /// Lines the streets with lamp posts and a varied ribbon of trees so the world
-    /// feels lived-in between the landmarks (deterministic placement).
+    /// Lines every street with lamp posts, a ribbon of trees, and rows of cute
+    /// houses set back on both kerbs — so the world reads as a real neighborhood you
+    /// drive *through*, not a few props by the road. Deterministic placement; houses
+    /// skip blocks where a district landmark already sits.
     private func buildScenery(along segments: [(Vec2, Vec2)]) {
+        let bodies = [col(0.96, 0.86, 0.62), col(0.90, 0.62, 0.55), col(0.62, 0.80, 0.93),
+                      col(0.80, 0.86, 0.62), col(0.92, 0.80, 0.86), col(0.70, 0.84, 0.80)]
+        let roofs  = [col(0.82, 0.40, 0.34), col(0.42, 0.46, 0.62), col(0.56, 0.40, 0.30),
+                      col(0.72, 0.52, 0.30), col(0.40, 0.55, 0.45)]
         for (idx, seg) in segments.enumerated() {
             let (a, b) = seg
             let d = b - a
@@ -200,22 +211,63 @@ final class NeighborhoodScene {
             guard len > 6 else { continue }
             let inv = 1.0 / len
             let perp = Vec2(-d.z * inv, d.x * inv)          // unit perpendicular
-            let n = max(1, Int(len / 20))
+            let n = max(1, Int(len / 30))
             for k in 1...n {
                 let t = Double(k) / Double(n + 1)
                 let on = a + d * t
-                let side: Double = (k % 2 == 0) ? 1 : -1
-                // A lamp post right at the kerb.
-                lampPost(at: scenePos(on + perp * (2.4 * side), y: 0))
-                // A tree set a little further back; vary the species.
-                let treeAt = scenePos(on + perp * (5.0 * side), y: 0)
+                let lampSide: Double = (k % 2 == 0) ? 1 : -1
+                // A lamp at one kerb, a tree at the other (offsets are world units → ×0.12 m).
+                lampPost(at: scenePos(on + perp * (12 * lampSide), y: 0))
+                let treeAt = scenePos(on + perp * (24 * -lampSide), y: 0)
                 switch (idx + k) % 3 {
                 case 0: roundTree(at: treeAt, leaf: col(0.30, 0.66, 0.32))
                 case 1: roundTree(at: treeAt, leaf: col(0.40, 0.70, 0.30), s: 1.2)
                 default: pineTree(at: treeAt)
                 }
+                // A house set back on each side — a proper lined street. Every other
+                // stop, so the row reads full without flooding the phone with entities.
+                if k % 2 == 1 {
+                    for side in [Double(-1), 1] {
+                        let hp = on + perp * (46 * side)
+                        guard !nearPlace(hp, within: 40) else { continue }
+                        let toRoad = perp * (-side)
+                        house(at: scenePos(hp, y: 0),
+                              faceDir: SIMD2(Float(toRoad.x), Float(toRoad.z)),
+                              body: bodies[(idx * 5 + k + (side > 0 ? 1 : 0)) % bodies.count],
+                              roof: roofs[(idx * 3 + k) % roofs.count])
+                    }
+                }
             }
         }
+    }
+
+    /// True if a district landmark sits within `r` world units of `v`.
+    private func nearPlace(_ v: Vec2, within r: Double) -> Bool {
+        for c in placeCenters where (c - v).length < r { return true }
+        return false
+    }
+
+    /// One cosy house, front (door + windows) on local +x, turned so that face
+    /// looks at the road. Original placeholder geometry; windows glow at night.
+    private func house(at p: SIMD3<Float>, faceDir: SIMD2<Float>,
+                       body: PlatformColor, roof: PlatformColor) {
+        let g = Entity()
+        g.position = p
+        g.orientation = simd_quatf(angle: -atan2(faceDir.y, faceDir.x), axis: [0, 1, 0])
+
+        g.addChild(block(body, [2.6, 2.2, 3.2], at: [0, 1.1, 0]))          // walls
+        g.addChild(block(roof, [3.0, 0.45, 3.6], at: [0, 2.45, 0]))        // eaves
+        g.addChild(block(roof, [1.5, 0.6, 3.6], at: [0, 2.8, 0]))          // ridge
+        g.addChild(block(col(0.45, 0.30, 0.20), [0.12, 1.2, 0.8], at: [1.31, 0.6, 0]))  // door
+        for z in [Float(-1.0), 1.0] {                                       // two front windows
+            let pane = block(col(0.80, 0.92, 1.0), [0.1, 0.6, 0.7], at: [1.31, 1.45, z])
+            g.addChild(pane)
+            windowPanes.append(pane)
+        }
+        g.addChild(block(col(0.6, 0.42, 0.34), [0.32, 0.7, 0.32], at: [-0.5, 2.85, 0.9]))  // chimney
+        g.addChild(block(col(0.42, 0.72, 0.40), [1.6, 0.06, 3.2], at: [2.1, 0.04, 0]))     // front lawn
+        g.addChild(block(col(0.86, 0.84, 0.70), [1.6, 0.07, 0.5], at: [2.1, 0.05, 0]))     // path
+        root.addChild(g)
     }
 
     // MARK: - Reusable set pieces
@@ -658,22 +710,29 @@ final class NeighborhoodScene {
         let group = Entity()
         group.position = scenePos(light.position.vec, y: 0)
 
+        // A zebra crosswalk painted across the road where the bus stops (road
+        // centre); the light itself stands on the kerb just beyond it.
+        for i in -2...2 {
+            group.addChild(block(.white, [0.2, 0.05, 2.2], at: [Float(i) * 0.45, 0.05, 0]))
+        }
+        let curbZ: Float = -1.7
+
         let pole = ModelLibrary.placeholderBox(
             color: PlatformColor(white: 0.30, alpha: 1), size: [0.16, 2.6, 0.16])
-        pole.position = [0, 1.3, 0]
+        pole.position = [0, 1.3, curbZ]
         group.addChild(pole)
 
         let housing = ModelLibrary.placeholderBox(
             color: PlatformColor(white: 0.15, alpha: 1), size: [0.5, 1.4, 0.4])
-        housing.position = [0, 2.7, 0]
+        housing.position = [0, 2.7, curbZ]
         group.addChild(housing)
 
         let red = ModelLibrary.sphere(radius: 0.16, color: Self.redOff)
         let yellow = ModelLibrary.sphere(radius: 0.16, color: Self.yellowOff)
         let green = ModelLibrary.sphere(radius: 0.16, color: Self.greenOff)
-        red.position = [0, 3.1, 0.22]
-        yellow.position = [0, 2.7, 0.22]
-        green.position = [0, 2.3, 0.22]
+        red.position = [0, 3.1, curbZ + 0.22]
+        yellow.position = [0, 2.7, curbZ + 0.22]
+        green.position = [0, 2.3, curbZ + 0.22]
         for lamp in [red, yellow, green] { group.addChild(lamp) }
 
         lamps[light.id] = Lamps(red: red, yellow: yellow, green: green)

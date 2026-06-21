@@ -140,6 +140,7 @@ final class GarageEngine: ObservableObject {
     func start(session: AppSession) {
         subtitle = session.string("garage.welcome")
         audio.setMusic(.garage)
+        speaker.isEnabled = (UserDefaults.standard.object(forKey: "voiceEnabled") as? Bool) ?? true
         if !didGreet {
             didGreet = true
             speaker.speak(subtitle, language: session.language)
