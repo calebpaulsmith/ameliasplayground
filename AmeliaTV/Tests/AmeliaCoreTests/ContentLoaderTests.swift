@@ -31,6 +31,19 @@ final class ContentLoaderTests: XCTestCase {
         }
     }
 
+    func testCollectiblesLoadAndAreWellFormed() throws {
+        let content = try ContentLoader.load(from: contentDir)
+        XCTAssertFalse(content.collectibles.isEmpty, "expected seeded collectibles to load")
+
+        var ids = Set<String>()
+        for c in content.collectibles {
+            XCTAssertFalse(c.id.isEmpty, "collectible has an empty id")
+            XCTAssertTrue(ids.insert(c.id).inserted, "duplicate collectible id \(c.id)")
+            XCTAssertFalse(c.kind.isEmpty, "collectible \(c.id) has no kind")
+            XCTAssertGreaterThanOrEqual(c.reward, 1, "collectible \(c.id) should reward ≥1 star")
+        }
+    }
+
     func testVehiclesLoadAndResolve() throws {
         let content = try ContentLoader.load(from: contentDir)
         XCTAssertFalse(content.vehicles.isEmpty, "expected the Rescue Team vehicles to load")

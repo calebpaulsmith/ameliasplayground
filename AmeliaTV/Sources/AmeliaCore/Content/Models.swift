@@ -29,6 +29,31 @@ public struct Light: Codable, Equatable, Sendable {
     public var phase: Double?
 }
 
+/// A light, optional pick-up scattered along a route — a balloon or coin the
+/// child can drift a touch to scoop. Feeds the star economy and rewards
+/// curiosity; **never required** (missing one is no failure). Authored as data so
+/// routes can be seeded with delight without code (docs/tvos/MODES_AND_DIRECTION.md
+/// — the "Agency pass").
+public struct Collectible: Codable, Equatable, Sendable {
+    public var id: String
+    public var kind: String            // "balloon" | "coin" | ...
+    public var position: Point2D
+    public var color: String?          // hex tint; nil → the kind's default
+    public var stars: Int?             // reward when scooped; nil → 1
+
+    public init(id: String, kind: String, position: Point2D,
+                color: String? = nil, stars: Int? = nil) {
+        self.id = id
+        self.kind = kind
+        self.position = position
+        self.color = color
+        self.stars = stars
+    }
+
+    /// Stars granted on pickup (defaults to 1).
+    public var reward: Int { max(0, stars ?? 1) }
+}
+
 /// A passenger / animal friend.
 public struct Passenger: Codable, Equatable, Sendable {
     public var id: String
@@ -164,6 +189,7 @@ public struct GameContent: Sendable {
     public var passengers: [Passenger]
     public var vehicles: [Vehicle]
     public var lights: [Light]
+    public var collectibles: [Collectible]
     public var episodes: [Episode]
 
     public init(
@@ -172,6 +198,7 @@ public struct GameContent: Sendable {
         passengers: [Passenger] = [],
         vehicles: [Vehicle] = [],
         lights: [Light] = [],
+        collectibles: [Collectible] = [],
         episodes: [Episode] = []
     ) {
         self.strings = strings
@@ -179,6 +206,7 @@ public struct GameContent: Sendable {
         self.passengers = passengers
         self.vehicles = vehicles
         self.lights = lights
+        self.collectibles = collectibles
         self.episodes = episodes
     }
 

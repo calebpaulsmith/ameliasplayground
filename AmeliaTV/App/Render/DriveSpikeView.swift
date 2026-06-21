@@ -75,6 +75,10 @@ final class SpikeEngine: ObservableObject {
     private var riderBoardedOnce = false
     private var spokeReward = false   // speak Mom's praise once, when the episode ends
 
+    // Collectibles (balloons / coins) scattered along the route; hidden once the
+    // bus scoops them. Each entry keeps the collectible id so we can ask the game.
+    private var collectibleNodes: [(id: String, node: Entity)] = []
+
     // A turn picked by an on-screen (touch) button, consumed on the next tick.
     // Lets the fork choice be made without a controller (e.g. on iPad).
     private var pendingTouchTurn: InputIntents.DiscreteTurn = .none
@@ -136,6 +140,7 @@ final class SpikeEngine: ObservableObject {
         root.addChild(scene.root)
 
         buildPassengers(session: session, game: game)
+        buildCollectibles(session: session)
 
         lastTick = Date()
         let t = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
@@ -181,6 +186,7 @@ final class SpikeEngine: ObservableObject {
 
         updateBeacon(target: game.currentTarget)
         updateRider(game: game)
+        updateCollectibles(game: game)
         let states = Dictionary(uniqueKeysWithValues: game.lightSnapshot().map { ($0.id, $0.state) })
         neighborhood?.updateLights(states)
         positionCamera()
@@ -229,6 +235,32 @@ final class SpikeEngine: ObservableObject {
         [Float(v.x) * scale + offsetX, 0, Float(v.z) * scale]
     }
 
+    /// Builds a floating balloon or spinning coin for each data-driven collectible.
+    private func buildCollectibles(session: AppSession) {
+        for c in session.content.collectibles {
+            let color = ModelLibrary.color(hex: c.color)
+            let node = c.kind == "coin"
+                ? ModelLibrary.coin(color: color ?? .init(red: 1.0, green: 0.82, blue: 0.25, alpha: 1))
+                : ModelLibrary.balloon(color: color ?? .init(red: 1.0, green: 0.37, blue: 0.48, alpha: 1))
+            node.position = groundPos(c.position.vec)
+            collectibleNodes.append((id: c.id, node: node))
+            root.addChild(node)
+        }
+    }
+
+    /// Bobs/spins the collectibles and removes any the bus has scooped.
+    private func updateCollectibles(game: GameSession) {
+        for entry in collectibleNodes where entry.node.isEnabled {
+            if game.isCollected(entry.id) {
+                entry.node.isEnabled = false       // scooped — pop it out of the world
+                continue
+            }
+            let bob = 0.12 * Float(sin(elapsed * 3.0 + Double(entry.node.position.x)))
+            entry.node.position.y = 1.4 + bob
+            entry.node.orientation = simd_quatf(angle: Float(elapsed * 1.5), axis: [0, 1, 0])
+        }
+    }
+
     private func updateBeacon(target: EpisodeTarget?) {
         guard let target else { beacon.isEnabled = false; return }
         beacon.isEnabled = true
@@ -240,6 +272,7 @@ final class SpikeEngine: ObservableObject {
         let targetId = game.currentTarget?.kind == .place ? game.currentTarget?.id : nil
         var next = HUDModel()
         next.stars = game.save.stars
+        next.collected = game.collectedCount
         next.subtitle = game.subtitle
         next.turnCue = game.currentTurnCue
         next.drivePrompt = game.drivePrompt
