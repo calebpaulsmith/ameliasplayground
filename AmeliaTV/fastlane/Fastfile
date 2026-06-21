@@ -44,10 +44,12 @@ def sync_signing(api_key:, bundle_id:, match_platform:, readonly:)
     readonly: readonly,
     fail_on_name_taken: false
   )
-  # match exports the installed profile's name here; fall back to its default
-  # naming if the env var isn't present.
-  ENV["sigh_#{bundle_id}_appstore_profile-name"] ||
-    ENV["sigh_#{bundle_id}_appstore"] ||
+  # Use the exact profile name match installed. For non-iOS platforms match
+  # appends a suffix (e.g. "match AppStore <id> tvos"), so guessing the name
+  # breaks tvOS — read it from match's own mapping instead.
+  mapping = lane_context[SharedValues::MATCH_PROVISIONING_PROFILE_MAPPING] || {}
+  mapping[bundle_id] ||
+    ENV["sigh_#{bundle_id}_appstore_profile-name"] ||
     "match AppStore #{bundle_id}"
 end
 
