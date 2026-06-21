@@ -255,6 +255,11 @@ swaps to USDZ later by id. All Reduce-Motion aware; original-IP (D-IP-1).
   honk/pickup, confetti into the reward screen.
 - **Acceptance:** lightweight, within the perf budget (R-PERF-1); Reduce-Motion
   aware. **Dependencies:** CL-01. **Complexity:** M · **AI-suitable:** Yes
+- **Status:** done — new render-only `JuiceEmitter` (pooled hand-animated primitives,
+  no `ParticleEmitterComponent`) bursts `.sparkle` on star-award/collectible-scoop,
+  `.heart` on pickup/honk, `.dust` on hard-stop and while rolling fast; a `SpringValue`
+  camera bounce kicks on honk/pickup/stop. Reward-screen confetti already existed
+  (`RewardView`). Reduce-Motion aware; Core untouched.
 
 ### CL-05 — Cozy world mood (day/dusk/night + weather)
 - **Milestone:** later · **Priority:** P2

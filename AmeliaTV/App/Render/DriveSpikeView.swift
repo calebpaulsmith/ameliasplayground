@@ -136,6 +136,10 @@ final class SpikeEngine: ObservableObject {
     private var prevSpeed = 0.0
     private var prevPassengerId: String?
     private var prevDrivePrompt: GameSession.DrivePrompt = .go
+    private var prevSparkleCount = 0                 // star-award edge for sparkle bursts
+    private var dustAccum = 0.0                      // throttles rolling-dust puffs
+    private var cameraKick = SpringValue(stiffness: 90, damping: 11)  // bounce on big moments
+    private let juice = JuiceEmitter()               // hand-animated sparkle/heart/dust bursts
     private var reduceMotion = false                // tvOS "Reduce Motion" accessibility
 
     /// Called by the HUD's on-screen LEFT/RIGHT buttons.
@@ -173,6 +177,8 @@ final class SpikeEngine: ObservableObject {
         camera = cam
         root.addChild(camera)
 
+        root.addChild(juice.root)
+
         positionCamera()
         return root
     }
@@ -196,6 +202,7 @@ final class SpikeEngine: ObservableObject {
         riderActor = nil
         riderBoardedOnce = false
         riderGreeted = false
+        prevSparkleCount = 0
         #if canImport(UIKit)
         reduceMotion = UIAccessibility.isReduceMotionEnabled
         #endif
@@ -263,11 +270,23 @@ final class SpikeEngine: ObservableObject {
         // Engine hum rises and falls with how fast Amelia is rolling.
         audio.setEngineIntensity(abs(game.bus.speed) / game.core.assistLevel.maxSpeed)
 
+        // Juice: a sparkle shower whenever a star is earned (edge-detected).
+        if game.sparkleCount > prevSparkleCount {
+            if !reduceMotion { juice.burst(at: bus.position + [0, 1.2, 0], kind: .sparkle, count: 12) }
+            prevSparkleCount = game.sparkleCount
+        }
+        // Honk sends up a little puff of hearts and bounces the camera.
+        if honk && !reduceMotion {
+            juice.burst(at: bus.position + [0, 1.5, 0], kind: .heart, count: 6)
+            cameraKick.nudge(2.2)
+        }
+
         updateBeacon(target: game.currentTarget)
         if honk { neighborhood?.honk(busPos: bus.position) }
         for friend in friends { animateCharacter(friend, busPos: bus.position, dt: dt, honk: honk) }
         updateRider(game: game, busPos: bus.position, dt: dt, honk: honk)
         updateCollectibles(game: game)
+        juice.update(dt: Float(dt))
         let states = Dictionary(uniqueKeysWithValues: game.lightSnapshot().map { ($0.id, $0.state) })
         neighborhood?.updateLights(states)
         neighborhood?.updateAmbient(elapsed: elapsed, dt: dt)
@@ -282,6 +301,16 @@ final class SpikeEngine: ObservableObject {
         let maxSpeed = max(0.001, game.core.assistLevel.maxSpeed)
         let speed = abs(game.bus.speed)
         let moving = min(1.0, speed / maxSpeed)
+        let busGround = SIMD3<Float>(Float(game.bus.position.x) * scale, 0.15, Float(game.bus.position.z) * scale)
+
+        // A little dust kicks up from under the bus while she rolls along (throttled).
+        if !reduceMotion && moving > 0.55 {
+            dustAccum += dt
+            if dustAccum > 0.22 { dustAccum = 0; juice.burst(at: busGround, kind: .dust, count: 3) }
+        } else {
+            dustAccum = 0
+        }
+        cameraKick.step(toward: 0, dt: dt)
 
         // Lean into the current turn, only while actually rolling.
         var leanTarget = 0.0
@@ -296,6 +325,8 @@ final class SpikeEngine: ObservableObject {
         if !reduceMotion {
             if prevDrivePrompt != .stop && game.drivePrompt == .stop {
                 squash.nudge(3.0)
+                juice.burst(at: busGround, kind: .dust, count: 9)   // brake puff
+                cameraKick.nudge(1.6)
             } else {
                 let decel = (prevSpeed - speed) / dt
                 if decel > 30 { squash.nudge(min(decel, 120) * 0.02) }
@@ -307,6 +338,8 @@ final class SpikeEngine: ObservableObject {
         let bob = (!reduceMotion && speed < 1.0) ? 0.03 * sin(elapsed * 2.0) : 0.0
         if game.currentPassengerId != nil && prevPassengerId == nil && !reduceMotion {
             hop.nudge(3.5)
+            juice.burst(at: busGround + [0, 1.3, 0], kind: .heart, count: 10)   // happy pickup
+            cameraKick.nudge(2.4)
         }
         if honk && !reduceMotion { wiggle = 0.22; hop.nudge(1.5) }
         hop.step(toward: bob, dt: dt)
@@ -482,6 +515,7 @@ final class SpikeEngine: ObservableObject {
     private func updateCollectibles(game: GameSession) {
         for entry in collectibleNodes where entry.node.isEnabled {
             if game.isCollected(entry.id) {
+                if !reduceMotion { juice.burst(at: entry.node.position, kind: .sparkle, count: 10) }
                 entry.node.isEnabled = false       // scooped — pop it out of the world
                 continue
             }
@@ -527,7 +561,7 @@ final class SpikeEngine: ObservableObject {
 
     private func positionCamera() {
         let bp = bus.position
-        camera.position = [bp.x - 6, bp.y + 4, bp.z + 6]
+        camera.position = [bp.x - 6, bp.y + 4 + Float(cameraKick.value), bp.z + 6]
         camera.look(at: bp, from: camera.position, relativeTo: nil)
     }
 }
