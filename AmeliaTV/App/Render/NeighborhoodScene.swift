@@ -32,6 +32,10 @@ final class NeighborhoodScene {
 
     private struct Lamps { let red: ModelEntity; let yellow: ModelEntity; let green: ModelEntity }
 
+    /// Last state shown per light, so we only rebuild lamp materials when a light
+    /// actually changes — not 60 times a second (perf: avoids per-frame allocations).
+    private var litStates: [String: TrafficLight.State] = [:]
+
     // Animatable landmarks/props, captured at build time so the world can come
     // alive each frame (CL-03 — "the world reacts", GAME_DESIGN.md §4a).
     private var flag: ModelEntity?              // school flag — flutters
@@ -84,13 +88,17 @@ final class NeighborhoodScene {
         }
     }
 
-    /// Lights the lamp matching each light's state and dims the others.
-    func updateLights(_ states: [String: TrafficLight.State]) {
-        for (id, l) in lamps {
-            let state = states[id] ?? .green
-            set(l.red, on: state == .red, lit: Self.redOn, off: Self.redOff)
-            set(l.yellow, on: state == .yellow, lit: Self.yellowOn, off: Self.yellowOff)
-            set(l.green, on: state == .green, lit: Self.greenOn, off: Self.greenOff)
+    /// Lights the lamp matching each light's state and dims the others. Takes the
+    /// raw snapshot and diffs against the last shown state, so a steady light costs
+    /// nothing per frame (only a changed light rebuilds its three lamp materials).
+    func updateLights(_ snapshot: [TrafficLight]) {
+        for light in snapshot {
+            guard litStates[light.id] != light.state else { continue }
+            litStates[light.id] = light.state
+            guard let l = lamps[light.id] else { continue }
+            set(l.red, on: light.state == .red, lit: Self.redOn, off: Self.redOff)
+            set(l.yellow, on: light.state == .yellow, lit: Self.yellowOn, off: Self.yellowOff)
+            set(l.green, on: light.state == .green, lit: Self.greenOn, off: Self.greenOff)
         }
     }
 

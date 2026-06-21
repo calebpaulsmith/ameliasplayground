@@ -48,8 +48,9 @@
   "m.home": "Great work! Head back home to the garage.",
 
   "nav.tryOtherWay": "Let's try this way!",
-  "find.tryAgain": "So close! Try another one!",
-  "find.spotRedHouse": "Can you find the RED one?",
+  "find.tryAgain": "So close! Steer to another one and beep!",
+  "find.spotRedBalloon": "Beep your horn at the RED balloon!",
+  "ui.findHint": "Steer, then beep!",
   "color.red": "Red",
   "color.blue": "Blue",
   "color.yellow": "Yellow",

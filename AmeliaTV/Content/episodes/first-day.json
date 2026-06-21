@@ -7,7 +7,7 @@
     { "type": "say", "lineId": "m.goStop" },
     { "type": "driveTo", "placeId": "stopA", "arriveLineId": "m.pickup" },
     { "type": "pickup", "passengerId": "pip", "atStop": "stopA" },
-    { "type": "find", "promptLineId": "find.spotRedHouse",
+    { "type": "find", "promptLineId": "find.spotRedBalloon",
       "options": [
         { "id": "red",    "color": "#e8453c", "labelId": "color.red" },
         { "id": "blue",   "color": "#3f7fe8", "labelId": "color.blue" },
