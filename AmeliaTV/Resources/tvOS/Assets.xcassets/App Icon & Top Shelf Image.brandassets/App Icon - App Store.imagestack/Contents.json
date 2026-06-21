@@ -5,7 +5,10 @@
   },
   "layers": [
     {
-      "filename": "Content.imagestacklayer"
+      "filename": "Foreground.imagestacklayer"
+    },
+    {
+      "filename": "Background.imagestacklayer"
     }
   ]
 }
