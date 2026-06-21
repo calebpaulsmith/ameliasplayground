@@ -53,6 +53,7 @@ struct GarageView: View {
                 .focused($goFocused)
             }
             .padding(56)
+            .adaptiveTVCanvas()
         }
         // Pre-focus the big "Let's go!" so the remote can start the drive at once,
         // instead of landing on the small "Back" button (or nowhere) over the scene.
@@ -242,6 +243,7 @@ struct GarageView: View {
                 .buttonStyle(.bordered)
         }
         .padding(80)
+        .adaptiveTVCanvas()
         .defaultFocus($goFocused, true)
         .onAppear { goFocused = true }
         .fullScreenCover(isPresented: $showingDrive) {

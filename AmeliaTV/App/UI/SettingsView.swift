@@ -65,6 +65,7 @@ struct SettingsView: View {
                 .focused($doneFocused)
             }
             .padding(80)
+            .adaptiveTVCanvas()
         }
         .onAppear { doneFocused = true }
     }

@@ -25,6 +25,10 @@ targets:
     sources:
       - path: App
       - path: Resources/tvOS/Assets.xcassets   # app icon + top-shelf (tvOS only)
+      - path: Assets                            # runtime art (USDZ by id); docs excluded
+        buildPhase: resources
+        excludes:
+          - "**/*.md"
       - path: Content
         type: folder        # folder reference: whole tree copied into the bundle
         buildPhase: resources
@@ -49,11 +53,13 @@ targets:
         # No signing for normal CI; the protected release workflow handles it.
         CODE_SIGNING_ALLOWED: "NO"
 
-  # iPad/iOS build of the same game. Shares App/ + Content/ + AmeliaCore; the only
-  # platform-specific code is guarded with #if os(tvOS)/canImport. tvOS is the
-  # flagship; this target exists so the game can be play-tested on the iOS
-  # Simulator and iPad (RealityView requires iOS 18). Touch input drives the
-  # left/right choice; the rest of the slice auto-drives.
+  # iPhone + iPad build of the same game (a flagship platform alongside tvOS).
+  # Shares App/ + Content/ + AmeliaCore; the only platform-specific code is guarded
+  # with #if os(tvOS)/canImport (RealityView requires iOS 18). The 10-foot UI is
+  # laid out on a fixed canvas and scaled to fit the hand-held screen via
+  # `adaptiveTVCanvas()` so nothing crowds on iPhone. Touch input drives the
+  # left/right choice; the rest of the slice auto-drives. Runs on iPhone, iPad,
+  # and the iOS Simulator.
   AmeliaPad:
     type: application
     platform: iOS
@@ -61,6 +67,10 @@ targets:
     sources:
       - path: App
       - path: Resources/iOS/Assets.xcassets    # app icon (iOS/iPad only)
+      - path: Assets                            # runtime art (USDZ by id); docs excluded
+        buildPhase: resources
+        excludes:
+          - "**/*.md"
       - path: Content
         type: folder        # folder reference: whole tree copied into the bundle
         buildPhase: resources

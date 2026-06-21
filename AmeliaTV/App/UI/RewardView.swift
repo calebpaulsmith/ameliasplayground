@@ -81,6 +81,7 @@ struct RewardView: View {
             .scaleEffect(appear ? 1 : 0.86)
             .opacity(appear ? 1 : 0)
             .animation(.spring(response: 0.6, dampingFraction: 0.78), value: appear)
+            .adaptiveTVCanvas()
         }
         .ignoresSafeArea()
         .onAppear { appear = true }
