@@ -83,6 +83,17 @@ final class GameSessionTests: XCTestCase {
         XCTAssertEqual(plan?.dropoffPlaceId, "park")
     }
 
+    func testRewardPlanReadsTheEpisodeRewardBeat() throws {
+        let content = try ContentLoader.load(from: contentDir)
+        let session = GameSession(content: content, save: SaveSlot(language: .en, assistLevel: .auto))
+        XCTAssertNil(session.rewardPlan, "no reward plan before an episode starts")
+
+        session.start(episodeId: "first-day")
+        let reward = session.rewardPlan
+        XCTAssertEqual(reward?.stars, 3, "reward stars should come from the episode's reward beat")
+        XCTAssertEqual(reward?.stickerId, "first-day", "reward sticker should come from the reward beat")
+    }
+
     func testNoTargetDoesNotMoveTheBus() {
         // With no active episode/target, Auto-Drive holds position (no drifting).
         let session = GameSession(content: GameContent(), save: SaveSlot(assistLevel: .auto))

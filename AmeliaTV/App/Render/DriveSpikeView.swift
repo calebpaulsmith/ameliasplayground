@@ -26,13 +26,18 @@ struct DriveSpikeView: View {
 
             HUDView(model: engine.hud,
                     onTurnLeft: { engine.chooseTurn(.left) },
-                    onTurnRight: { engine.chooseTurn(.right) })
+                    onTurnRight: { engine.chooseTurn(.right) },
+                    onContinue: { dismiss() })
                 .environmentObject(session)
 
-            Button(session.string("ui.back")) { dismiss() }
-                .buttonStyle(.bordered)
-                .padding(40)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            // The manual "back" affordance is hidden once the reward screen owns
+            // the view (it has its own big "back to the garage" button).
+            if !engine.hud.finished {
+                Button(session.string("ui.back")) { dismiss() }
+                    .buttonStyle(.bordered)
+                    .padding(40)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            }
         }
         .onAppear { engine.start(session: session) }
         .onDisappear { engine.stop() }
@@ -68,6 +73,7 @@ final class SpikeEngine: ObservableObject {
     private var pickupPos: Vec2?
     private var dropoffPos: Vec2?
     private var riderBoardedOnce = false
+    private var spokeReward = false   // speak Mom's praise once, when the episode ends
 
     // A turn picked by an on-screen (touch) button, consumed on the next tick.
     // Lets the fork choice be made without a controller (e.g. on iPad).
@@ -121,6 +127,7 @@ final class SpikeEngine: ObservableObject {
         game.start(episodeId: "first-day")
         self.game = game
         self.places = session.content.places
+        self.spokeReward = false
 
         // Build the data-driven neighborhood now that content is available, and
         // insert it beneath the already-rendered bus/beacon/camera.
@@ -158,6 +165,12 @@ final class SpikeEngine: ObservableObject {
         }
         pendingTouchTurn = .none
         game.tick(dt: dt, input: intents)
+
+        // When the episode finishes, Mom praises the player once (reward screen).
+        if game.finished && !spokeReward {
+            spokeReward = true
+            game.dialogue.play("reward.complete", force: true)
+        }
 
         let p = game.bus.position
         bus.position = [Float(p.x) * scale, 0.55, Float(p.z) * scale]
@@ -233,6 +246,8 @@ final class SpikeEngine: ObservableObject {
         next.destinationNameId = game.currentTargetNameId
         next.awaitingChoice = game.awaitingChoice
         next.finished = game.finished
+        next.rewardStars = game.rewardPlan?.stars ?? game.sparkleCount
+        next.rewardStickerId = game.rewardPlan?.stickerId
         next.busX = game.bus.position.x
         next.busZ = game.bus.position.z
         next.busHeading = game.bus.heading
