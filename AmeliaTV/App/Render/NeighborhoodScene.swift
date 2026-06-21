@@ -32,6 +32,15 @@ final class NeighborhoodScene {
 
     private struct Lamps { let red: ModelEntity; let yellow: ModelEntity; let green: ModelEntity }
 
+    // Animatable landmarks/props, captured at build time so the world can come
+    // alive each frame (CL-03 — "the world reacts", GAME_DESIGN.md §4a).
+    private var flag: ModelEntity?              // school flag — flutters
+    private var lighthouseBeam: Entity?         // sweeps around the seaside
+    private var busStopSign: ModelEntity?       // idly spins
+    private var fountainSpray: ModelEntity?     // bobs up and down
+    private var clouds: [Entity] = []           // drift across the sky
+    private var birds: [Bird] = []              // perch, then scatter on a honk
+
     /// Maps Game Core ground units to scene meters (matches the engine's bus).
     private let scale: Float
 
@@ -44,6 +53,7 @@ final class NeighborhoodScene {
         for place in content.places { buildPlace(place) }
         for light in content.lights { buildLight(light) }
         buildVehicles(content)
+        buildBirds(content)
         buildClouds()
     }
 
@@ -289,8 +299,9 @@ final class NeighborhoodScene {
         group.addChild(block(col(0.90, 0.24, 0.22), [0.14, 0.5, 0.14], at: [1.5, 1.0, 0.5]))
         let sign = ModelLibrary.sphere(radius: 0.34, color: tint)
         sign.position = [1.5, 2.7, 0.5]
+        sign.addChild(block(.white, [0.34, 0.34, 0.04], at: [0, 0, 0.36]))  // face, spins with it
         group.addChild(sign)
-        group.addChild(block(.white, [0.34, 0.34, 0.04], at: [1.5, 2.7, 0.86]))
+        self.busStopSign = sign
     }
 
     /// A leafy park: a grassy mound, a blue pond, flowers, a slide and swings, and
@@ -322,7 +333,9 @@ final class NeighborhoodScene {
         group.addChild(ball(col(0.86, 0.86, 0.9), 0.9, at: [fx, 0.1, fz], scale: [1, 0.22, 1]))
         group.addChild(ball(col(0.40, 0.72, 0.92), 0.7, at: [fx, 0.18, fz], scale: [1, 0.12, 1]))
         group.addChild(block(col(0.86, 0.86, 0.9), [0.2, 0.8, 0.2], at: [fx, 0.5, fz]))
-        group.addChild(ball(col(0.55, 0.8, 0.95), 0.34, at: [fx, 1.0, fz], scale: [1, 1.3, 1]))
+        let spray = ball(col(0.55, 0.8, 0.95), 0.34, at: [fx, 1.0, fz], scale: [1, 1.3, 1])
+        group.addChild(spray)
+        self.fountainSpray = spray
     }
 
     /// The home garage: a warm workshop with a pitched roof, an open door, a
@@ -359,9 +372,11 @@ final class NeighborhoodScene {
         group.addChild(ball(.white, 0.34, at: [1.6, 2.8, 0.62], scale: [1, 1, 0.3]))
         group.addChild(block(col(0.1, 0.1, 0.12), [0.04, 0.26, 0.03], at: [1.6, 2.86, 0.7]))
         group.addChild(block(col(0.1, 0.1, 0.12), [0.18, 0.03, 0.03], at: [1.66, 2.8, 0.7]))
-        // Flag pole flying a flag.
+        // Flag pole flying a flag (the flag flutters — captured for animation).
         group.addChild(block(col(0.9, 0.9, 0.92), [0.1, 3.2, 0.1], at: [-1.8, 1.6, 0.8]))
-        group.addChild(block(col(0.2, 0.55, 0.85), [0.9, 0.6, 0.04], at: [-1.35, 3.0, 0.8]))
+        let flag = block(col(0.2, 0.55, 0.85), [0.9, 0.6, 0.04], at: [-1.35, 3.0, 0.8])
+        group.addChild(flag)
+        self.flag = flag
     }
 
     /// The market: a row of stalls with bright striped awnings, crates of produce,
@@ -414,6 +429,13 @@ final class NeighborhoodScene {
         group.addChild(block(col(0.2, 0.22, 0.26), [1.0, 0.3, 1.0], at: [lx, 4.3, -1.6]))
         group.addChild(ball(col(1.0, 0.95, 0.55), 0.45, at: [lx, 4.75, -1.6]))
         group.addChild(block(col(0.7, 0.2, 0.2), [0.9, 0.5, 0.9], at: [lx, 5.2, -1.6]))
+        // A pale beam that sweeps around from the lantern (pivot rotated each frame).
+        let beamPivot = Entity()
+        beamPivot.position = [lx, 4.75, -1.6]
+        let beam = block(col(1.0, 0.96, 0.7), [6.0, 0.22, 0.5], at: [3.0, 0, 0])
+        beamPivot.addChild(beam)
+        group.addChild(beamPivot)
+        self.lighthouseBeam = beamPivot
         // Palms.
         palmTree(into: group, at: [2.0, 0, -2.2], s: 1.1)
         palmTree(into: group, at: [-3.4, 0, 1.6], s: 0.9)
@@ -433,9 +455,123 @@ final class NeighborhoodScene {
     private func buildClouds() {
         let spots: [SIMD3<Float>] = [[-6, 9, -8], [9, 10, 4], [3, 11, -12], [14, 9, 12]]
         for s in spots {
+            let cloud = Entity()
+            cloud.position = s
             for o in [SIMD3<Float>(0, 0, 0), [0.9, 0.1, 0.2], [-0.9, 0.05, -0.2], [0.3, 0.25, 0.5]] {
-                root.addChild(ball(.white, 0.8, at: [s.x + o.x, s.y + o.y, s.z + o.z], scale: [1.3, 0.7, 1.0]))
+                cloud.addChild(ball(.white, 0.8, at: o, scale: [1.3, 0.7, 1.0]))
             }
+            root.addChild(cloud)
+            clouds.append(cloud)
+        }
+    }
+
+    // MARK: - Birds (perch near the stops; scatter when Amelia honks)
+
+    /// A small bird: a body, head, beak, and two wing pivots that flap. Original
+    /// placeholder geometry. Perches on the ground and springs back home after a
+    /// honk sends it fluttering up.
+    private final class Bird {
+        let node = Entity()
+        let leftWing = Entity()
+        let rightWing = Entity()
+        let perch: SIMD3<Float>
+        var pos: SIMD3<Float>
+        var vel: SIMD3<Float> = .zero
+        let phase: Float
+        init(perch: SIMD3<Float>) {
+            self.perch = perch
+            self.pos = perch
+            self.phase = Float.random(in: 0 ... (2 * Float.pi))
+        }
+    }
+
+    private func makeBird(at p: SIMD3<Float>, color: PlatformColor) -> Bird {
+        let bird = Bird(perch: p)
+        bird.node.position = p
+        bird.node.addChild(ball(color, 0.13, at: [0, 0, 0], scale: [1.3, 1.0, 1.0]))    // body
+        bird.node.addChild(ball(color, 0.08, at: [0.15, 0.06, 0]))                       // head
+        bird.node.addChild(block(col(0.95, 0.7, 0.2), [0.09, 0.03, 0.03], at: [0.24, 0.06, 0]))  // beak
+        for side in [Float(-1), 1] {
+            let pivot = side < 0 ? bird.leftWing : bird.rightWing
+            pivot.position = [0, 0.02, side * 0.05]
+            pivot.addChild(block(color, [0.20, 0.03, 0.16], at: [0, 0, side * 0.10]))
+            bird.node.addChild(pivot)
+        }
+        return bird
+    }
+
+    /// Perches a few small flocks near the places the bus dwells by, so a child who
+    /// honks gets the delight of seeing them scatter and resettle.
+    private func buildBirds(_ content: GameContent) {
+        let flocks = ["stopA", "park", "beach"]
+        let colors = [col(0.32, 0.34, 0.40), col(0.55, 0.40, 0.30), col(0.22, 0.22, 0.26)]
+        for (fi, pid) in flocks.enumerated() {
+            guard let place = content.places.first(where: { $0.id == pid }) else { continue }
+            let base = scenePos(place.position.vec, y: 0.15)
+            for j in 0..<3 {
+                let off = SIMD3<Float>(Float(j) * 0.55 - 0.55, 0, -2.4 - Float(j) * 0.35)
+                let bird = makeBird(at: [base.x + off.x, base.y, base.z + off.z],
+                                    color: colors[fi % colors.count])
+                root.addChild(bird.node)
+                birds.append(bird)
+            }
+        }
+    }
+
+    // MARK: - Ambient life (called every frame by the engine)
+
+    private func length(_ v: SIMD3<Float>) -> Float { (v.x * v.x + v.y * v.y + v.z * v.z).squareRoot() }
+
+    /// Animates the world's continuous life: the flag flutters, the lighthouse beam
+    /// sweeps, the bus-stop sign and fountain play, clouds drift, and birds settle.
+    func updateAmbient(elapsed: Double, dt: Double) {
+        let t = Float(elapsed)
+        flag?.orientation = simd_quatf(angle: 0.20 * sin(t * 3.5), axis: [0, 1, 0])
+            * simd_quatf(angle: 0.07 * sin(t * 5.0 + 1), axis: [1, 0, 0])
+        lighthouseBeam?.orientation = simd_quatf(angle: t * 0.8, axis: [0, 1, 0])
+        busStopSign?.orientation = simd_quatf(angle: t * 0.6, axis: [0, 1, 0])
+        if let spray = fountainSpray {
+            spray.position.y = 1.0 + 0.12 * sin(t * 4.0)
+            spray.scale = [1, 1.3 + 0.18 * sin(t * 4.0), 1]
+        }
+        for (i, cloud) in clouds.enumerated() {
+            cloud.position.x += Float(dt) * 0.22
+            if cloud.position.x > 22 { cloud.position.x = -22 + Float(i) * 0.01 }
+        }
+        for b in birds { updateBird(b, dt: Float(dt), t: t) }
+    }
+
+    private func updateBird(_ b: Bird, dt: Float, t: Float) {
+        // Spring the bird home to its perch with drag, so a scatter resettles.
+        let toHome = b.perch - b.pos
+        b.vel += toHome * 6.0 * dt
+        b.vel -= b.vel * 2.2 * dt
+        b.pos += b.vel * dt
+        if b.pos.y < b.perch.y { b.pos.y = b.perch.y; if b.vel.y < 0 { b.vel.y = 0 } }
+        b.node.position = b.pos
+
+        let speed = length(b.vel)
+        if speed > 0.3 {
+            b.node.orientation = simd_quatf(angle: atan2(-b.vel.z, b.vel.x), axis: [0, 1, 0])
+        }
+        // Wings always shuffle a little; flap fast while in the air.
+        let flap = (0.18 + min(1, speed * 1.5)) * sin(t * (11 + speed * 6) + b.phase)
+        b.leftWing.orientation = simd_quatf(angle: flap, axis: [1, 0, 0])
+        b.rightWing.orientation = simd_quatf(angle: -flap, axis: [1, 0, 0])
+    }
+
+    /// Amelia honked: nearby birds startle upward and scatter (they spring back).
+    func honk(busPos: SIMD3<Float>) {
+        for b in birds {
+            var dir = b.perch - busPos
+            dir.y = 0
+            let d = length(dir)
+            guard d < 8 else { continue }
+            let horiz = d > 0.001 ? dir / d : SIMD3<Float>(Float.random(in: -1...1), 0, Float.random(in: -1...1))
+            b.vel += horiz * Float.random(in: 2.0...4.0)
+            b.vel.y += Float.random(in: 4.0...6.5)
+            b.vel.x += Float.random(in: -1.2...1.2)
+            b.vel.z += Float.random(in: -1.2...1.2)
         }
     }
 

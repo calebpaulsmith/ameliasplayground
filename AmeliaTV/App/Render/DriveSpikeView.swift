@@ -236,6 +236,7 @@ final class SpikeEngine: ObservableObject {
             intents.discreteTurn = pendingTouchTurn
         }
         pendingTouchTurn = .none
+        let honk = intents.honkPressed
         if let f = pendingFind { game.answerFind(f); pendingFind = nil }
         game.tick(dt: dt, input: intents)
 
@@ -247,7 +248,7 @@ final class SpikeEngine: ObservableObject {
 
         // Give Amelia life: blink, look around, lean into turns, squash on stops,
         // breathe when idle, hop on pickup, wiggle on a honk (GAME_DESIGN.md §4a).
-        updateBusLife(game: game, honk: intents.honkPressed, dt: dt)
+        updateBusLife(game: game, honk: honk, dt: dt)
 
         let p = game.bus.position
         bus.position = [Float(p.x) * scale, 0.55 + Float(hop.value), Float(p.z) * scale]
@@ -263,11 +264,13 @@ final class SpikeEngine: ObservableObject {
         audio.setEngineIntensity(abs(game.bus.speed) / game.core.assistLevel.maxSpeed)
 
         updateBeacon(target: game.currentTarget)
-        for friend in friends { animateCharacter(friend, busPos: bus.position, dt: dt) }
-        updateRider(game: game, busPos: bus.position, dt: dt)
+        if honk { neighborhood?.honk(busPos: bus.position) }
+        for friend in friends { animateCharacter(friend, busPos: bus.position, dt: dt, honk: honk) }
+        updateRider(game: game, busPos: bus.position, dt: dt, honk: honk)
         updateCollectibles(game: game)
         let states = Dictionary(uniqueKeysWithValues: game.lightSnapshot().map { ($0.id, $0.state) })
         neighborhood?.updateLights(states)
+        neighborhood?.updateAmbient(elapsed: elapsed, dt: dt)
         positionCamera()
         publishHUD(game)
     }
@@ -382,7 +385,7 @@ final class SpikeEngine: ObservableObject {
     /// Updates the rider: waiting at the stop (with an excited hop as the bus pulls
     /// up), hidden while aboard, then standing at the drop-off — with a delighted
     /// hop the moment it's delivered, thrilled to be home.
-    private func updateRider(game: GameSession, busPos: SIMD3<Float>, dt: Double) {
+    private func updateRider(game: GameSession, busPos: SIMD3<Float>, dt: Double, honk: Bool) {
         guard let actor = riderActor else { return }
         let aboard = game.currentPassengerId == plan?.passengerId
         if aboard {
@@ -406,16 +409,24 @@ final class SpikeEngine: ObservableObject {
                 }
             }
         }
-        animateCharacter(actor, busPos: busPos, dt: dt)
+        animateCharacter(actor, busPos: busPos, dt: dt, honk: honk)
     }
 
     /// Gives a character life from the bus's position: a gentle idle bob, a
     /// staggered blink, a turn-to-watch as the bus passes, a glance, and a wave
-    /// hello when it's close. Eased/sprung so nothing snaps; Reduce-Motion aware.
-    private func animateCharacter(_ a: CharacterActor, busPos: SIMD3<Float>, dt: Double) {
+    /// hello when it's close. A honk gets an enthusiastic wave back + a hop.
+    /// Eased/sprung so nothing snaps; Reduce-Motion aware.
+    private func animateCharacter(_ a: CharacterActor, busPos: SIMD3<Float>, dt: Double, honk: Bool = false) {
         let dx = Double(busPos.x - a.home.x)
         let dz = Double(busPos.z - a.home.z)
-        let near = !reduceMotion && (dx * dx + dz * dz).squareRoot() < 5.0
+        let dist = (dx * dx + dz * dz).squareRoot()
+        let near = !reduceMotion && dist < 5.0
+
+        // Honk! Friends in earshot wave back enthusiastically and give a happy hop.
+        if honk && !reduceMotion && dist < 9.0 {
+            a.wave = 1.0
+            a.hop.nudge(2.5)
+        }
 
         // Idle bob (gated by Reduce Motion) plus any delight hop from boarding/arrival.
         let bob = reduceMotion ? 0 : 0.035 * sin(elapsed * 2.2 + a.phase)
