@@ -8,7 +8,12 @@ import AmeliaCore
 final class SpeechSpeaker: LineSpeaker {
     private let synth = AVSpeechSynthesizer()
 
+    /// When false, narration is silent — the game is designed to read from the
+    /// graphics/HUD alone, so voice is an optional aid (Settings ▸ Voice).
+    var isEnabled = true
+
     func speak(_ text: String, language: Language) {
+        guard isEnabled else { return }
         synth.stopSpeaking(at: .immediate)   // never talk over ourselves
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: language == .es ? "es-ES" : "en-US")

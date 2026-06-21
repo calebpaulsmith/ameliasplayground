@@ -200,15 +200,16 @@ final class NeighborhoodScene {
             guard len > 6 else { continue }
             let inv = 1.0 / len
             let perp = Vec2(-d.z * inv, d.x * inv)          // unit perpendicular
-            let n = max(1, Int(len / 20))
+            // Spaced out (was len/20) so the roadside doesn't crowd the small screen.
+            let n = max(1, Int(len / 32))
             for k in 1...n {
                 let t = Double(k) / Double(n + 1)
                 let on = a + d * t
                 let side: Double = (k % 2 == 0) ? 1 : -1
                 // A lamp post right at the kerb.
-                lampPost(at: scenePos(on + perp * (2.4 * side), y: 0))
-                // A tree set a little further back; vary the species.
-                let treeAt = scenePos(on + perp * (5.0 * side), y: 0)
+                lampPost(at: scenePos(on + perp * (2.6 * side), y: 0))
+                // A tree set further back so it frames the road rather than blocking it.
+                let treeAt = scenePos(on + perp * (6.5 * side), y: 0)
                 switch (idx + k) % 3 {
                 case 0: roundTree(at: treeAt, leaf: col(0.30, 0.66, 0.32))
                 case 1: roundTree(at: treeAt, leaf: col(0.40, 0.70, 0.30), s: 1.2)

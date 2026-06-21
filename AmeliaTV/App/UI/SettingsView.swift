@@ -8,6 +8,8 @@ struct SettingsView: View {
     @EnvironmentObject private var session: AppSession
     @Environment(\.dismiss) private var dismiss
     @FocusState private var doneFocused: Bool
+    // Narration is an optional aid — the game reads from the graphics/HUD alone.
+    @AppStorage("voiceEnabled") private var voiceEnabled = true
 
     var body: some View {
         ZStack {
@@ -48,6 +50,36 @@ struct SettingsView: View {
                             .buttonStyle(.card)        // tvOS focus-aware card style
                             #else
                             .buttonStyle(.bordered)    // iPad/iOS: tappable bordered button
+                            #endif
+                        }
+                    }
+                }
+
+                VStack(spacing: 20) {
+                    Text(session.string("settings.voice"))
+                        .font(.system(size: 32, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 32) {
+                        ForEach([true, false], id: \.self) { on in
+                            Button {
+                                voiceEnabled = on
+                            } label: {
+                                Text(session.string(on ? "settings.voiceOn" : "settings.voiceOff"))
+                                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                                    .frame(minWidth: 200)
+                                    .padding(.vertical, 8)
+                                    .overlay(alignment: .bottom) {
+                                        if voiceEnabled == on {
+                                            Capsule().frame(height: 6)
+                                                .foregroundStyle(Color(red: 0.12, green: 0.43, blue: 0.81))
+                                        }
+                                    }
+                            }
+                            #if os(tvOS)
+                            .buttonStyle(.card)
+                            #else
+                            .buttonStyle(.bordered)
                             #endif
                         }
                     }

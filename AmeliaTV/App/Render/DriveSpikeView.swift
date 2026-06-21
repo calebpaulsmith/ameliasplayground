@@ -19,6 +19,7 @@ struct DriveSpikeView: View {
     @EnvironmentObject private var session: AppSession
     @Environment(\.dismiss) private var dismiss
     @StateObject private var engine = SpikeEngine()
+    @State private var introShown = true
 
     var body: some View {
         ZStack {
@@ -33,17 +34,132 @@ struct DriveSpikeView: View {
                     onContinue: { dismiss() })
                 .environmentObject(session)
 
-            // The manual "back" affordance is hidden once the reward screen owns
-            // the view (it has its own big "back to the garage" button).
+            // On-screen controls for touch devices (no controller): hold to steer/
+            // aim the "spot it" balloons, tap to honk. tvOS uses the remote instead.
+            #if !os(tvOS)
             if !engine.hud.finished {
-                Button(session.string("ui.back")) { dismiss() }
-                    .buttonStyle(.bordered)
-                    .padding(40)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                DriveTouchControls(awaitingFind: engine.hud.awaitingFind,
+                                   onSteer: { engine.setTouchSteer($0) },
+                                   onHonk: { engine.touchHonk() })
+            }
+            #endif
+
+            // A small, unobtrusive "back" — hidden once the reward screen owns the
+            // view (it has its own big "back to the garage" button).
+            if !engine.hud.finished {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 22, weight: .bold))
+                        .padding(14)
+                }
+                .buttonStyle(.bordered)
+                .padding(24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
+
+            // A brief title card so the drive eases in instead of jumping straight
+            // into motion; it fades on its own after a couple of seconds.
+            if introShown && !engine.hud.finished {
+                IntroCard(title: session.string("episode.firstDay.title"),
+                          subtitle: session.string("ui.letsGo"))
+                    .transition(.opacity)
+                    .task {
+                        try? await Task.sleep(nanoseconds: 2_600_000_000)
+                        withAnimation(.easeOut(duration: 0.6)) { introShown = false }
+                    }
             }
         }
         .onAppear { engine.start(session: session) }
         .onDisappear { engine.stop() }
+    }
+}
+
+#if !os(tvOS)
+/// Big, thumb-reachable driving controls for iPhone/iPad. The horn is always
+/// available (honking is a fun verb the world reacts to, and it picks the aimed
+/// balloon during "spot it"); the steer pads appear during a "spot it" so the
+/// child can aim left/right. Pads are press-and-hold.
+private struct DriveTouchControls: View {
+    let awaitingFind: Bool
+    let onSteer: (Double) -> Void
+    let onHonk: () -> Void
+    @State private var left = false
+    @State private var right = false
+
+    var body: some View {
+        VStack {
+            Spacer()
+            HStack(alignment: .bottom) {
+                if awaitingFind {
+                    HStack(spacing: 22) {
+                        pad(system: "arrowtriangle.left.fill", held: $left)
+                        pad(system: "arrowtriangle.right.fill", held: $right)
+                    }
+                    .transition(.opacity)
+                }
+                Spacer()
+                Button(action: onHonk) {
+                    Image(systemName: "horn.fill")
+                        .font(.system(size: 44, weight: .black))
+                        .foregroundStyle(.white)
+                        .frame(width: 104, height: 104)
+                        .background(Circle().fill(Color(red: 0.95, green: 0.55, blue: 0.20)))
+                        .shadow(radius: 8, y: 4)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(28)
+        .animation(.easeInOut(duration: 0.25), value: awaitingFind)
+    }
+
+    private func pad(system: String, held: Binding<Bool>) -> some View {
+        Image(systemName: system)
+            .font(.system(size: 42, weight: .black))
+            .foregroundStyle(.white)
+            .frame(width: 96, height: 96)
+            .background(Circle().fill(Color(red: 0.12, green: 0.43, blue: 0.81)))
+            .shadow(radius: 8, y: 4)
+            .scaleEffect(held.wrappedValue ? 0.9 : 1)
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in if !held.wrappedValue { held.wrappedValue = true; emit() } }
+                    .onEnded { _ in held.wrappedValue = false; emit() }
+            )
+    }
+
+    private func emit() { onSteer((right ? 1 : 0) - (left ? 1 : 0)) }
+}
+#endif
+
+/// A gentle full-screen intro beat shown when the drive starts.
+private struct IntroCard: View {
+    let title: String
+    let subtitle: String
+    @State private var appear = false
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.28).ignoresSafeArea()
+            VStack(spacing: 18) {
+                Image(systemName: "bus.fill")
+                    .font(.system(size: 70, weight: .black))
+                    .foregroundStyle(Color(red: 1.0, green: 0.82, blue: 0.25))
+                Text(title)
+                    .font(.system(size: 56, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                Text(subtitle)
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.85))
+            }
+            .padding(48)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
+            .scaleEffect(appear ? 1 : 0.9)
+            .opacity(appear ? 1 : 0)
+            .animation(.spring(response: 0.5, dampingFraction: 0.8), value: appear)
+        }
+        .onAppear { appear = true }
     }
 }
 
@@ -120,6 +236,12 @@ final class SpikeEngine: ObservableObject {
     // Lets the fork choice be made without a controller (e.g. on iPad).
     private var pendingTouchTurn: InputIntents.DiscreteTurn = .none
 
+    // On-screen touch input (iPhone/iPad, no controller): a held steer value for
+    // aiming the "spot it" balloons, and an edge-triggered honk (also picks the
+    // aimed balloon). Merged into the intents each tick.
+    private var touchSteer: Double = 0
+    private var pendingTouchHonk = false
+
     // The in-world "spot it" beat: coloured balloons float ahead of the bus and the
     // child steers to aim at one and beeps the horn to pick it — selection is the
     // bus's own verbs (steer + honk), so it's part of driving and works on every
@@ -153,6 +275,12 @@ final class SpikeEngine: ObservableObject {
 
     /// Called by the HUD's on-screen LEFT/RIGHT buttons.
     func chooseTurn(_ turn: InputIntents.DiscreteTurn) { pendingTouchTurn = turn }
+
+    /// Held by the on-screen steer pads (−1 left … +1 right) to aim the "spot it".
+    func setTouchSteer(_ v: Double) { touchSteer = v }
+
+    /// Tapped the on-screen horn button — beep (and pick the aimed balloon).
+    func touchHonk() { pendingTouchHonk = true }
 
     /// Maps Game Core ground units to RealityKit meters for a couch-scale view.
     private let scale: Float = 0.12
@@ -215,6 +343,7 @@ final class SpikeEngine: ObservableObject {
             }
         )
         game.language = session.language
+        speaker.isEnabled = (UserDefaults.standard.object(forKey: "voiceEnabled") as? Bool) ?? true
         game.start(episodeId: "first-day")
         self.game = game
         self.places = session.content.places
@@ -270,6 +399,9 @@ final class SpikeEngine: ObservableObject {
             intents.discreteTurn = pendingTouchTurn
         }
         pendingTouchTurn = .none
+        // Fold in on-screen touch (no controller): held steer for aiming, tap to honk.
+        if abs(intents.steer) < 0.01, touchSteer != 0 { intents.steer = touchSteer }
+        if pendingTouchHonk { intents.honkPressed = true; pendingTouchHonk = false }
         let honk = intents.honkPressed
         game.tick(dt: dt, input: intents)
 
@@ -600,9 +732,12 @@ final class SpikeEngine: ObservableObject {
         findRig?.orientation = simd_quatf(angle: Float(-game.bus.heading), axis: [0, 1, 0])
 
         // Aim with the steering axis: full-left → leftmost balloon, full-right →
-        // rightmost. The aimed one swells and bobs so the child sees their choice.
+        // rightmost. The choice is "sticky" — it only moves while actively steering,
+        // so releasing the pad to tap the horn doesn't snap the aim back to centre.
         let s = max(-1.0, min(1.0, steer))
-        findAimIndex = min(n - 1, max(0, Int((s + 1) / 2 * Double(n - 1) + 0.5)))
+        if abs(s) > 0.2 {
+            findAimIndex = min(n - 1, max(0, Int((s + 1) / 2 * Double(n - 1) + 0.5)))
+        }
         for (i, entry) in findBalloons.enumerated() {
             let aimed = i == findAimIndex
             let bob = reduceMotion ? 0 : Float(sin(elapsed * 3.0 + Double(i))) * 0.12
@@ -684,9 +819,11 @@ final class SpikeEngine: ObservableObject {
     }
 
     private func positionCamera() {
+        // Pulled back and higher than the original close chase cam so the busy town
+        // doesn't crowd the (small) phone screen and you can read the road ahead.
         let bp = bus.position
-        camera.position = [bp.x - 6, bp.y + 4 + Float(cameraKick.value), bp.z + 6]
-        camera.look(at: bp, from: camera.position, relativeTo: nil)
+        camera.position = [bp.x - 9.5, bp.y + 7 + Float(cameraKick.value), bp.z + 9.5]
+        camera.look(at: [bp.x, bp.y + 0.6, bp.z], from: camera.position, relativeTo: nil)
     }
 }
 
