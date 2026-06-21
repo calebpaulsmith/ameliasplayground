@@ -44,9 +44,10 @@ def build_and_upload(scheme:, bundle_id:, destination:, app_platform:)
   build_number = next_build_number(key, bundle_id, app_platform)
   # xcodebuild itself needs the App Store Connect API key to authenticate
   # `-allowProvisioningUpdates` (otherwise it has "No Accounts" and can't create
-  # the provisioning profile). These flags hand it the same .p8; the path must
-  # be absolute.
-  auth_key_path = File.absolute_path(ENV.fetch("ASC_API_KEY_PATH"))
+  # the provisioning profile). These flags hand it the same .p8. xcodebuild
+  # requires an absolute path; the workflow already exports ASC_API_KEY_PATH as
+  # one (resolving it here would double-up against fastlane's own working dir).
+  auth_key_path = ENV.fetch("ASC_API_KEY_PATH")
   build_app(
     project: "AmeliaTV.xcodeproj",
     scheme: scheme,

@@ -58,7 +58,7 @@ jobs:
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_API_KEY_PATH: fastlane/AuthKey.p8
+          ASC_API_KEY_PATH: ${{ github.workspace }}/AmeliaTV/fastlane/AuthKey.p8
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
         run: fastlane ios beta
@@ -96,7 +96,7 @@ jobs:
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_API_KEY_PATH: fastlane/AuthKey.p8
+          ASC_API_KEY_PATH: ${{ github.workspace }}/AmeliaTV/fastlane/AuthKey.p8
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           TVOS_BUNDLE_ID: ${{ secrets.TVOS_BUNDLE_ID }}
         run: fastlane tvos beta
