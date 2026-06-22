@@ -95,7 +95,7 @@ jobs:
           xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" >/dev/null 2>&1 || true
           SIMCTL_CHILD_SCREENSHOT_SCREEN="drive" xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
           prev=0
-          for t in 3 7 12 18 25 32 40 50; do
+          for t in 4 6 9 12 16 20 26 34; do
             sleep $((t - prev)); prev=$t
             out="../screenshots/seq_$(printf %02d $t)s.png"
             xcrun simctl io "$DEVICE_ID" screenshot "$out"
