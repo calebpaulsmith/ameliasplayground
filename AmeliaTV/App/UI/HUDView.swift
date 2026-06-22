@@ -69,12 +69,15 @@ struct HUDView: View {
     /// The live driving overlay (stars, GO/STOP, turn arrow, minimap, subtitle).
     private var drivingHUD: some View {
         ZStack {
-            // Top row: stars (left) and destination (right).
+            // Top row: counters pinned left, destination centered (top-right is left
+            // free for the close button so they never overlap).
             VStack {
-                HStack(alignment: .top) {
-                    StarCounter(count: model.stars)
-                    if model.collected > 0 { CollectibleCounter(count: model.collected) }
-                    Spacer()
+                ZStack(alignment: .top) {
+                    HStack(alignment: .top) {
+                        StarCounter(count: model.stars)
+                        if model.collected > 0 { CollectibleCounter(count: model.collected) }
+                        Spacer()
+                    }
                     if let nameId = model.destinationNameId {
                         DestinationBadge(name: session.string(nameId))
                     }
