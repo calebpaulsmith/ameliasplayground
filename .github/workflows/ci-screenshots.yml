@@ -28,6 +28,7 @@ jobs:
   tvos-video:
     name: tvOS Simulator gameplay video
     runs-on: macos-15
+    timeout-minutes: 20   # never let a stuck simulator hang for hours
     steps:
       - uses: actions/checkout@v4
 
@@ -99,8 +100,12 @@ jobs:
             sleep $((t - prev)); prev=$t
             xcrun simctl io "$DEVICE_ID" screenshot "../media/tvos_$(printf %02d $t)s.png" || true
           done
+          # Finalize the recording, then guarantee we never block on it: give
+          # recordVideo a few seconds to flush the file after SIGINT, then
+          # hard-kill. (Plain `wait` hung headlessly when SIGINT was ignored.)
           kill -INT "$REC_PID" 2>/dev/null || true
-          wait "$REC_PID" 2>/dev/null || true
+          for _ in $(seq 1 10); do kill -0 "$REC_PID" 2>/dev/null || break; sleep 1; done
+          kill -9 "$REC_PID" 2>/dev/null || true
           echo "captured:"; ls -la ../media
 
       - name: Upload media (artifact for humans)
@@ -130,6 +135,7 @@ jobs:
   iphone-screenshots:
     name: iPhone Simulator screenshots
     runs-on: macos-15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
