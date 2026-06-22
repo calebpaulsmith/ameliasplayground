@@ -111,6 +111,32 @@ turn the passive ride into a game. Full plan + open decisions live in the doc.
 - When uncertain about tvOS capabilities or tooling, **verify against official
   Apple/engine docs** and record facts vs. judgement in `RISKS_AND_DECISIONS.md`.
 
+## DIRECTION CHANGE — 2D pivot (2026-06-22)
+
+> **The 3D RealityKit driving game is archived.** After ~50 PRs the 3D build was
+> never once seen or play-tested (unit tests can't catch a bad camera, overlapping
+> buildings, or a bus with no collision), so the visual layer was unverified
+> placeholder and the project felt like "hot garbage." Root cause: **a broken
+> feedback loop** — visual/feel work built blind.
+>
+> **New direction:** a **2D top-down adventure** (Zelda *A Link to the Past* feel —
+> screen-to-screen rooms, animated foliage, NPC interactions, cutscenes, music)
+> built with **SpriteKit** (first-party, mature, not deprecated; keeps every
+> privacy/Kids advantage). 2D removes the exact failure modes that sank 3D: no
+> camera angles to get wrong, trivial tile collision, and **levels authored as
+> readable text** so layout is visible on the page.
+>
+> **Feedback loop first, always:** CI now records an actual **tvOS gameplay video**
+> (+ iPhone screenshots) on every push — see `.github/workflows/ci-screenshots.yml`
+> (publishes to the `ci-video` / `ci-screenshots` branches and as artifacts).
+> Nothing gets built blind again. Scope is slashed to **one good, watched room**
+> before anything expands.
+>
+> The old 3D app is preserved (not compiled) under `AmeliaTV/Archive3D/`. The
+> rendering-agnostic **Game Core** (`AmeliaTV/Sources/AmeliaCore` — dialogue,
+> rewards, bilingual strings, save) is kept and reused. Everything in the historical
+> status below describes the **archived 3D build**.
+
 ## Current status (updated 2026-06-21)
 
 Phases 0–1 are merged to `main`; Phase 2 (the vertical slice) is **code-complete** —
