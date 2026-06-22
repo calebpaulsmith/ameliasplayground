@@ -49,6 +49,11 @@
   "m.dropoffHint": "Now let's take Pip to the park. Mind the traffic lights!",
   "m.chooseRight": "Turn right to reach the park!",
   "m.home": "Great work! Head back home to the garage.",
+  "m.parkArrive": "Here we are at the park! Bye-bye, Pip!",
+  "m.tour": "Let's drive home the long way and see the whole town!",
+  "m.school": "There's the school — wave hello!",
+  "m.market": "Look at the busy market!",
+  "m.beach": "And look — the sparkly sea!",
 
   "nav.tryOtherWay": "Let's try this way!",
   "find.tryAgain": "So close! Steer to another one and beep!",

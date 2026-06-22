@@ -10,9 +10,13 @@
     { "type": "say", "lineId": "m.dropoffHint" },
     { "type": "lightStop", "lightId": "light1" },
     { "type": "choice", "promptLineId": "m.chooseRight", "correct": "right" },
-    { "type": "driveTo", "placeId": "park", "arriveLineId": null },
+    { "type": "driveTo", "placeId": "park", "arriveLineId": "m.parkArrive" },
     { "type": "dropoff", "passengerId": "pip", "placeId": "park" },
+    { "type": "say", "lineId": "m.tour" },
+    { "type": "driveTo", "placeId": "school", "arriveLineId": "m.school" },
+    { "type": "driveTo", "placeId": "market", "arriveLineId": "m.market" },
+    { "type": "driveTo", "placeId": "beach", "arriveLineId": "m.beach" },
     { "type": "driveTo", "placeId": "garage", "arriveLineId": "m.home" },
-    { "type": "reward", "stars": 3, "stickerId": "first-day" }
+    { "type": "reward", "stars": 5, "stickerId": "first-day" }
   ]
 }

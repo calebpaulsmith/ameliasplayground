@@ -49,6 +49,11 @@
   "m.dropoffHint": "Ahora llevemos a Pip al parque. ¡Cuidado con los semáforos!",
   "m.chooseRight": "¡Gira a la derecha para llegar al parque!",
   "m.home": "¡Buen trabajo! Regresa a casa, al taller.",
+  "m.parkArrive": "¡Llegamos al parque! ¡Adiós, Pip!",
+  "m.tour": "¡Vamos a casa por el camino largo y veamos todo el pueblo!",
+  "m.school": "¡Ahí está la escuela! ¡Saluda!",
+  "m.market": "¡Mira el mercado tan animado!",
+  "m.beach": "¡Y mira, el mar brillante!",
 
   "nav.tryOtherWay": "¡Probemos por aquí!",
   "find.tryAgain": "¡Casi! ¡Dirígete a otro y toca la bocina!",

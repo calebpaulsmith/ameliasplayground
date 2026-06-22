@@ -91,7 +91,7 @@ final class GameSessionTests: XCTestCase {
 
         session.start(episodeId: "first-day")
         let reward = session.rewardPlan
-        XCTAssertEqual(reward?.stars, 3, "reward stars should come from the episode's reward beat")
+        XCTAssertEqual(reward?.stars, 5, "reward stars should come from the episode's reward beat")
         XCTAssertEqual(reward?.stickerId, "first-day", "reward sticker should come from the reward beat")
     }
 
