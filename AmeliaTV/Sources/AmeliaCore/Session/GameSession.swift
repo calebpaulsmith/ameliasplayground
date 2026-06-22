@@ -49,6 +49,27 @@ public final class GameSession: EpisodeWorld {
     public var subtitle: String { dialogue.currentSubtitle }
     public var bus: GameCore.BusState { core.bus }
 
+    /// Who is speaking the current line, so the HUD can show a portrait + name and
+    /// the dialogue reads like characters, not narration. Derived from the line id:
+    /// `pip.*` is the passenger Pip; the guiding lines (`m.*`, reward/garage/light/
+    /// find/nav) are Mom. Nil when nothing is being said.
+    public struct Speaker: Equatable, Sendable {
+        public let name: String        // already localized, ready for the HUD
+        public let colorHex: String?
+    }
+    public var currentSpeaker: Speaker? {
+        let id = dialogue.currentLineId
+        guard !id.isEmpty, !dialogue.currentSubtitle.isEmpty else { return nil }
+        let prefix = id.split(separator: ".").first.map(String.init) ?? ""
+        if let p = content.passengers.first(where: { $0.id == prefix }) {
+            return Speaker(name: content.localizer.string(p.nameId, language), colorHex: p.color)
+        }
+        if ["m", "reward", "garage", "light", "find", "nav", "mom"].contains(prefix) {
+            return Speaker(name: content.localizer.string("mom.name", language), colorHex: "#2ea59e")
+        }
+        return nil
+    }
+
     /// Big, single-glance guidance for the HUD. `stop` only when the bus is being
     /// asked to hold at a red light it must obey; `go` otherwise. Derived from core
     /// state so the HUD stays a thin, testable reflection of the game (A2-10).

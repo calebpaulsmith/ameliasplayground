@@ -87,6 +87,7 @@ jobs:
 
           shoot title 4
           shoot garage 5
+          shoot dialogue 3    # static frame: proves the dialogue portrait bubble renders
           shoot drive 12      # let the bus get out onto the street, past the garage
 
           # Diagnostic: launch the drive once and capture a time sequence so the
@@ -100,7 +101,7 @@ jobs:
           # real device), and lately as early as ~15s. So capture the opening of
           # the drive reliably; the Core test covers the full episode to completion.
           prev=0
-          for t in 5 9 13; do
+          for t in 2 3 4 5 6 7; do
             sleep $((t - prev)); prev=$t
             out="../screenshots/seq_$(printf %02d $t)s.png"
             xcrun simctl io "$DEVICE_ID" screenshot "$out"

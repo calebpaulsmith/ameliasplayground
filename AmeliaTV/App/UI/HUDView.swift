@@ -8,6 +8,9 @@ struct HUDModel: Equatable {
     var stars: Int = 0
     var collected: Int = 0
     var subtitle: String = ""
+    // Who's speaking the current line (for the dialogue portrait); empty = narrator.
+    var speakerName: String = ""
+    var speakerColorHex: String? = nil
     var turnCue: TurnCue = .straight
     var drivePrompt: GameSession.DrivePrompt = .go
     var destinationNameId: String? = nil
@@ -107,7 +110,9 @@ struct HUDView: View {
                 HStack(alignment: .bottom, spacing: 24) {
                     Minimap(model: model)
                         .frame(width: 240, height: 180)
-                    SubtitleBar(text: model.subtitle)
+                    DialogueBubble(name: model.speakerName,
+                                   colorHex: model.speakerColorHex,
+                                   text: model.subtitle)
                     Spacer()
                 }
             }
@@ -168,30 +173,83 @@ private struct FindHint: View {
 /// The spoken line, mirrored as a small caption that **fades itself out** a few
 /// seconds after it changes — so guidance is a brief glance, not a wall of text
 /// parked on screen. Smaller and lighter than before; the gameplay leads.
-private struct SubtitleBar: View {
+/// The current line as a character speaking: a cute portrait + name beside the
+/// text, so guidance reads like Mom or Pip talking, not anonymous narration. Shows
+/// when a line plays and fades itself a few seconds later (keeps text from piling
+/// up). Narrator-less lines (no speaker) just show the text.
+private struct DialogueBubble: View {
+    let name: String
+    let colorHex: String?
     let text: String
     @State private var shown = false
 
     var body: some View {
-        Group {
-            if shown && !text.isEmpty {
+        // The card is always in the view hierarchy (only its opacity changes) so the
+        // `.task(id:)` below reliably fires — a `Group`/`if` that's empty when hidden
+        // never runs its attached task, so the bubble could never appear.
+        HStack(alignment: .center, spacing: 14) {
+            if !name.isEmpty {
+                PortraitFace(color: Color(hex: colorHex) ?? .gray)
+                    .frame(width: 58, height: 58)
+                    .overlay(Circle().strokeBorder(.white.opacity(0.85), lineWidth: 3))
+                    .shadow(radius: 4, y: 2)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                if !name.isEmpty {
+                    Text(name)
+                        .font(.system(size: 20, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Color(hex: colorHex) ?? .primary)
+                }
                 Text(text)
                     .font(.system(size: 24, weight: .semibold, design: .rounded))
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
-                    .frame(maxWidth: 620, alignment: .leading)
-                    .padding(.horizontal, 20).padding(.vertical, 14)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
-                    .transition(.opacity)
+                    .frame(maxWidth: 600, alignment: .leading)
             }
         }
-        // Re-runs whenever the line changes: show it, then quietly hide after 4s.
+        .padding(.horizontal, 18).padding(.vertical, 12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
+        .opacity(shown && !text.isEmpty ? 1 : 0)
+        // Re-runs whenever the line changes: show it, then quietly hide after ~5s.
         .task(id: text) {
-            guard !text.isEmpty else { return }
+            guard !text.isEmpty else { shown = false; return }
             withAnimation(.easeIn(duration: 0.2)) { shown = true }
-            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
             withAnimation(.easeOut(duration: 0.6)) { shown = false }
         }
+    }
+}
+
+/// A simple, cute drawn face (matching the 3D cast's look) for a dialogue portrait.
+private struct PortraitFace: View {
+    let color: Color
+    var body: some View {
+        ZStack {
+            Circle().fill(color)
+            HStack(spacing: 9) {                       // two eyes
+                ForEach(0..<2, id: \.self) { _ in
+                    ZStack {
+                        Circle().fill(.white).frame(width: 15, height: 17)
+                        Circle().fill(Color(white: 0.12)).frame(width: 7, height: 7)
+                    }
+                }
+            }
+            .offset(y: -6)
+            Smile()                                     // a friendly grin
+                .stroke(Color(white: 0.18), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                .frame(width: 22, height: 11)
+                .offset(y: 13)
+        }
+    }
+}
+
+private struct Smile: Shape {
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: r.minX, y: r.minY))
+        p.addQuadCurve(to: CGPoint(x: r.maxX, y: r.minY),
+                       control: CGPoint(x: r.midX, y: r.maxY + r.height))
+        return p
     }
 }
 
