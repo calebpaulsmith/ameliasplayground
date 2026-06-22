@@ -24,10 +24,12 @@ final class DrivableWorldTests: XCTestCase {
 
     func testRoadHasWidth() {
         let net = RoadNetwork.demoTown
-        // Just inside the 90-wide top road (±45 from centerline).
-        XCTAssertTrue(net.isOnRoad(Vec2(0, -400 + 40)))
+        // Use x = 300 (mid-block) so we only sample the top road, not the
+        // vertical cross street that runs through x = 0.
+        // Just inside the 90-wide top road (±45 from centerline at z = -400).
+        XCTAssertTrue(net.isOnRoad(Vec2(300, -400 + 40)))
         // Just outside it.
-        XCTAssertFalse(net.isOnRoad(Vec2(0, -400 + 60)))
+        XCTAssertFalse(net.isOnRoad(Vec2(300, -400 + 60)))
     }
 
     func testSegmentClosestClampsToEndpoints() {
