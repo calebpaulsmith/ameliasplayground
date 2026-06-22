@@ -87,20 +87,24 @@
   #bubble.show{opacity:1;transform:translateX(-50%) translateY(0);}
   #bubble::after{content:"🚌";position:absolute;left:18px;bottom:-26px;font-size:1.6rem;}
 
-  /* Driving controls */
+  /* Driving controls — steering anchored bottom-left, go/stop bottom-right,
+     horn lifted into the clear center so nothing crowds the middle. */
   #controls{position:absolute;left:0;right:0;bottom:max(18px,env(safe-area-inset-bottom));
-    display:flex;justify-content:space-between;align-items:flex-end;padding:0 22px;}
-  .ctrlgroup{display:flex;gap:14px;align-items:flex-end;}
+    pointer-events:none;}
+  .ctrlgroup{position:absolute;bottom:0;display:flex;gap:16px;align-items:flex-end;}
+  .ctrlgroup.steer{left:max(20px,env(safe-area-inset-left));}
+  .ctrlgroup.drive{right:max(20px,env(safe-area-inset-right));}
   .drivebtn{pointer-events:auto;border:none;cursor:pointer;color:var(--white);font-weight:700;
-    border-radius:50%;width:84px;height:84px;font-size:1.1rem;display:flex;flex-direction:column;
+    border-radius:50%;width:80px;height:80px;font-size:1.05rem;display:flex;flex-direction:column;
     align-items:center;justify-content:center;box-shadow:0 6px 0 rgba(0,0,0,.28),0 8px 16px rgba(0,0,0,.25);}
   .drivebtn:active{transform:translateY(5px);box-shadow:0 1px 0 rgba(0,0,0,.28);}
-  .drivebtn .em{font-size:2rem;line-height:1;}
+  .drivebtn .em{font-size:1.9rem;line-height:1;}
   #cLeft,#cRight{background:linear-gradient(180deg,#8fb3ff,#5a7fe0);}
-  #cGo{background:linear-gradient(180deg,#5fd06a,#2f9d3a);width:104px;height:104px;font-size:1.3rem;}
-  #cStop{background:linear-gradient(180deg,#ff6b6b,#d62f2f);width:104px;height:104px;font-size:1.3rem;}
-  #cHorn{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);background:linear-gradient(180deg,var(--yellow),var(--coral));
-    width:66px;height:66px;font-size:.9rem;color:var(--ink);}
+  #cGo{background:linear-gradient(180deg,#5fd06a,#2f9d3a);width:100px;height:100px;font-size:1.25rem;}
+  #cStop{background:linear-gradient(180deg,#ff6b6b,#d62f2f);width:100px;height:100px;font-size:1.25rem;}
+  #cHorn{position:absolute;left:50%;bottom:calc(max(18px,env(safe-area-inset-bottom)) + 96px);
+    transform:translateX(-50%);background:linear-gradient(180deg,var(--yellow),var(--coral));
+    width:62px;height:62px;font-size:.82rem;color:var(--ink);}
 
   /* Celebrate */
   #celebrate{background:radial-gradient(circle,rgba(58,160,255,.95),rgba(22,49,74,.96));color:#fff;z-index:40;}
@@ -114,7 +118,11 @@
   #pauseScreen h2{font-size:2rem;margin-bottom:16px;}
 
   @media (max-width:520px){
-    .drivebtn{width:74px;height:74px;} #cGo,#cStop{width:90px;height:90px;}
+    .ctrlgroup{gap:12px;}
+    .drivebtn{width:66px;height:66px;font-size:.92rem;}
+    .drivebtn .em{font-size:1.6rem;}
+    #cGo,#cStop{width:82px;height:82px;font-size:1.05rem;}
+    #cHorn{width:54px;height:54px;bottom:calc(max(14px,env(safe-area-inset-bottom)) + 80px);}
   }
 </style>
 </head>
@@ -155,11 +163,11 @@
   </div>
 
   <div id="controls">
-    <div class="ctrlgroup">
+    <div class="ctrlgroup steer">
       <button id="cLeft" class="drivebtn"><span class="em">⬅️</span><span data-t="left">Izq.</span></button>
       <button id="cRight" class="drivebtn"><span class="em">➡️</span><span data-t="right">Der.</span></button>
     </div>
-    <div class="ctrlgroup">
+    <div class="ctrlgroup drive">
       <button id="cStop" class="drivebtn"><span class="em">✋</span><span data-t="stop">ALTO</span></button>
       <button id="cGo" class="drivebtn"><span class="em">🚀</span><span data-t="go">VAMOS</span></button>
     </div>
