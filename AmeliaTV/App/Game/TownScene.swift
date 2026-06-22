@@ -106,44 +106,64 @@ final class TownScene: SKScene {
         return n
     }
 
+    /// Faked height: draw a tall **front face** (the building body) with rows of
+    /// windows, then cap it with a lighter **roof** offset up by the height. The
+    /// face stays visible below the roof, so the block reads as having height —
+    /// the GTA-style "perspective" — while the logic underneath is flat top-down.
     private func buildBuildings() {
-        for b in buildings {
+        let palettes: [(wall: SKColor, roof: SKColor, win: SKColor)] = [
+            (SKColor(red: 0.74, green: 0.52, blue: 0.46, alpha: 1),
+             SKColor(red: 0.88, green: 0.68, blue: 0.60, alpha: 1),
+             SKColor(red: 0.97, green: 0.93, blue: 0.70, alpha: 1)),
+            (SKColor(red: 0.52, green: 0.60, blue: 0.72, alpha: 1),
+             SKColor(red: 0.70, green: 0.78, blue: 0.88, alpha: 1),
+             SKColor(red: 0.98, green: 0.96, blue: 0.76, alpha: 1)),
+            (SKColor(red: 0.70, green: 0.66, blue: 0.56, alpha: 1),
+             SKColor(red: 0.87, green: 0.83, blue: 0.74, alpha: 1),
+             SKColor(red: 0.58, green: 0.80, blue: 0.95, alpha: 1)),
+        ]
+        for (i, b) in buildings.enumerated() {
+            let pal = palettes[i % palettes.count]
             let node = SKNode()
             node.position = pt(b.center)
             node.zPosition = 5
             let w = b.size.width * scale, d = b.size.height * scale
+            let h = b.height
 
-            // drop shadow for depth
-            let shadow = SKShapeNode(rectOf: CGSize(width: w * 1.05, height: d * 1.05), cornerRadius: 6)
-            shadow.fillColor = SKColor(white: 0, alpha: 0.16)
-            shadow.strokeColor = .clear
-            shadow.position = CGPoint(x: 10, y: -10)
+            // soft shadow under the whole silhouette
+            let shadow = SKShapeNode(rectOf: CGSize(width: w, height: d + h), cornerRadius: 8)
+            shadow.fillColor = SKColor(white: 0, alpha: 0.16); shadow.strokeColor = .clear
+            shadow.position = CGPoint(x: 14, y: h / 2 - 14)
             node.addChild(shadow)
 
-            // footprint (ground level)
-            let base = SKColor(red: 0.78, green: 0.74, blue: 0.66, alpha: 1)
-            let side = SKColor(red: 0.62, green: 0.58, blue: 0.52, alpha: 1)
-            let roof = SKColor(red: 0.88, green: 0.84, blue: 0.76, alpha: 1)
-            let foot = SKShapeNode(rectOf: CGSize(width: w, height: d), cornerRadius: 4)
-            foot.fillColor = base; foot.strokeColor = side; foot.lineWidth = 2
-            node.addChild(foot)
+            // body = front face + bulk (spans footprint up to the roof)
+            let body = SKShapeNode(rectOf: CGSize(width: w, height: d + h), cornerRadius: 6)
+            body.fillColor = pal.wall
+            body.strokeColor = SKColor(white: 0, alpha: 0.22); body.lineWidth = 2
+            body.position = CGPoint(x: 0, y: h / 2)
+            node.addChild(body)
 
-            // side wall going "up" (screen +y) to fake height
-            let wall = CGMutablePath()
-            wall.move(to: CGPoint(x: -w / 2, y: d / 2))
-            wall.addLine(to: CGPoint(x: -w / 2, y: d / 2 + b.height))
-            wall.addLine(to: CGPoint(x: w / 2, y: d / 2 + b.height))
-            wall.addLine(to: CGPoint(x: w / 2, y: d / 2))
-            wall.closeSubpath()
-            let wallNode = SKShapeNode(path: wall)
-            wallNode.fillColor = side; wallNode.strokeColor = side; wallNode.lineWidth = 1
-            node.addChild(wallNode)
+            // windows across the exposed front face (the lower `h` band)
+            let cols = max(2, Int(w / 90))
+            let rows = max(1, Int(h / 60))
+            for cx in 0..<cols {
+                for ry in 0..<rows {
+                    let win = SKShapeNode(rectOf: CGSize(width: w / CGFloat(cols) * 0.5,
+                                                         height: h / CGFloat(rows) * 0.5),
+                                         cornerRadius: 2)
+                    win.fillColor = pal.win; win.strokeColor = .clear
+                    win.position = CGPoint(x: -w / 2 + (CGFloat(cx) + 0.5) * (w / CGFloat(cols)),
+                                           y: -d / 2 + (CGFloat(ry) + 0.5) * (h / CGFloat(rows)))
+                    node.addChild(win)
+                }
+            }
 
-            // roof on top
-            let roofNode = SKShapeNode(rectOf: CGSize(width: w, height: d), cornerRadius: 4)
-            roofNode.fillColor = roof; roofNode.strokeColor = base; roofNode.lineWidth = 2
-            roofNode.position = CGPoint(x: 0, y: b.height)
-            node.addChild(roofNode)
+            // roof cap on top
+            let roof = SKShapeNode(rectOf: CGSize(width: w, height: d), cornerRadius: 6)
+            roof.fillColor = pal.roof
+            roof.strokeColor = SKColor(white: 0, alpha: 0.18); roof.lineWidth = 2
+            roof.position = CGPoint(x: 0, y: h)
+            node.addChild(roof)
 
             worldNode.addChild(node)
         }
