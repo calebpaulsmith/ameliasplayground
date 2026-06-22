@@ -184,36 +184,35 @@ private struct DialogueBubble: View {
     @State private var shown = false
 
     var body: some View {
-        Group {
-            if shown && !text.isEmpty {
-                HStack(alignment: .center, spacing: 14) {
-                    if !name.isEmpty {
-                        PortraitFace(color: Color(hex: colorHex) ?? .gray)
-                            .frame(width: 58, height: 58)
-                            .overlay(Circle().strokeBorder(.white.opacity(0.85), lineWidth: 3))
-                            .shadow(radius: 4, y: 2)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        if !name.isEmpty {
-                            Text(name)
-                                .font(.system(size: 20, weight: .heavy, design: .rounded))
-                                .foregroundStyle(Color(hex: colorHex) ?? .primary)
-                        }
-                        Text(text)
-                            .font(.system(size: 24, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.primary)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: 600, alignment: .leading)
-                    }
+        // The card is always in the view hierarchy (only its opacity changes) so the
+        // `.task(id:)` below reliably fires — a `Group`/`if` that's empty when hidden
+        // never runs its attached task, so the bubble could never appear.
+        HStack(alignment: .center, spacing: 14) {
+            if !name.isEmpty {
+                PortraitFace(color: Color(hex: colorHex) ?? .gray)
+                    .frame(width: 58, height: 58)
+                    .overlay(Circle().strokeBorder(.white.opacity(0.85), lineWidth: 3))
+                    .shadow(radius: 4, y: 2)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                if !name.isEmpty {
+                    Text(name)
+                        .font(.system(size: 20, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Color(hex: colorHex) ?? .primary)
                 }
-                .padding(.horizontal, 18).padding(.vertical, 12)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
-                .transition(.opacity)
+                Text(text)
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: 600, alignment: .leading)
             }
         }
+        .padding(.horizontal, 18).padding(.vertical, 12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
+        .opacity(shown && !text.isEmpty ? 1 : 0)
         // Re-runs whenever the line changes: show it, then quietly hide after ~5s.
         .task(id: text) {
-            guard !text.isEmpty else { return }
+            guard !text.isEmpty else { shown = false; return }
             withAnimation(.easeIn(duration: 0.2)) { shown = true }
             try? await Task.sleep(nanoseconds: 5_000_000_000)
             withAnimation(.easeOut(duration: 0.6)) { shown = false }
