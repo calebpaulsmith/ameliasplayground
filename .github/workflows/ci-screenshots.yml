@@ -1,8 +1,9 @@
 name: ci-screenshots
 
-# Renders the iPhone app in the iOS Simulator and uploads screenshots of each
-# screen as build artifacts — so layout/orientation can be reviewed without a Mac
-# (closes the "flying blind on UI" gap). Secret-free; never signs.
+# Renders the game in the Simulator and uploads what it ACTUALLY looks like —
+# a tvOS gameplay VIDEO plus iPhone screenshots — so the camera, placement, and
+# collision can be reviewed without a Mac. This closes the "flying blind" gap
+# that let unseen visual bugs pile up. Secret-free; never signs.
 on:
   pull_request:
     paths:
@@ -17,16 +18,124 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # to publish the captured screenshots to the ci-screenshots branch
+  contents: write   # to publish captures to the ci-screenshots / ci-video branches
 
 concurrency:
   group: ci-screenshots-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  screenshots:
+  tvos-video:
+    name: tvOS Simulator gameplay video
+    runs-on: macos-15
+    timeout-minutes: 20   # never let a stuck simulator hang for hours
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          latest=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -s "$latest/Contents/Developer"; fi
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: AmeliaTV
+        run: xcodegen generate
+
+      - name: Build AmeliaTV for the tvOS Simulator
+        working-directory: AmeliaTV
+        run: |
+          xcodebuild build \
+            -project AmeliaTV.xcodeproj \
+            -scheme AmeliaTV \
+            -destination 'generic/platform=tvOS Simulator' \
+            -configuration Debug \
+            -derivedDataPath build/dd \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Record gameplay video + stills
+        working-directory: AmeliaTV
+        run: |
+          set -euo pipefail
+          APP="build/dd/Build/Products/Debug-appletvsimulator/AmeliaTV.app"
+          BUNDLE_ID=$(xcodebuild -project AmeliaTV.xcodeproj -scheme AmeliaTV -showBuildSettings 2>/dev/null \
+            | awk -F' = ' '/ PRODUCT_BUNDLE_IDENTIFIER /{print $2; exit}')
+          echo "App: $APP"
+          echo "Bundle id: $BUNDLE_ID"
+
+          # The app targets tvOS 26, and runners also ship older tvOS runtimes,
+          # so pick an Apple TV on the tvOS 26 runtime specifically — and create
+          # one if none is pre-made. (Grabbing the first Apple TV got a tvOS 18.5
+          # device, which refused to install the app.)
+          RT_ID=$(xcrun simctl list runtimes --json \
+            | jq -r '.runtimes[] | select(.name|test("tvOS 26")) | .identifier' | head -1)
+          echo "tvOS 26 runtime: ${RT_ID:-<none found>}"
+          DEVICE_ID=$(xcrun simctl list devices available --json \
+            | jq -r --arg rt "$RT_ID" '.devices[$rt][]? | select(.name|test("Apple TV")) | .udid' | head -1)
+          if [ -z "$DEVICE_ID" ] && [ -n "$RT_ID" ]; then
+            DEVTYPE=$(xcrun simctl list devicetypes --json \
+              | jq -r '.devicetypes[] | select(.name|test("Apple TV")) | .identifier' | head -1)
+            echo "Creating Apple TV sim ($DEVTYPE) on $RT_ID"
+            DEVICE_ID=$(xcrun simctl create "ATV-26" "$DEVTYPE" "$RT_ID")
+          fi
+          echo "Simulator: $DEVICE_ID"
+          [ -n "$DEVICE_ID" ] || { echo "no tvOS 26 Apple TV sim"; xcrun simctl list devices; exit 1; }
+
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          xcrun simctl install "$DEVICE_ID" "$APP"
+          xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
+          sleep 3   # let the scene present and the demo walk begin
+
+          mkdir -p ../media
+          # Record the framebuffer (works headlessly) while the demo walk runs.
+          xcrun simctl io "$DEVICE_ID" recordVideo --codec=h264 --force ../media/tvos-gameplay.mp4 &
+          REC_PID=$!
+          # Also grab periodic stills as a fallback in case the codec misbehaves.
+          prev=0
+          for t in 2 6 10 14 18 22; do
+            sleep $((t - prev)); prev=$t
+            xcrun simctl io "$DEVICE_ID" screenshot "../media/tvos_$(printf %02d $t)s.png" || true
+          done
+          # Finalize the recording, then guarantee we never block on it: give
+          # recordVideo a few seconds to flush the file after SIGINT, then
+          # hard-kill. (Plain `wait` hung headlessly when SIGINT was ignored.)
+          kill -INT "$REC_PID" 2>/dev/null || true
+          for _ in $(seq 1 10); do kill -0 "$REC_PID" 2>/dev/null || break; sleep 1; done
+          kill -9 "$REC_PID" 2>/dev/null || true
+          echo "captured:"; ls -la ../media
+
+      - name: Upload media (artifact for humans)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tvos-gameplay
+          path: media/
+          if-no-files-found: warn
+
+      # Publish to a force-updated `ci-video` branch so captures can be pulled
+      # and viewed directly (artifacts aren't fetchable via the API).
+      - name: Publish to the ci-video branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd media 2>/dev/null || { echo "no media dir — nothing to publish"; exit 0; }
+          [ -n "$(ls -A . 2>/dev/null)" ] || { echo "nothing to publish"; exit 0; }
+          git init -q
+          git checkout -q -b ci-video
+          git add .
+          git -c user.email=actions@github.com -c user.name=ci \
+            commit -q -m "tvOS gameplay for ${GITHUB_SHA:0:7} on ${GITHUB_REF_NAME}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-video
+
+  iphone-screenshots:
     name: iPhone Simulator screenshots
     runs-on: macos-15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -54,72 +163,32 @@ jobs:
             -derivedDataPath build/dd \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Capture screenshots of each screen
+      - name: Capture a sequence as the demo walk plays
         working-directory: AmeliaTV
         run: |
           set -euo pipefail
           APP="build/dd/Build/Products/Debug-iphonesimulator/AmeliaPad.app"
           BUNDLE_ID=$(xcodebuild -project AmeliaTV.xcodeproj -scheme AmeliaPad -showBuildSettings 2>/dev/null \
             | awk -F' = ' '/ PRODUCT_BUNDLE_IDENTIFIER /{print $2; exit}')
-          echo "App: $APP"
-          echo "Bundle id: $BUNDLE_ID"
-
-          # Pick the first available iPhone simulator (UDID is between parens).
-          DEVICE_ID=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')
-          echo "Simulator: $DEVICE_ID"
+          DEVICE_ID=$(xcrun simctl list devices available | grep -i 'iPhone' \
+            | grep -oiE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)
+          echo "Simulator: $DEVICE_ID  Bundle: $BUNDLE_ID"
 
           xcrun simctl boot "$DEVICE_ID" || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
           xcrun simctl install "$DEVICE_ID" "$APP"
+          xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
 
           mkdir -p ../screenshots
-          shoot () {  # $1 = screen key, $2 = seconds to settle
-            local screen="$1" wait="$2"
-            xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" >/dev/null 2>&1 || true
-            SIMCTL_CHILD_SCREENSHOT_SCREEN="$screen" xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
-            sleep "$wait"
-            xcrun simctl io "$DEVICE_ID" screenshot "../screenshots/${screen}.png"
-            # The app is landscape but the sim device frame is portrait, so the
-            # capture is rotated 90°. Rotate it upright (270° CW == 90° CCW).
-            sips -r 270 "../screenshots/${screen}.png" >/dev/null
-            echo "captured ${screen}.png"
-          }
-
-          shoot title 4
-          shoot garage 5
-          shoot dialogue 3    # static frame: proves the dialogue portrait bubble renders
-          shoot drive 12      # let the bus get out onto the street, past the garage
-
-          # Diagnostic: launch the drive once and capture a time sequence so the
-          # actual play (movement, NPCs, episode progression) is visible, not a
-          # single frozen frame.
-          xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" >/dev/null 2>&1 || true
-          SIMCTL_CHILD_SCREENSHOT_SCREEN="drive" xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
-          # A few early frames only: the headless iOS Simulator's Metal host
-          # (SimMetalHost) drops its XPC connection on longer RealityKit runs and
-          # takes the app down with it — a simulator/GPU flake (can't happen on a
-          # real device), and lately as early as ~15s. So capture the opening of
-          # the drive reliably; the Core test covers the full episode to completion.
           prev=0
-          for t in 2 3 4 5 6 7; do
+          for t in 3 7 11 15 19; do
             sleep $((t - prev)); prev=$t
             out="../screenshots/seq_$(printf %02d $t)s.png"
             xcrun simctl io "$DEVICE_ID" screenshot "$out"
-            sips -r 270 "$out" >/dev/null
-            echo "captured seq ${t}s"
+            # App is landscape in a portrait device frame; rotate upright.
+            sips -r 270 "$out" >/dev/null || true
           done
-
-      - name: Dump any app crash report
-        if: always()
-        run: |
-          echo "=== DiagnosticReports ==="
-          ls -lt ~/Library/Logs/DiagnosticReports/ 2>/dev/null | head -20 || true
-          for f in $(ls -t ~/Library/Logs/DiagnosticReports/AmeliaPad*.ips 2>/dev/null | head -1); do
-            echo "================= $f ================="
-            head -180 "$f" || true
-          done
-          echo "=== recent AmeliaPad sim log ==="
-          xcrun simctl spawn booted log show --last 3m --predicate 'process == "AmeliaPad"' 2>/dev/null | tail -60 || true
+          ls -la ../screenshots
 
       - name: Upload screenshots (artifact for humans)
         if: always()
@@ -128,19 +197,3 @@ jobs:
           name: simulator-screenshots
           path: screenshots/
           if-no-files-found: warn
-
-      # Also publish to a force-updated `ci-screenshots` branch so they can be
-      # pulled and reviewed directly (artifacts aren't fetchable via the API).
-      - name: Publish screenshots to the ci-screenshots branch
-        if: always()
-        working-directory: screenshots
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          [ -n "$(ls -A . 2>/dev/null)" ] || { echo "no screenshots to publish"; exit 0; }
-          git init -q
-          git checkout -q -b ci-screenshots
-          git add .
-          git -c user.email=actions@github.com -c user.name=ci \
-            commit -q -m "screenshots for ${GITHUB_SHA:0:7} on ${GITHUB_REF_NAME}"
-          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-screenshots
