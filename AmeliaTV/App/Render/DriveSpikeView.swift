@@ -823,8 +823,8 @@ final class SpikeEngine: ObservableObject {
         // AHEAD of it and off to the side lets us see Amelia's face (on the +x front)
         // — not just her back — while the road ahead still reads toward the side.
         let bp = bus.position
-        camera.position = [bp.x + 3, bp.y + 5.5 + Float(cameraKick.value), bp.z + 7.5]
-        camera.look(at: [bp.x + 0.5, bp.y + 0.5, bp.z], from: camera.position, relativeTo: nil)
+        camera.position = [bp.x + 3, bp.y + 7 + Float(cameraKick.value), bp.z + 7]
+        camera.look(at: [bp.x, bp.y + 0.5, bp.z], from: camera.position, relativeTo: nil)
     }
 }
 
