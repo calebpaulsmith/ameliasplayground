@@ -266,13 +266,15 @@ final class NeighborhoodScene {
                 let t = Double(k) / Double(n + 1)
                 let on = a + d * t
                 let lampSide: Double = (k % 2 == 0) ? 1 : -1
-                // A lamp at one kerb, a tree at the other (offsets are world units → ×0.12 m).
+                // A lamp at one kerb, a tree set well back at the other (offsets are
+                // world units → ×0.12 m). Trees pushed back + smaller so they frame
+                // the street instead of crowding/hiding the bus.
                 lampPost(at: scenePos(on + perp * (12 * lampSide), y: 0))
-                let treeAt = scenePos(on + perp * (24 * -lampSide), y: 0)
+                let treeAt = scenePos(on + perp * (38 * -lampSide), y: 0)
                 switch (idx + k) % 3 {
-                case 0: roundTree(at: treeAt, leaf: col(0.30, 0.66, 0.32))
-                case 1: roundTree(at: treeAt, leaf: col(0.40, 0.70, 0.30), s: 1.2)
-                default: pineTree(at: treeAt)
+                case 0: roundTree(at: treeAt, leaf: col(0.30, 0.66, 0.32), s: 0.85)
+                case 1: roundTree(at: treeAt, leaf: col(0.40, 0.70, 0.30), s: 1.0)
+                default: pineTree(at: treeAt, s: 0.9)
                 }
                 // A house set back on each side — a proper lined street. Every other
                 // stop, so the row reads full without flooding the phone with entities.
