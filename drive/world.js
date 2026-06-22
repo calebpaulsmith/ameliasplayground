@@ -110,7 +110,7 @@ export function buildCity() {
     else if (plan === 'park') buildPark(group, cx, cz, places, rng);
     else if (plan === 'school') buildSchool(group, cx, cz, buildings, places);
     else if (plan === 'market') buildMarket(group, cx, cz, buildings, places);
-    else if (plan === 'beach') buildBeach(group, cx, cz, places);
+    else if (plan === 'beach') buildBeach(group, cx, cz, places, buildings);
     else fillBlock(group, cx, cz, buildings, rng);
   }
 
@@ -121,7 +121,7 @@ export function buildCity() {
     { x: 2 * CELL + ROAD_H + 3, z: 4 * CELL, name: 'C' },
     { x: 4 * CELL - ROAD_H - 3, z: 1 * CELL, name: 'D' },
   ];
-  stopSpecs.forEach(s => { buildBusStop(group, s.x, s.z); busStops.push({ x: s.x, z: s.z, name: s.name }); });
+  stopSpecs.forEach(s => { buildBusStop(group, s.x, s.z, buildings); busStops.push({ x: s.x, z: s.z, name: s.name }); });
 
   // ---- traffic lights at busy intersections ----
   const lightSpecs = [ [1, 1], [2, 3], [3, 2], [2, 1], [3, 4] ];
@@ -256,22 +256,23 @@ function buildMarket(group, cx, cz, buildings, places) {
   places.market = { x: cx, z: cz - (CELL - ROAD_W) / 2 - 2, label: 'market', heading: 0 };
 }
 
-function buildBeach(group, cx, cz, places) {
+function buildBeach(group, cx, cz, places, buildings) {
   const sand = new THREE.Mesh(new THREE.PlaneGeometry(CELL - 6, CELL - 6),
     new THREE.MeshStandardMaterial({ color: 0xf3e2a9 }));
   sand.rotation.x = -Math.PI / 2; sand.position.set(cx, 0.13, cz); group.add(sand);
   const water = new THREE.Mesh(new THREE.PlaneGeometry(CELL - 6, 14),
     new THREE.MeshStandardMaterial({ color: 0x3fb6e6, transparent: true, opacity: 0.92 }));
   water.rotation.x = -Math.PI / 2; water.position.set(cx, 0.18, cz + (CELL - 6) / 2 - 7); group.add(water);
-  // umbrella
+  // umbrella — collide the pole so the bus can't drive through it
   const pole = addBox(group, 0.4, 5, 0.4, 0xffffff, cx - 6, 2.5, cz - 4);
+  if (buildings) buildings.push({ minX: cx - 6 - 0.8, maxX: cx - 6 + 0.8, minZ: cz - 4 - 0.8, maxZ: cz - 4 + 0.8 });
   const umb = new THREE.Mesh(new THREE.ConeGeometry(4, 1.6, 12),
     new THREE.MeshStandardMaterial({ color: 0xff5d5d })); umb.position.set(cx - 6, 5.5, cz - 4); group.add(umb);
   signBoard(group, cx, cz - (CELL - 6) / 2, 5, 0x3fb6e6, '🏖️');
   places.beach = { x: cx, z: cz - (CELL - 6) / 2 - 2, label: 'beach', heading: 0 };
 }
 
-function buildBusStop(group, x, z) {
+function buildBusStop(group, x, z, buildings) {
   // shelter
   addBox(group, 6, 0.4, 3, 0x2ee6d6, x, 4.4, z);      // roof
   addBox(group, 0.4, 4.4, 0.4, 0xbfc7cf, x - 2.6, 2.2, z + 1.2);
@@ -280,6 +281,9 @@ function buildBusStop(group, x, z) {
   // sign post with bus glyph
   const post = addBox(group, 0.3, 6, 0.3, 0x8a8f96, x + 3.4, 3, z);
   signBoard(group, x + 3.4, z, 6, 0x2255cc, '🚏');
+  // one collider over the shelter footprint so the bus stops at it instead of
+  // driving through (pickup uses a 12-unit radius, so this won't block boarding).
+  if (buildings) buildings.push({ minX: x - 3.2, maxX: x + 3.7, minZ: z - 1.6, maxZ: z + 1.7 });
 }
 
 function buildTrafficLight(group, x, z) {
