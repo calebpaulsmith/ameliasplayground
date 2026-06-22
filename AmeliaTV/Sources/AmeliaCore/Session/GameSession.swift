@@ -54,7 +54,7 @@ public final class GameSession: EpisodeWorld {
     /// `pip.*` is the passenger Pip; the guiding lines (`m.*`, reward/garage/light/
     /// find/nav) are Mom. Nil when nothing is being said.
     public struct Speaker: Equatable, Sendable {
-        public let nameId: String
+        public let name: String        // already localized, ready for the HUD
         public let colorHex: String?
     }
     public var currentSpeaker: Speaker? {
@@ -62,10 +62,10 @@ public final class GameSession: EpisodeWorld {
         guard !id.isEmpty, !dialogue.currentSubtitle.isEmpty else { return nil }
         let prefix = id.split(separator: ".").first.map(String.init) ?? ""
         if let p = content.passengers.first(where: { $0.id == prefix }) {
-            return Speaker(nameId: p.nameId, colorHex: p.color)
+            return Speaker(name: content.localizer.string(p.nameId, language), colorHex: p.color)
         }
         if ["m", "reward", "garage", "light", "find", "nav", "mom"].contains(prefix) {
-            return Speaker(nameId: "mom.name", colorHex: "#2ea59e")
+            return Speaker(name: content.localizer.string("mom.name", language), colorHex: "#2ea59e")
         }
         return nil
     }

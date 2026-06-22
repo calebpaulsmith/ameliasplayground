@@ -809,7 +809,7 @@ final class SpikeEngine: ObservableObject {
         next.collected = game.collectedCount
         next.subtitle = game.subtitle
         if let sp = game.currentSpeaker {
-            next.speakerName = session.string(sp.nameId)
+            next.speakerName = sp.name
             next.speakerColorHex = sp.colorHex
         }
         next.turnCue = game.currentTurnCue
