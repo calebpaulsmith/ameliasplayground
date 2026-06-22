@@ -56,6 +56,7 @@ final class TownScene: SKScene {
         buildRoads()
         buildTrees()
         buildBuildings()
+        buildScenery()
 
         busNode = makeBus()
         busNode.zPosition = 10
@@ -69,6 +70,7 @@ final class TownScene: SKScene {
 
         addChild(cam)
         camera = cam
+        cam.setScale(0.9)   // a touch closer in for a cozier frame
         syncNodes()
     }
 
@@ -178,6 +180,9 @@ final class TownScene: SKScene {
 
     private func makeVehicle(length: CGFloat, width: CGFloat, body: SKColor, roof: SKColor) -> SKNode {
         let node = SKNode()
+        let shadow = SKShapeNode(rectOf: CGSize(width: length, height: width * 1.18), cornerRadius: 10)
+        shadow.fillColor = SKColor(white: 0, alpha: 0.16); shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 0, y: -5); node.addChild(shadow)
         // wheels (drawn first, underneath)
         for sx in [-length * 0.28, length * 0.28] {
             for sy in [-width * 0.55, width * 0.55] {
@@ -209,6 +214,9 @@ final class TownScene: SKScene {
     private func makeBus() -> SKNode {
         let node = SKNode()
         let length: CGFloat = 152, width: CGFloat = 58
+        let shadow = SKShapeNode(rectOf: CGSize(width: length, height: width * 1.18), cornerRadius: 14)
+        shadow.fillColor = SKColor(white: 0, alpha: 0.16); shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 0, y: -6); node.addChild(shadow)
         for sx in [-length * 0.30, length * 0.30] {
             for sy in [-width * 0.56, width * 0.56] {
                 let wheel = SKShapeNode(rectOf: CGSize(width: length * 0.15, height: width * 0.14), cornerRadius: 3)
@@ -269,6 +277,75 @@ final class TownScene: SKScene {
         hi.fillColor = SKColor(red: 0.28, green: 0.62, blue: 0.32, alpha: 1); hi.strokeColor = .clear
         hi.position = CGPoint(x: -r * 0.25, y: r * 0.25); node.addChild(hi)
         return node
+    }
+
+    /// Cozy static dressing: a little park (pond + benches) in the open grass
+    /// below the loop, a bus stop beside the road, and flower clusters scattered
+    /// about. All off the roads so nothing blocks driving.
+    private func buildScenery() {
+        addPond(at: Vec2(0, 560), size: CGSize(width: 240, height: 140))
+        addBench(at: Vec2(-170, 560)); addBench(at: Vec2(170, 560))
+        addBusStop(at: Vec2(-160, -330))
+        let flowers: [Vec2] = [
+            Vec2(-500, -120), Vec2(500, 120), Vec2(120, -300), Vec2(-120, 300),
+            Vec2(480, -300), Vec2(-690, 320), Vec2(690, -320), Vec2(-470, -560),
+        ]
+        for f in flowers { addFlowers(at: f) }
+    }
+
+    private func addPond(at v: Vec2, size: CGSize) {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 3
+        let w = size.width * scale, h = size.height * scale
+        let water = SKShapeNode(ellipseOf: CGSize(width: w, height: h))
+        water.fillColor = SKColor(red: 0.35, green: 0.62, blue: 0.85, alpha: 1)
+        water.strokeColor = SKColor(red: 0.58, green: 0.76, blue: 0.52, alpha: 1); water.lineWidth = 7
+        node.addChild(water)
+        let hi = SKShapeNode(ellipseOf: CGSize(width: w * 0.5, height: h * 0.4))
+        hi.fillColor = SKColor(red: 0.55, green: 0.78, blue: 0.95, alpha: 0.7); hi.strokeColor = .clear
+        hi.position = CGPoint(x: -w * 0.12, y: h * 0.12); node.addChild(hi)
+        worldNode.addChild(node)
+    }
+
+    private func addBench(at v: Vec2) {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 4
+        let seat = SKShapeNode(rectOf: CGSize(width: 46, height: 18), cornerRadius: 3)
+        seat.fillColor = SKColor(red: 0.55, green: 0.38, blue: 0.22, alpha: 1)
+        seat.strokeColor = SKColor(white: 0, alpha: 0.2); seat.lineWidth = 1
+        node.addChild(seat)
+        worldNode.addChild(node)
+    }
+
+    private func addBusStop(at v: Vec2) {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 6
+        let roof = SKShapeNode(rectOf: CGSize(width: 72, height: 40), cornerRadius: 5)
+        roof.fillColor = SKColor(red: 0.30, green: 0.55, blue: 0.66, alpha: 1)
+        roof.strokeColor = SKColor(white: 0, alpha: 0.2); roof.lineWidth = 1
+        node.addChild(roof)
+        let post = SKShapeNode(rectOf: CGSize(width: 6, height: 30), cornerRadius: 2)
+        post.fillColor = SKColor(white: 0.55, alpha: 1); post.strokeColor = .clear
+        post.position = CGPoint(x: 48, y: -6); node.addChild(post)
+        let sign = SKShapeNode(rectOf: CGSize(width: 28, height: 28), cornerRadius: 5)
+        sign.fillColor = SKColor(red: 0.20, green: 0.45, blue: 0.85, alpha: 1)
+        sign.strokeColor = .white; sign.lineWidth = 2
+        sign.position = CGPoint(x: 48, y: 16); node.addChild(sign)
+        worldNode.addChild(node)
+    }
+
+    private func addFlowers(at v: Vec2) {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 4
+        let colors = [
+            SKColor(red: 0.95, green: 0.45, blue: 0.55, alpha: 1),
+            SKColor(red: 0.98, green: 0.85, blue: 0.30, alpha: 1),
+            SKColor(red: 0.70, green: 0.55, blue: 0.90, alpha: 1),
+            SKColor.white,
+        ]
+        for i in 0..<5 {
+            let dot = SKShapeNode(circleOfRadius: 7)
+            dot.fillColor = colors[i % colors.count]; dot.strokeColor = .clear
+            dot.position = CGPoint(x: CGFloat.random(in: -22...22), y: CGFloat.random(in: -22...22))
+            node.addChild(dot)
+        }
+        worldNode.addChild(node)
     }
 
     // MARK: - Update loop
