@@ -18,7 +18,7 @@ struct AmeliaApp: App {
 
 struct GameView: View {
     // Created once per view identity; a fixed 16:9 canvas scaled to fit the TV.
-    @State private var scene = RoomScene(size: CGSize(width: 1920, height: 1080))
+    @State private var scene = TownScene(size: CGSize(width: 1920, height: 1080))
 
     var body: some View {
         SpriteView(scene: scene)
