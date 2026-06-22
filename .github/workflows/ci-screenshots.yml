@@ -65,9 +65,13 @@ jobs:
           echo "App: $APP"
           echo "Bundle id: $BUNDLE_ID"
 
-          # First available Apple TV simulator (UDID is between parens).
-          DEVICE_ID=$(xcrun simctl list devices available | awk -F '[()]' '/Apple TV/ {print $2; exit}')
+          # First available Apple TV simulator. The device NAME contains parens
+          # ("Apple TV 4K (3rd generation)"), so match the UDID by its pattern
+          # rather than by paren position.
+          DEVICE_ID=$(xcrun simctl list devices available | grep -i 'Apple TV' \
+            | grep -oiE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)
           echo "Simulator: $DEVICE_ID"
+          [ -n "$DEVICE_ID" ] || { echo "no Apple TV simulator found"; xcrun simctl list devices available | grep -i 'Apple TV' || true; exit 1; }
 
           xcrun simctl boot "$DEVICE_ID" || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
@@ -101,10 +105,10 @@ jobs:
       # and viewed directly (artifacts aren't fetchable via the API).
       - name: Publish to the ci-video branch
         if: always()
-        working-directory: media
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          cd media 2>/dev/null || { echo "no media dir — nothing to publish"; exit 0; }
           [ -n "$(ls -A . 2>/dev/null)" ] || { echo "nothing to publish"; exit 0; }
           git init -q
           git checkout -q -b ci-video
@@ -150,7 +154,8 @@ jobs:
           APP="build/dd/Build/Products/Debug-iphonesimulator/AmeliaPad.app"
           BUNDLE_ID=$(xcodebuild -project AmeliaTV.xcodeproj -scheme AmeliaPad -showBuildSettings 2>/dev/null \
             | awk -F' = ' '/ PRODUCT_BUNDLE_IDENTIFIER /{print $2; exit}')
-          DEVICE_ID=$(xcrun simctl list devices available | awk -F '[()]' '/iPhone/ {print $2; exit}')
+          DEVICE_ID=$(xcrun simctl list devices available | grep -i 'iPhone' \
+            | grep -oiE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)
           echo "Simulator: $DEVICE_ID  Bundle: $BUNDLE_ID"
 
           xcrun simctl boot "$DEVICE_ID" || true
