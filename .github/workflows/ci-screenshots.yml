@@ -94,14 +94,31 @@ jobs:
           # single frozen frame.
           xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" >/dev/null 2>&1 || true
           SIMCTL_CHILD_SCREENSHOT_SCREEN="drive" xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
+          # A few early frames only: the headless iOS Simulator's Metal host
+          # (SimMetalHost) drops its XPC connection on longer RealityKit runs and
+          # takes the app down with it — a simulator/GPU flake (can't happen on a
+          # real device), and lately as early as ~15s. So capture the opening of
+          # the drive reliably; the Core test covers the full episode to completion.
           prev=0
-          for t in 6 14 24 36 48 60 72 82; do
+          for t in 5 9 13; do
             sleep $((t - prev)); prev=$t
             out="../screenshots/seq_$(printf %02d $t)s.png"
             xcrun simctl io "$DEVICE_ID" screenshot "$out"
             sips -r 270 "$out" >/dev/null
             echo "captured seq ${t}s"
           done
+
+      - name: Dump any app crash report
+        if: always()
+        run: |
+          echo "=== DiagnosticReports ==="
+          ls -lt ~/Library/Logs/DiagnosticReports/ 2>/dev/null | head -20 || true
+          for f in $(ls -t ~/Library/Logs/DiagnosticReports/AmeliaPad*.ips 2>/dev/null | head -1); do
+            echo "================= $f ================="
+            head -180 "$f" || true
+          done
+          echo "=== recent AmeliaPad sim log ==="
+          xcrun simctl spawn booted log show --last 3m --predicate 'process == "AmeliaPad"' 2>/dev/null | tail -60 || true
 
       - name: Upload screenshots (artifact for humans)
         if: always()
