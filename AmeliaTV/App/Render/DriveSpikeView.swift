@@ -839,8 +839,8 @@ final class SpikeEngine: ObservableObject {
         let right = SIMD3<Float>(sin(theta), 0, -cos(theta))   // to her side
         let bp = bus.position
         let ahead = lerp(2.0, 3.0)     // in front of her face
-        let side  = lerp(4.8, 3.0)     // off to the side (wide → close); closer so she reads big
-        let up    = lerp(4.8, 2.6) + Float(cameraKick.value)
+        let side  = lerp(4.6, 3.0)     // off to the side (wide → close); closer so she reads big
+        let up    = lerp(6.2, 3.6) + Float(cameraKick.value)   // higher, so foreground clutter sits below the view
         camera.position = bp + fwd * ahead + right * side + SIMD3<Float>(0, up, 0)
         camera.look(at: bp + SIMD3<Float>(0, lerp(0.6, 0.7), 0), from: camera.position, relativeTo: nil)
     }
