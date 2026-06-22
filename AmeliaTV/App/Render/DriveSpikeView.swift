@@ -808,6 +808,10 @@ final class SpikeEngine: ObservableObject {
         next.stars = game.save.stars
         next.collected = game.collectedCount
         next.subtitle = game.subtitle
+        if let sp = game.currentSpeaker {
+            next.speakerName = session.string(sp.nameId)
+            next.speakerColorHex = sp.colorHex
+        }
         next.turnCue = game.currentTurnCue
         next.drivePrompt = game.drivePrompt
         next.destinationNameId = game.currentTargetNameId
