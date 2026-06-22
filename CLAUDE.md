@@ -26,6 +26,10 @@ This repository holds **two separate things** that must not be confused:
 
 Start with [`docs/tvos/`](docs/tvos/):
 
+- **[`PLAN_2D.md`](PLAN_2D.md) — START HERE.** The **active** plan: the feedback
+  review loop, the GTA-style 2D drivable-town design, roadmap, backlog. Supersedes
+  the *engine/architecture* of the docs below (which now describe the **archived
+  3D build** — `RESTORE_3D.md`). The **product values** below still hold.
 - `PRODUCT_VISION.md` — who it's for, the feeling, hard constraints.
 - `GAME_DESIGN.md` — the whole-game design & systems.
 - `TECHNICAL_ARCHITECTURE.md` — **engine decision** + structure + CI.
@@ -38,6 +42,10 @@ Start with [`docs/tvos/`](docs/tvos/):
 - `RISKS_AND_DECISIONS.md` — assumptions, risks, decisions, facts vs. judgement.
 
 ## The decision in one line
+
+> ⚠️ **Superseded by the 2D pivot (see the banner below + `PLAN_2D.md`).** The
+> render engine is now **SpriteKit (2D)**, not RealityKit. Kept for history; the
+> *native-tvOS / Swift / GameController / macOS-CI* parts still hold.
 
 **Native Swift + SwiftUI (UI/HUD) + RealityKit (3D), targeting tvOS 26+ on
 Apple TV 4K.** Input via **GameController** (Siri Remote + MFi/PS/Xbox). Build &
@@ -119,23 +127,34 @@ turn the passive ride into a game. Full plan + open decisions live in the doc.
 > placeholder and the project felt like "hot garbage." Root cause: **a broken
 > feedback loop** — visual/feel work built blind.
 >
-> **New direction:** a **2D top-down adventure** (Zelda *A Link to the Past* feel —
-> screen-to-screen rooms, animated foliage, NPC interactions, cutscenes, music)
-> built with **SpriteKit** (first-party, mature, not deprecated; keeps every
-> privacy/Kids advantage). 2D removes the exact failure modes that sank 3D: no
-> camera angles to get wrong, trivial tile collision, and **levels authored as
-> readable text** so layout is visible on the page.
+> **New direction:** a cozy, bilingual, child-first **GTA 1/2-style drivable town**
+> in 2D — you **drive Amelia's bus** top-down around a living town: story episodes,
+> Free Drive, a big hand-authored map, **procedurally generated traffic & NPCs**,
+> and **honk → the world reacts**. Built with **SpriteKit** (first-party, mature,
+> not deprecated; keeps every privacy/Kids advantage). Buildings get **faked height**
+> in 2D art (a ¾/oblique look) — the *logic* underneath stays a top-down road
+> network in **readable data**, so layout is visible on the page. 2D removes the
+> failure modes that sank 3D: no camera angles to get wrong, trivial collision, a
+> world you can actually author and see.
 >
-> **Feedback loop first, always:** CI now records an actual **tvOS gameplay video**
-> (+ iPhone screenshots) on every push — see `.github/workflows/ci-screenshots.yml`
-> (publishes to the `ci-video` / `ci-screenshots` branches and as artifacts).
-> Nothing gets built blind again. Scope is slashed to **one good, watched room**
-> before anything expands.
+> **Feedback loop first, always (priority #1):** no visual/feel change merges
+> without a capture a human has seen. CI records a **tvOS gameplay video + frame
+> sequence** on every push (`.github/workflows/ci-screenshots.yml` → `ci-video` /
+> `ci-screenshots` branches + artifacts); Claude pulls the frames back, looks, and
+> reports intent-vs-reality in the PR. **Nothing gets built blind again.**
 >
-> The old 3D app is preserved (not compiled) under `AmeliaTV/Archive3D/`. The
-> rendering-agnostic **Game Core** (`AmeliaTV/Sources/AmeliaCore` — dialogue,
-> rewards, bilingual strings, save) is kept and reused. Everything in the historical
-> status below describes the **archived 3D build**.
+> **Read the plan: [`docs/tvos/PLAN_2D.md`](docs/tvos/PLAN_2D.md)** — the feedback
+> loop, the GTA-style design, roadmap (M0–M5), and backlog. The 3D app is preserved
+> (not compiled) under `AmeliaTV/Archive3D/`; restore path in
+> [`docs/tvos/RESTORE_3D.md`](docs/tvos/RESTORE_3D.md). The rendering-agnostic
+> **Game Core** (`AmeliaTV/Sources/AmeliaCore`) is kept and reused. Everything in
+> the historical status below describes the **archived 3D build**.
+>
+> **Decisions locked (2026-06-22):** drive-the-bus (not on-foot); GTA-style format,
+> child-appropriate content; **free steering** for the slice (`AssistLevel`
+> auto/assist returns as an option); **same repo, one app target** (App Store
+> listing deferred to ship time). Open: D-IP-1 art/IP, D-ART-1 art sourcing,
+> D-SIGN-1 signing.
 
 ## Current status (updated 2026-06-21)
 
@@ -251,14 +270,22 @@ that into future app repos.
 
 ## Next steps (start here next session)
 
-1. **Human smoke-test** per `docs/tvos/TESTING.md` (run the Simulator, press
-   "Let's go", watch the bus drive through the living town and talk). Capture
-   anything that feels off — especially the **CL-05 day/night** wash (too dark? too
-   fast? tune `updateMood`'s `220` period) and overall charm-arc feel.
-2. **A2-14 integration & acceptance pass** against `docs/tvos/VERTICAL_SLICE.md`.
-3. **Final art (D-ART-1):** source/commission USDZ and swap it in behind the
-   existing `ModelLibrary` ids — no gameplay code changes required.
-4. **Audio art pass (E3-03)** and **splash/language** polish.
+> The 2D pivot is active. Work the **[`docs/tvos/PLAN_2D.md`](docs/tvos/PLAN_2D.md)**
+> roadmap, not the 3D tasks below (those are archived with the 3D build).
+
+1. **M1 — Drivable block:** `RoadNetwork` (data + schema + Core tests) → bus
+   **free-steering** on it → follow camera → a few **height-styled buildings** →
+   **one procedural car** + collision. Ship behind a CI capture and *watch it*.
+2. **M2 — Living street:** procedural traffic + pedestrians, traffic light, and the
+   **honk → reaction system** (`reactions.json`, 5 varied reactions).
+3. Keep the **feedback loop** tight first (Backlog FL-01…04): per-scene capture
+   entry points, a deterministic demo-script, reliable `.mp4`, PR-gate template.
+4. Then **M3** (port the `first-day` episode onto the road network) → **M4** Free
+   Drive + bigger map → **M5** charm/audio/splash.
+
+*(Archived 3D follow-ups — only relevant if 3D is restored per `RESTORE_3D.md`:
+human Simulator smoke-test, A2-14 acceptance, USDZ final art behind `ModelLibrary`
+ids, audio art pass.)*
 
 ## Outstanding questions / decisions (need the human)
 
