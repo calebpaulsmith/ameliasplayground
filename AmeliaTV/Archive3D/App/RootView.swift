@@ -10,6 +10,7 @@ struct RootView: View {
     @State private var showingGarage = false
     @State private var showingSettings = false
     @State private var showingDriveDirect = false
+    @State private var showingDialoguePreview = false
     @FocusState private var goFocused: Bool
 
     var body: some View {
@@ -71,6 +72,21 @@ struct RootView: View {
             DriveSpikeView()
                 .environmentObject(session)
         }
+        .fullScreenCover(isPresented: $showingDialoguePreview) {
+            // CI-only: a static frame proving the dialogue portrait bubble renders,
+            // independent of in-play timing.
+            ZStack {
+                LinearGradient(colors: [Color(red: 0.62, green: 0.82, blue: 0.96),
+                                        Color(red: 0.86, green: 0.93, blue: 0.86)],
+                               startPoint: .top, endPoint: .bottom)
+                    .ignoresSafeArea()
+                HUDView(model: HUDModel(
+                    subtitle: session.string("m.goStop"),
+                    speakerName: session.string("mom.name"),
+                    speakerColorHex: "#2ea59e"))
+                    .environmentObject(session)
+            }
+        }
     }
 
     /// CI-only deep link: when `SCREENSHOT_SCREEN` is set (by the screenshot
@@ -80,6 +96,7 @@ struct RootView: View {
         switch ProcessInfo.processInfo.environment["SCREENSHOT_SCREEN"] {
         case "garage":   showingGarage = true
         case "drive":    showingDriveDirect = true
+        case "dialogue": showingDialoguePreview = true
         case "settings": showingSettings = true
         default:         break
         }

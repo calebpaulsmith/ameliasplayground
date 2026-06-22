@@ -65,6 +65,7 @@ struct DriveSpikeView: View {
                     .transition(.opacity)
                     .task {
                         try? await Task.sleep(nanoseconds: 2_600_000_000)
+                        engine.begin()
                         withAnimation(.easeOut(duration: 0.6)) { introShown = false }
                     }
             }
@@ -215,6 +216,11 @@ final class SpikeEngine: ObservableObject {
     private var timer: Timer?
     private var lastTick = Date()
     private var elapsed: Double = 0
+    // The scene is built on appear, but the episode (and Mom's opening lines)
+    // waits for the intro card to lift — so the dialogue plays where the child can
+    // see it, not hidden behind the card. Flipped by `begin()`.
+    private var paused = true
+    private weak var appSession: AppSession?
 
     // The episode passenger ("rider") who waits at the stop, boards, then exits,
     // plus the ambient NPC friends who live around the neighborhood. All are given
@@ -346,8 +352,8 @@ final class SpikeEngine: ObservableObject {
         )
         game.language = session.language
         speaker.isEnabled = (UserDefaults.standard.object(forKey: "voiceEnabled") as? Bool) ?? true
-        game.start(episodeId: "first-day")
         self.game = game
+        self.appSession = session
         self.places = session.content.places
         self.spokeReward = false
         friends.removeAll()
@@ -368,7 +374,6 @@ final class SpikeEngine: ObservableObject {
         neighborhood = scene
         root.addChild(scene.root)
 
-        buildPassengers(session: session, game: game)
         buildCollectibles(session: session)
 
         lastTick = Date()
@@ -382,6 +387,16 @@ final class SpikeEngine: ObservableObject {
         timer = t
     }
 
+    /// Kicks off the episode once the intro card has lifted, so Mom's first lines
+    /// (and the bus pulling away) happen in front of the watching child.
+    func begin() {
+        guard let game, let session = appSession, paused else { return }
+        game.start(episodeId: "first-day")
+        buildPassengers(session: session, game: game)
+        paused = false
+        lastTick = Date()
+    }
+
     func stop() {
         timer?.invalidate()
         timer = nil
@@ -390,7 +405,7 @@ final class SpikeEngine: ObservableObject {
     }
 
     private func step() {
-        guard let game else { return }
+        guard let game, !paused else { return }
         let now = Date()
         let dt = min(now.timeIntervalSince(lastTick), 1.0 / 20.0)
         lastTick = now
@@ -808,6 +823,10 @@ final class SpikeEngine: ObservableObject {
         next.stars = game.save.stars
         next.collected = game.collectedCount
         next.subtitle = game.subtitle
+        if let sp = game.currentSpeaker {
+            next.speakerName = sp.name
+            next.speakerColorHex = sp.colorHex
+        }
         next.turnCue = game.currentTurnCue
         next.drivePrompt = game.drivePrompt
         next.destinationNameId = game.currentTargetNameId

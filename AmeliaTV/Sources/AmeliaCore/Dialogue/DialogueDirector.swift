@@ -19,6 +19,8 @@ public final class DialogueDirector {
     private weak var speaker: LineSpeaker?
 
     public private(set) var currentSubtitle: String = ""
+    /// The id of the line currently shown — lets the UI resolve who is speaking.
+    public private(set) var currentLineId: String = ""
     private var lastSpokenText: String = ""
 
     public init(localizer: Localizer, language: Language, speaker: LineSpeaker? = nil) {
@@ -35,12 +37,14 @@ public final class DialogueDirector {
         guard force || text != lastSpokenText else { return text }
         lastSpokenText = text
         currentSubtitle = text
+        currentLineId = lineId
         speaker?.speak(text, language: language)
         return text
     }
 
     public func clear() {
         currentSubtitle = ""
+        currentLineId = ""
         lastSpokenText = ""
         speaker?.stopSpeaking()
     }
