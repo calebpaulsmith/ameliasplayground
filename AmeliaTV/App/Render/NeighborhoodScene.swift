@@ -234,7 +234,8 @@ final class NeighborhoodScene {
                         house(at: scenePos(hp, y: 0),
                               faceDir: SIMD2(Float(toRoad.x), Float(toRoad.z)),
                               body: bodies[(idx * 5 + k + (side > 0 ? 1 : 0)) % bodies.count],
-                              roof: roofs[(idx * 3 + k) % roofs.count])
+                              roof: roofs[(idx * 3 + k) % roofs.count],
+                              seed: idx * 7 + k * 3 + (side > 0 ? 1 : 0))
                     }
                 }
             }
@@ -248,25 +249,56 @@ final class NeighborhoodScene {
     }
 
     /// One cosy house, front (door + windows) on local +x, turned so that face
-    /// looks at the road. Original placeholder geometry; windows glow at night.
+    /// looks at the road. `seed` deterministically varies height (some two-story),
+    /// frontage width, roof shape, chimney and porch so the row looks lived-in
+    /// rather than stamped. Original placeholder geometry; windows glow at night.
     private func house(at p: SIMD3<Float>, faceDir: SIMD2<Float>,
-                       body: PlatformColor, roof: PlatformColor) {
+                       body: PlatformColor, roof: PlatformColor, seed: Int) {
         let g = Entity()
         g.position = p
         g.orientation = simd_quatf(angle: -atan2(faceDir.y, faceDir.x), axis: [0, 1, 0])
 
-        g.addChild(block(body, [2.6, 2.2, 3.2], at: [0, 1.1, 0]))          // walls
-        g.addChild(block(roof, [3.0, 0.45, 3.6], at: [0, 2.45, 0]))        // eaves
-        g.addChild(block(roof, [1.5, 0.6, 3.6], at: [0, 2.8, 0]))          // ridge
-        g.addChild(block(col(0.45, 0.30, 0.20), [0.12, 1.2, 0.8], at: [1.31, 0.6, 0]))  // door
-        for z in [Float(-1.0), 1.0] {                                       // two front windows
-            let pane = block(col(0.80, 0.92, 1.0), [0.1, 0.6, 0.7], at: [1.31, 1.45, z])
-            g.addChild(pane)
-            windowPanes.append(pane)
+        let depth: Float = 2.6
+        let widths: [Float] = [2.8, 3.2, 3.6]
+        let w = widths[seed % widths.count]                  // street frontage (along z)
+        let twoStory = seed % 3 == 0
+        let h: Float = twoStory ? 3.4 : 2.2                  // wall height
+        let front = depth / 2 + 0.01
+
+        g.addChild(block(body, [depth, h, w], at: [0, h / 2, 0]))          // walls
+
+        // A tapered, stepped hipped roof (closed — no see-through) instead of a flat
+        // box top; steeper on some houses.
+        let steps = (seed % 2 == 0) ? 3 : 2
+        for i in 0..<steps {
+            let f = 1 - Float(i) / Float(steps)
+            g.addChild(block(roof, [depth * (0.25 + 0.85 * f) + 0.3, 0.26, w * (0.25 + 0.85 * f) + 0.3],
+                             at: [0, h + 0.13 + Float(i) * 0.3, 0]))
         }
-        g.addChild(block(col(0.6, 0.42, 0.34), [0.32, 0.7, 0.32], at: [-0.5, 2.85, 0.9]))  // chimney
-        g.addChild(block(col(0.42, 0.72, 0.40), [1.6, 0.06, 3.2], at: [2.1, 0.04, 0]))     // front lawn
-        g.addChild(block(col(0.86, 0.84, 0.70), [1.6, 0.07, 0.5], at: [2.1, 0.05, 0]))     // path
+
+        g.addChild(block(col(0.45, 0.30, 0.20), [0.12, 1.2, 0.8], at: [front, 0.6, 0]))  // door
+        let rows: [Float] = twoStory ? [1.0, 2.5] : [1.3]                  // one or two window rows
+        for y in rows {
+            for z in [-w * 0.28, w * 0.28] {
+                let pane = block(col(0.80, 0.92, 1.0), [0.1, 0.55, 0.65], at: [front, y, z])
+                g.addChild(pane)
+                windowPanes.append(pane)
+            }
+        }
+
+        if seed % 2 == 1 {                                                  // chimney on ~half
+            let cz: Float = (seed % 4 == 1) ? 0.9 : -0.9
+            g.addChild(block(col(0.6, 0.42, 0.34), [0.32, 0.8, 0.32], at: [-0.4, h + 0.55, cz]))
+        }
+        if !twoStory && seed % 3 == 1 {                                     // a little porch on some
+            g.addChild(block(roof, [0.9, 0.1, w * 0.8], at: [depth / 2 + 0.45, 1.7, 0]))
+            for z in [-w * 0.32, w * 0.32] {
+                g.addChild(block(col(0.92, 0.90, 0.86), [0.1, 1.6, 0.1], at: [depth / 2 + 0.8, 0.8, z]))
+            }
+        }
+
+        g.addChild(block(col(0.42, 0.72, 0.40), [1.6, 0.06, w], at: [depth / 2 + 0.8, 0.04, 0]))   // lawn
+        g.addChild(block(col(0.86, 0.84, 0.70), [1.6, 0.07, 0.5], at: [depth / 2 + 0.8, 0.05, 0])) // path
         root.addChild(g)
     }
 
