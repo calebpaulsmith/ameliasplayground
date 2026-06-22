@@ -65,13 +65,23 @@ jobs:
           echo "App: $APP"
           echo "Bundle id: $BUNDLE_ID"
 
-          # First available Apple TV simulator. The device NAME contains parens
-          # ("Apple TV 4K (3rd generation)"), so match the UDID by its pattern
-          # rather than by paren position.
-          DEVICE_ID=$(xcrun simctl list devices available | grep -i 'Apple TV' \
-            | grep -oiE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)
+          # The app targets tvOS 26, and runners also ship older tvOS runtimes,
+          # so pick an Apple TV on the tvOS 26 runtime specifically — and create
+          # one if none is pre-made. (Grabbing the first Apple TV got a tvOS 18.5
+          # device, which refused to install the app.)
+          RT_ID=$(xcrun simctl list runtimes --json \
+            | jq -r '.runtimes[] | select(.name|test("tvOS 26")) | .identifier' | head -1)
+          echo "tvOS 26 runtime: ${RT_ID:-<none found>}"
+          DEVICE_ID=$(xcrun simctl list devices available --json \
+            | jq -r --arg rt "$RT_ID" '.devices[$rt][]? | select(.name|test("Apple TV")) | .udid' | head -1)
+          if [ -z "$DEVICE_ID" ] && [ -n "$RT_ID" ]; then
+            DEVTYPE=$(xcrun simctl list devicetypes --json \
+              | jq -r '.devicetypes[] | select(.name|test("Apple TV")) | .identifier' | head -1)
+            echo "Creating Apple TV sim ($DEVTYPE) on $RT_ID"
+            DEVICE_ID=$(xcrun simctl create "ATV-26" "$DEVTYPE" "$RT_ID")
+          fi
           echo "Simulator: $DEVICE_ID"
-          [ -n "$DEVICE_ID" ] || { echo "no Apple TV simulator found"; xcrun simctl list devices available | grep -i 'Apple TV' || true; exit 1; }
+          [ -n "$DEVICE_ID" ] || { echo "no tvOS 26 Apple TV sim"; xcrun simctl list devices; exit 1; }
 
           xcrun simctl boot "$DEVICE_ID" || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
