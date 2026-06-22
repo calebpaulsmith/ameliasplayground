@@ -35,7 +35,7 @@ public enum AssistLevel: String, Codable, CaseIterable, Sendable {
     /// Top speed cap (game units/sec), kept calm for young children.
     public var maxSpeed: Double {
         switch self {
-        case .auto: return 12
+        case .auto: return 9      // calmer so the ride feels like a journey, not a blur
         case .assisted: return 14
         case .free: return 17
         }
