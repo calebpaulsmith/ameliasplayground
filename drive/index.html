@@ -124,6 +124,17 @@
     #cGo,#cStop{width:82px;height:82px;font-size:1.05rem;}
     #cHorn{width:54px;height:54px;bottom:calc(max(14px,env(safe-area-inset-bottom)) + 80px);}
   }
+  /* Short viewports = phones in landscape (wide but only ~390px tall).
+     Keep the buttons small so they don't bury the road. */
+  @media (max-height:520px){
+    #controls{bottom:max(10px,env(safe-area-inset-bottom));}
+    .ctrlgroup{gap:10px;}
+    .drivebtn{width:54px;height:54px;font-size:.78rem;}
+    .drivebtn .em{font-size:1.35rem;}
+    #cGo,#cStop{width:64px;height:64px;font-size:.9rem;}
+    #cHorn{width:46px;height:46px;font-size:.7rem;
+      bottom:calc(max(10px,env(safe-area-inset-bottom)) + 62px);}
+  }
 </style>
 </head>
 <body>

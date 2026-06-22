@@ -1,6 +1,6 @@
 /* Service worker for Aventura Espacial de Amelia.
    Bump CACHE when files change to push updates to installed devices. */
-const CACHE = 'amelia-v9';
+const CACHE = 'amelia-v10';
 const ASSETS = [
   './',
   './index.html',
