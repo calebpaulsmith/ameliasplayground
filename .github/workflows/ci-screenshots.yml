@@ -89,6 +89,20 @@ jobs:
           shoot garage 5
           shoot drive 12      # let the bus get out onto the street, past the garage
 
+          # Diagnostic: launch the drive once and capture a time sequence so the
+          # actual play (movement, NPCs, episode progression) is visible, not a
+          # single frozen frame.
+          xcrun simctl terminate "$DEVICE_ID" "$BUNDLE_ID" >/dev/null 2>&1 || true
+          SIMCTL_CHILD_SCREENSHOT_SCREEN="drive" xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
+          prev=0
+          for t in 3 7 12 18 25 32 40 50; do
+            sleep $((t - prev)); prev=$t
+            out="../screenshots/seq_$(printf %02d $t)s.png"
+            xcrun simctl io "$DEVICE_ID" screenshot "$out"
+            sips -r 270 "$out" >/dev/null
+            echo "captured seq ${t}s"
+          done
+
       - name: Upload screenshots (artifact for humans)
         if: always()
         uses: actions/upload-artifact@v4

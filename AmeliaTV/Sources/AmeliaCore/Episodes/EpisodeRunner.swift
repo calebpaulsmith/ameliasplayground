@@ -66,6 +66,10 @@ public final class EpisodeRunner {
     public var sayDwell: Double = 2.0
     public var boardDwell: Double = 2.2
     public var dropDwell: Double = 2.4
+    /// If the child doesn't pick a turn at a fork within this long, the bus gently
+    /// takes the correct one itself — so a young child can never get stuck (the
+    /// no-harsh-failure / on-rails rule), while still being free to choose.
+    public var autoChoiceDelay: Double = 5.0
 
     private var index = -1
     private var wait = 0.0
@@ -75,6 +79,7 @@ public final class EpisodeRunner {
     private var lightStopped = false
     private var announcedRed = false
     private var promptedChoice = false
+    private var choiceElapsed = 0.0
     public private(set) var finished = false
 
     public init(episode: Episode, world: EpisodeWorld, emit: @escaping (EpisodeEvent) -> Void) {
@@ -99,6 +104,7 @@ public final class EpisodeRunner {
         lightStopped = false
         announcedRed = false
         promptedChoice = false
+        choiceElapsed = 0
     }
 
     private func advance() {
@@ -196,8 +202,16 @@ public final class EpisodeRunner {
             }
 
         case let .choice(_, correct):
+            choiceElapsed += dt
             let turn = world.consumeDiscreteTurn()
-            guard turn != .none else { return }
+            guard turn != .none else {
+                // Never stuck: after a patient pause, the bus takes the right turn.
+                if choiceElapsed >= autoChoiceDelay {
+                    emit(.starSparkle)
+                    advance()
+                }
+                return
+            }
             let chosen: Beat.Turn = (turn == .left) ? .left : .right
             if chosen == correct {
                 emit(.starSparkle)

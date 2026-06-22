@@ -44,6 +44,8 @@ final class NeighborhoodScene {
     private var fountainSpray: ModelEntity?     // bobs up and down
     private var clouds: [Entity] = []           // drift across the sky
     private var birds: [Bird] = []              // perch, then scatter on a honk
+    private var traffic: [TrafficCar] = []      // little cars that drive the loop
+    private var trafficPath: [SIMD3<Float>] = [] // closed loop of scene-space nodes
 
     // Cozy-mood elements that respond to the time of day (CL-05): window panes and
     // lamp globes glow warm as night falls, and stars fade in overhead.
@@ -69,6 +71,7 @@ final class NeighborhoodScene {
         for place in content.places { buildPlace(place) }
         for light in content.lights { buildLight(light) }
         buildVehicles(content)
+        buildTraffic(content)
         buildBirds(content)
         buildClouds()
         buildStars()
@@ -90,6 +93,53 @@ final class NeighborhoodScene {
             node.position = p
             node.orientation = simd_quatf(angle: -.pi / 2, axis: [0, 1, 0])  // face the road
             root.addChild(node)
+        }
+    }
+
+    /// A little friendly car that drives the town loop forever, so the streets feel
+    /// alive as Amelia passes (the "living, moving world").
+    private final class TrafficCar {
+        let node: Entity
+        var seg: Int
+        var u: Float            // 0…1 along the current segment
+        let speed: Float        // scene metres / second
+        init(node: Entity, seg: Int, u: Float, speed: Float) {
+            self.node = node; self.seg = seg; self.u = u; self.speed = speed
+        }
+    }
+
+    /// Spawns a handful of cars spread around the road loop; they circulate it in
+    /// `updateTraffic`, hugging the right lane and facing their travel direction.
+    private func buildTraffic(_ content: GameContent) {
+        let order = ["garage", "stopA", "park", "school", "market", "beach"]
+        let pts = order.compactMap { id in content.places.first { $0.id == id }?.position.vec }
+        guard pts.count > 2 else { return }
+        trafficPath = pts.map { scenePos($0, y: 0) }
+        let palette = [col(0.92, 0.36, 0.34), col(0.30, 0.62, 0.90),
+                       col(0.96, 0.78, 0.30), col(0.55, 0.78, 0.45)]
+        let n = trafficPath.count
+        for i in 0..<4 {
+            let car = ModelLibrary.vehicle(modelRef: "traffic\(i)", role: "car", color: palette[i % palette.count])
+            root.addChild(car)
+            traffic.append(TrafficCar(node: car, seg: i % n, u: Float(i) * 0.23, speed: 2.0 + Float(i) * 0.4))
+        }
+    }
+
+    private func updateTraffic(dt: Float) {
+        let n = trafficPath.count
+        guard n > 2 else { return }
+        for car in traffic {
+            let a = trafficPath[car.seg], b = trafficPath[(car.seg + 1) % n]
+            let len = max(0.001, length(b - a))
+            car.u += car.speed * dt / len
+            while car.u >= 1 { car.u -= 1; car.seg = (car.seg + 1) % n }
+            let a2 = trafficPath[car.seg], b2 = trafficPath[(car.seg + 1) % n]
+            var dir = b2 - a2
+            dir = dir / max(0.001, length(dir))
+            let right = SIMD3<Float>(dir.z, 0, -dir.x)             // hug the right lane
+            let pos = a2 + (b2 - a2) * car.u + right * 0.7
+            car.node.position = [pos.x, 0, pos.z]
+            car.node.orientation = simd_quatf(angle: -atan2(dir.z, dir.x), axis: [0, 1, 0])
         }
     }
 
@@ -228,7 +278,7 @@ final class NeighborhoodScene {
                 // stop, so the row reads full without flooding the phone with entities.
                 if k % 2 == 1 {
                     for side in [Double(-1), 1] {
-                        let hp = on + perp * (46 * side)
+                        let hp = on + perp * (62 * side)
                         guard !nearPlace(hp, within: 40) else { continue }
                         let toRoad = perp * (-side)
                         house(at: scenePos(hp, y: 0),
@@ -687,6 +737,7 @@ final class NeighborhoodScene {
     /// sweeps, the bus-stop sign and fountain play, clouds drift, and birds settle.
     func updateAmbient(elapsed: Double, dt: Double) {
         let t = Float(elapsed)
+        updateTraffic(dt: Float(dt))
         flag?.orientation = simd_quatf(angle: 0.20 * sin(t * 3.5), axis: [0, 1, 0])
             * simd_quatf(angle: 0.07 * sin(t * 5.0 + 1), axis: [1, 0, 0])
         lighthouseBeam?.orientation = simd_quatf(angle: t * 0.8, axis: [0, 1, 0])

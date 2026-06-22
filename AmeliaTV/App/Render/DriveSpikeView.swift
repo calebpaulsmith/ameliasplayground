@@ -266,6 +266,8 @@ final class SpikeEngine: ObservableObject {
     private var prevSparkleCount = 0                 // star-award edge for sparkle bursts
     private var dustAccum = 0.0                      // throttles rolling-dust puffs
     private var cameraKick = SpringValue(stiffness: 90, damping: 11)  // bounce on big moments
+    private var camClose = 0.0                        // 0 = wide travel view, 1 = close hero (at stops)
+    private var camHeading = 0.0                      // bus heading the camera orbits with (see the face)
     private let juice = JuiceEmitter()               // hand-animated sparkle/heart/dust bursts
     private let sun = DirectionalLight()             // dimmed at night by updateMood
     private let fill = DirectionalLight()            // constant soft fill (never go black)
@@ -449,6 +451,14 @@ final class SpikeEngine: ObservableObject {
         neighborhood?.updateLights(game.lightSnapshot())
         neighborhood?.updateAmbient(elapsed: elapsed, dt: dt)
         updateMood()
+        // Dynamic camera: ease toward a close "hero" framing when nearly stopped
+        // (bus stop, red light, drop-off) and back to the wide travel view when rolling.
+        let stoppedTarget = abs(game.bus.speed) < 1.5 ? 1.0 : 0.0
+        camClose = Easing.smoothed(camClose, toward: stoppedTarget, rate: 2.5, dt: dt)
+        // Ease the camera's orbit toward the bus's heading (shortest way around) so it
+        // stays at her front-quarter — showing the face — no matter which way she turns.
+        let dh = atan2(sin(game.bus.heading - camHeading), cos(game.bus.heading - camHeading))
+        camHeading += dh * min(1, 3 * dt)
         positionCamera()
         publishHUD(game)
     }
@@ -819,12 +829,20 @@ final class SpikeEngine: ObservableObject {
     }
 
     private func positionCamera() {
-        // A behind-and-above chase view: high enough to see the road and the lined
-        // streets ahead, with only a small sideways offset so the near row of houses
-        // sits beside the camera instead of blocking the bus.
+        // Orbit with the bus's heading so the camera sits at her front-quarter and we
+        // see her face whichever way she's driving. Blend a WIDE/high travel view while
+        // rolling into a CLOSE hero view when stopped.
+        let c = Float(camClose)
+        func lerp(_ a: Float, _ b: Float) -> Float { a + (b - a) * c }
+        let theta = Float(camHeading)
+        let fwd = SIMD3<Float>(cos(theta), 0, sin(theta))      // bus front (+x) in world
+        let right = SIMD3<Float>(sin(theta), 0, -cos(theta))   // to her side
         let bp = bus.position
-        camera.position = [bp.x - 6.5, bp.y + 6.5 + Float(cameraKick.value), bp.z + 4]
-        camera.look(at: [bp.x + 1.5, bp.y + 0.35, bp.z], from: camera.position, relativeTo: nil)
+        let ahead = lerp(2.0, 3.0)     // in front of her face
+        let side  = lerp(7.0, 3.0)     // off to the side (wide → close)
+        let up    = lerp(7.0, 2.6) + Float(cameraKick.value)
+        camera.position = bp + fwd * ahead + right * side + SIMD3<Float>(0, up, 0)
+        camera.look(at: bp + SIMD3<Float>(0, lerp(0.6, 0.7), 0), from: camera.position, relativeTo: nil)
     }
 }
 
