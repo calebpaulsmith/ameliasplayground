@@ -87,6 +87,7 @@ jobs:
 
           shoot title 4
           shoot garage 5
+          shoot dialogue 3    # static frame: proves the dialogue portrait bubble renders
           shoot drive 12      # let the bus get out onto the street, past the garage
 
           # Diagnostic: launch the drive once and capture a time sequence so the
