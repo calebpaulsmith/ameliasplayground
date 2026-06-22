@@ -267,6 +267,7 @@ final class SpikeEngine: ObservableObject {
     private var dustAccum = 0.0                      // throttles rolling-dust puffs
     private var cameraKick = SpringValue(stiffness: 90, damping: 11)  // bounce on big moments
     private var camClose = 0.0                        // 0 = wide travel view, 1 = close hero (at stops)
+    private var camHeading = 0.0                      // bus heading the camera orbits with (see the face)
     private let juice = JuiceEmitter()               // hand-animated sparkle/heart/dust bursts
     private let sun = DirectionalLight()             // dimmed at night by updateMood
     private let fill = DirectionalLight()            // constant soft fill (never go black)
@@ -454,6 +455,10 @@ final class SpikeEngine: ObservableObject {
         // (bus stop, red light, drop-off) and back to the wide travel view when rolling.
         let stoppedTarget = abs(game.bus.speed) < 1.5 ? 1.0 : 0.0
         camClose = Easing.smoothed(camClose, toward: stoppedTarget, rate: 2.5, dt: dt)
+        // Ease the camera's orbit toward the bus's heading (shortest way around) so it
+        // stays at her front-quarter — showing the face — no matter which way she turns.
+        let dh = atan2(sin(game.bus.heading - camHeading), cos(game.bus.heading - camHeading))
+        camHeading += dh * min(1, 3 * dt)
         positionCamera()
         publishHUD(game)
     }
@@ -824,17 +829,20 @@ final class SpikeEngine: ObservableObject {
     }
 
     private func positionCamera() {
-        // Front-three-quarter framing (the bus faces +x, so sitting ahead-and-to-the-
-        // side shows Amelia's face). Blend between a WIDE travel view while rolling and
-        // a CLOSE hero view when stopped, so you read the town in motion and get a good
-        // look at her face at the stops.
+        // Orbit with the bus's heading so the camera sits at her front-quarter and we
+        // see her face whichever way she's driving. Blend a WIDE/high travel view while
+        // rolling into a CLOSE hero view when stopped.
         let c = Float(camClose)
         func lerp(_ a: Float, _ b: Float) -> Float { a + (b - a) * c }
+        let theta = Float(camHeading)
+        let fwd = SIMD3<Float>(cos(theta), 0, sin(theta))      // bus front (+x) in world
+        let right = SIMD3<Float>(sin(theta), 0, -cos(theta))   // to her side
         let bp = bus.position
-        camera.position = [bp.x + lerp(3, 4.5),
-                           bp.y + lerp(7, 3.2) + Float(cameraKick.value),
-                           bp.z + lerp(7, 4.5)]
-        camera.look(at: [bp.x, bp.y + lerp(0.5, 0.7), bp.z], from: camera.position, relativeTo: nil)
+        let ahead = lerp(2.0, 3.0)     // in front of her face
+        let side  = lerp(7.0, 3.0)     // off to the side (wide → close)
+        let up    = lerp(7.0, 2.6) + Float(cameraKick.value)
+        camera.position = bp + fwd * ahead + right * side + SIMD3<Float>(0, up, 0)
+        camera.look(at: bp + SIMD3<Float>(0, lerp(0.6, 0.7), 0), from: camera.position, relativeTo: nil)
     }
 }
 

@@ -278,7 +278,7 @@ final class NeighborhoodScene {
                 // stop, so the row reads full without flooding the phone with entities.
                 if k % 2 == 1 {
                     for side in [Double(-1), 1] {
-                        let hp = on + perp * (46 * side)
+                        let hp = on + perp * (62 * side)
                         guard !nearPlace(hp, within: 40) else { continue }
                         let toRoad = perp * (-side)
                         house(at: scenePos(hp, y: 0),
