@@ -266,6 +266,7 @@ final class SpikeEngine: ObservableObject {
     private var prevSparkleCount = 0                 // star-award edge for sparkle bursts
     private var dustAccum = 0.0                      // throttles rolling-dust puffs
     private var cameraKick = SpringValue(stiffness: 90, damping: 11)  // bounce on big moments
+    private var camClose = 0.0                        // 0 = wide travel view, 1 = close hero (at stops)
     private let juice = JuiceEmitter()               // hand-animated sparkle/heart/dust bursts
     private let sun = DirectionalLight()             // dimmed at night by updateMood
     private let fill = DirectionalLight()            // constant soft fill (never go black)
@@ -449,6 +450,10 @@ final class SpikeEngine: ObservableObject {
         neighborhood?.updateLights(game.lightSnapshot())
         neighborhood?.updateAmbient(elapsed: elapsed, dt: dt)
         updateMood()
+        // Dynamic camera: ease toward a close "hero" framing when nearly stopped
+        // (bus stop, red light, drop-off) and back to the wide travel view when rolling.
+        let stoppedTarget = abs(game.bus.speed) < 1.5 ? 1.0 : 0.0
+        camClose = Easing.smoothed(camClose, toward: stoppedTarget, rate: 2.5, dt: dt)
         positionCamera()
         publishHUD(game)
     }
@@ -819,12 +824,17 @@ final class SpikeEngine: ObservableObject {
     }
 
     private func positionCamera() {
-        // A front-three-quarter view: the bus drives toward +x, so sitting slightly
-        // AHEAD of it and off to the side lets us see Amelia's face (on the +x front)
-        // — not just her back — while the road ahead still reads toward the side.
+        // Front-three-quarter framing (the bus faces +x, so sitting ahead-and-to-the-
+        // side shows Amelia's face). Blend between a WIDE travel view while rolling and
+        // a CLOSE hero view when stopped, so you read the town in motion and get a good
+        // look at her face at the stops.
+        let c = Float(camClose)
+        func lerp(_ a: Float, _ b: Float) -> Float { a + (b - a) * c }
         let bp = bus.position
-        camera.position = [bp.x + 3, bp.y + 7 + Float(cameraKick.value), bp.z + 7]
-        camera.look(at: [bp.x, bp.y + 0.5, bp.z], from: camera.position, relativeTo: nil)
+        camera.position = [bp.x + lerp(3, 4.5),
+                           bp.y + lerp(7, 3.2) + Float(cameraKick.value),
+                           bp.z + lerp(7, 4.5)]
+        camera.look(at: [bp.x, bp.y + lerp(0.5, 0.7), bp.z], from: camera.position, relativeTo: nil)
     }
 }
 
