@@ -713,7 +713,7 @@ final class TownScene: SKScene, EpisodeWorld {
             return
         }
 
-        // Demo attract-drive: follow the loop, easing off into corners.
+        // Follow the perimeter loop, easing off into corners.
         let target = busLoop[busTarget % busLoop.count]
         let dist = bus.position.distance(to: target)
         if dist < 70 { busTarget = (busTarget + 1) % busLoop.count }
@@ -721,14 +721,17 @@ final class TownScene: SKScene, EpisodeWorld {
         if shouldStop(bus.position) { throttle = -1.0 }
         if quickStop.state == .running { throttle = -0.5 }   // demo brakes (gently) for the ball
         if challengeDone, elapsed < challengeResumeAt { throttle = -1.0 }   // dwell at the stop
-        // Stop at the active episode goal (bus stop / school) so pickups + drop-offs
-        // land; ease in as it nears so it always comes to a clean halt in the zone.
+        // Home in on the active episode goal: once near, steer straight at it and
+        // ease to a clean stop ON it (inside the arrival radius) so the pickup /
+        // drop-off lands. While far, keep following the road loop toward it.
+        var steerTo = target
         if let goal = episodeTarget {
             let d = bus.position.distance(to: goal.position)
-            if d < 70 { throttle = -1.0 }
-            else if d < 220 { throttle = min(throttle, 0.45) }
+            if d < 300 { steerTo = goal.position }
+            if d < 45 { throttle = -1.0 }
+            else if d < 220 { throttle = min(throttle, 0.4) }
         }
-        applyMove(&bus, throttle: throttle, steer: bus.steer(toward: target), dt: dt)
+        applyMove(&bus, throttle: throttle, steer: bus.steer(toward: steerTo), dt: dt)
     }
 
     private func driveCar(dt: Double) {
