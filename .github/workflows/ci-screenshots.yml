@@ -100,7 +100,7 @@ jobs:
           # drive to the school, drop off + reward. Stills are reliable even when the
           # video codec tops out early on the simulator.
           prev=0
-          for t in 1 4 8 12 16 20 24 28 32; do
+          for t in 1 4 8 12 16 20 24 28 32 36; do
             sleep $((t - prev)); prev=$t
             xcrun simctl io "$DEVICE_ID" screenshot "../media/tvos_$(printf %02d $t)s.png" || true
           done
