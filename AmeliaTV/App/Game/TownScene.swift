@@ -11,7 +11,7 @@ import GameController
 /// and one procedural car shares the road. The *logic* (RoadNetwork, kinematics)
 /// lives in the pure, unit-tested Core; this scene only renders it and feeds it
 /// input (or a demo attract-drive so CI captures motion).
-final class TownScene: SKScene {
+final class TownScene: SKScene, EpisodeWorld {
 
     // World→screen: 1 world unit = `scale` points. The camera follows the bus,
     // so the town is bigger than the screen (you see a moving window of it).
@@ -61,7 +61,9 @@ final class TownScene: SKScene {
     private var elapsed: TimeInterval = 0
     private let wideZoom: CGFloat = 2.6
     private let closeZoom: CGFloat = 0.9
-    private let establishHold: TimeInterval = 6.0
+    // A brief wide shot of the town, then ease in to follow the bus as the ride
+    // begins. Kept short so the whole first ride fits a CI capture window.
+    private let establishHold: TimeInterval = 3.0
     private let establishEase: TimeInterval = 2.0
 
     // Pedestrians + "honk → the world reacts" (M2).
@@ -84,6 +86,27 @@ final class TownScene: SKScene {
     var controls: DriveControls?
     private let cruiseSpeed = 120.0
     private var honkButtonWasDown = false
+
+    // MARK: - Adventure (M3): the "first ride" episode runs on the road network.
+    // The bus drives to the bus stop, picks up Pip, takes her to the school, and
+    // earns a reward — drive → stop → pick up → drop off → reward — sequenced by
+    // the pure, unit-tested `EpisodeRunner` (this scene is its `EpisodeWorld`).
+    var hud: AdventureHUD?
+    private var localizer = Localizer(table: [:])
+    private var dialogue: DialogueDirector!
+    private let speaker = SpeechSpeaker()
+    private var runner: EpisodeRunner?
+    private let townMap = TownMap.demo
+    private var language: Language = .en
+    private var episodeStarted = false
+    private var hasGoal = false                    // true once the ride gives a first target
+    private var episodeTarget: EpisodeTarget?      // current drive goal (braking + beacon)
+    private var awardedStars = 0
+    private var subtitleClearAt: TimeInterval = -1
+    private var pipNode = SKNode()                 // Pip waiting at the stop
+    private let schoolPlace = Vec2(300, 400)       // drop-off, on the bottom road
+    private let schoolDoor = Vec2(300, 280)        // building (300,200) is the school
+    private let beaconNode = SKShapeNode()         // floating arrow to the goal
 
     // A traffic light on the right road the bus (and car) stop at on red.
     private var light = TrafficLight(id: "main", position: Vec2(600, 0), phase: 0,
@@ -115,6 +138,10 @@ final class TownScene: SKScene {
         buildTrafficLight()
         buildPerspectiveBuilding()
         buildChallenge()
+        loadContent()
+        buildSchoolSign()
+        buildPassenger()
+        buildBeacon()
 
         busNode = makeBus()
         busNode.zPosition = 10
@@ -604,6 +631,7 @@ final class TownScene: SKScene {
         elapsed += dt
         light.update(dt: dt)
         updateChallenge(dt: dt)
+        updateAdventure(dt: dt)
         driveBus(dt: dt)
         driveCar(dt: dt)
         updatePeds(dt: dt)
@@ -617,6 +645,7 @@ final class TownScene: SKScene {
         syncNodes()
         updateCamera()
         updatePerspectiveBuilding()
+        updateBeacon()
     }
 
     /// Hold the wide establishing shot, then smoothly ease in to follow the bus.
@@ -666,6 +695,14 @@ final class TownScene: SKScene {
             return
         }
 
+        // Idle until the ride hands the bus a goal: through the wide establishing
+        // shot and the opening "follow the arrow" line, so the bus doesn't drive
+        // off and overshoot its first stop. It sets off the moment a target is set.
+        if !hasGoal {
+            applyMove(&bus, throttle: 0, steer: 0, dt: dt)
+            return
+        }
+
         // Demo attract-drive: follow the loop, easing off into corners.
         let target = busLoop[busTarget % busLoop.count]
         let dist = bus.position.distance(to: target)
@@ -674,6 +711,13 @@ final class TownScene: SKScene {
         if shouldStop(bus.position) { throttle = -1.0 }
         if quickStop.state == .running { throttle = -0.5 }   // demo brakes (gently) for the ball
         if challengeDone, elapsed < challengeResumeAt { throttle = -1.0 }   // dwell at the stop
+        // Stop at the active episode goal (bus stop / school) so pickups + drop-offs
+        // land; ease in as it nears so it always comes to a clean halt in the zone.
+        if let goal = episodeTarget {
+            let d = bus.position.distance(to: goal.position)
+            if d < 70 { throttle = -1.0 }
+            else if d < 220 { throttle = min(throttle, 0.45) }
+        }
         applyMove(&bus, throttle: throttle, steer: bus.steer(toward: target), dt: dt)
     }
 
@@ -952,4 +996,220 @@ final class TownScene: SKScene {
             .removeFromParent(),
         ]))
     }
+
+    // MARK: - Adventure: load content, run the episode, render the story
+
+    /// Load the bilingual strings from the bundle so the voice + HUD speak real
+    /// lines. Falls back to ids (never crashes) if the Content folder is missing.
+    private func loadContent() {
+        let save = SaveStore().load()
+        language = save.language
+        if let dir = Bundle.main.resourceURL?.appendingPathComponent("Content"),
+           let content = try? ContentLoader.load(from: dir) {
+            localizer = content.localizer
+        }
+        dialogue = DialogueDirector(localizer: localizer, language: language, speaker: speaker)
+    }
+
+    /// Pip waits at the bus-stop shelter, doing a gentle idle bob until boarding.
+    private func buildPassenger() {
+        pipNode = makeKidNode(shirt: SKColor(red: 1.0, green: 0.54, blue: 0.24, alpha: 1))
+        pipNode.position = pt(Vec2(-160, -335))   // on the curb by the stop shelter
+        pipNode.zPosition = 9
+        pipNode.run(.repeatForever(.sequence([
+            .moveBy(x: 0, y: 8, duration: 0.5), .moveBy(x: 0, y: -8, duration: 0.5),
+        ])))
+        worldNode.addChild(pipNode)
+    }
+
+    /// A small child sprite (shadow + coloured body + head), reused for Pip.
+    private func makeKidNode(shirt: SKColor) -> SKNode {
+        let node = SKNode()
+        let shadow = SKShapeNode(circleOfRadius: 11)
+        shadow.fillColor = SKColor(white: 0, alpha: 0.14); shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 3, y: -4); node.addChild(shadow)
+        let body = SKShapeNode(circleOfRadius: 11)
+        body.fillColor = shirt; body.strokeColor = SKColor(white: 0, alpha: 0.2); body.lineWidth = 1
+        node.addChild(body)
+        let head = SKShapeNode(circleOfRadius: 6)
+        head.fillColor = SKColor(red: 0.95, green: 0.80, blue: 0.66, alpha: 1); head.strokeColor = .clear
+        head.position = CGPoint(x: 0, y: 4); node.addChild(head)
+        return node
+    }
+
+    /// Mark the bottom-right building as the school: a flagpole with a pennant and
+    /// a little yellow nameplate, so the drop-off has a clear destination.
+    private func buildSchoolSign() {
+        let node = SKNode(); node.position = pt(Vec2(300, 200)); node.zPosition = 6
+        let plate = SKShapeNode(rectOf: CGSize(width: 96, height: 30), cornerRadius: 6)
+        plate.fillColor = SKColor(red: 1.0, green: 0.82, blue: 0.25, alpha: 1)
+        plate.strokeColor = SKColor(white: 0, alpha: 0.25); plate.lineWidth = 2
+        plate.position = CGPoint(x: 0, y: -10); node.addChild(plate)
+        for dx in [-26.0, 0.0, 26.0] {     // three "books"/blocks to read as a school
+            let book = SKShapeNode(rectOf: CGSize(width: 14, height: 14), cornerRadius: 2)
+            book.fillColor = SKColor(red: 0.85, green: 0.30, blue: 0.30, alpha: 1); book.strokeColor = .clear
+            book.position = CGPoint(x: CGFloat(dx), y: -10); node.addChild(book)
+        }
+        let pole = SKShapeNode(rectOf: CGSize(width: 5, height: 60), cornerRadius: 2)
+        pole.fillColor = SKColor(white: 0.6, alpha: 1); pole.strokeColor = .clear
+        pole.position = CGPoint(x: -56, y: 24); node.addChild(pole)
+        let flag = SKShapeNode(rectOf: CGSize(width: 34, height: 20), cornerRadius: 3)
+        flag.fillColor = SKColor(red: 0.90, green: 0.32, blue: 0.42, alpha: 1); flag.strokeColor = .clear
+        flag.position = CGPoint(x: -38, y: 44); node.addChild(flag)
+        worldNode.addChild(node)
+    }
+
+    /// A floating chevron that hovers above the bus and points at the current
+    /// goal — the HUD beacon, in-world so it reads at a glance while driving.
+    private func buildBeacon() {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: 16, y: 0))
+        path.addLine(to: CGPoint(x: -12, y: 12))
+        path.addLine(to: CGPoint(x: -4, y: 0))
+        path.addLine(to: CGPoint(x: -12, y: -12))
+        path.closeSubpath()
+        beaconNode.path = path
+        beaconNode.fillColor = SKColor(red: 0.18, green: 0.65, blue: 0.62, alpha: 1)
+        beaconNode.strokeColor = .white; beaconNode.lineWidth = 2
+        beaconNode.zPosition = 22
+        beaconNode.isHidden = true
+        worldNode.addChild(beaconNode)
+    }
+
+    private func updateBeacon() {
+        guard let goal = episodeTarget else { beaconNode.isHidden = true; return }
+        beaconNode.isHidden = false
+        let from = busNode.position
+        let to = pt(goal.position)
+        let ang = atan2(to.y - from.y, to.x - from.x)
+        beaconNode.position = CGPoint(x: from.x, y: from.y + 96)
+        beaconNode.zRotation = ang
+    }
+
+    /// Start the ride the moment the camera eases in from the establishing shot.
+    private func updateAdventure(dt: Double) {
+        guard episodeStarted else {
+            if elapsed >= establishHold { startAdventure() }
+            return
+        }
+        runner?.update(dt: dt)
+        if subtitleClearAt > 0, elapsed >= subtitleClearAt {
+            hud?.subtitle = ""; hud?.speakerName = ""
+            subtitleClearAt = -1
+        }
+    }
+
+    private func startAdventure() {
+        episodeStarted = true
+        awardedStars = 0
+        hud?.stars = 0
+        let r = EpisodeRunner(episode: .townFirstRide, world: self) { [weak self] event in
+            self?.handleEpisode(event)
+        }
+        r.arrivalRadius = 55       // generous: the bus eases to a clean stop in the zone
+        runner = r
+        r.start()
+    }
+
+    private func handleEpisode(_ event: EpisodeEvent) {
+        switch event {
+        case let .speak(lineId, vars):
+            let text = dialogue.play(lineId, vars: vars)
+            hud?.subtitle = text
+            hud?.speakerName = speakerName(forLine: lineId)
+            hud?.speakerColorHex = lineId.hasPrefix("pip") ? "#ff8a3d" : "#2ea59e"
+            subtitleClearAt = elapsed + 4.5
+        case let .setTarget(target):
+            episodeTarget = target
+            if target != nil { hasGoal = true }   // the bus may now drive
+            updateObjective(for: target)
+        case .board:
+            boardPassenger()
+        case let .drop(_, placeId):
+            dropPassenger(at: placeId)
+        case let .reward(stars, stickerId):
+            award(stars: stars)
+            sparkleBurst(at: busNode.position)
+            showScore(stars, at: busNode.position)
+            persistReward(stars: stars, sticker: stickerId)
+        case .starSparkle:
+            award(stars: 1)
+            sparkleBurst(at: busNode.position)
+        case .completed:
+            hud?.objective = localizer.string("hud.allDone", language)
+            episodeTarget = nil
+        default:
+            break   // awaitChoice / awaitFind are unused in this ride
+        }
+    }
+
+    private func updateObjective(for target: EpisodeTarget?) {
+        guard let target = target else { return }
+        switch target.id {
+        case "stopA": hud?.objective = localizer.string("hud.pickUpPip", language)
+        case "school": hud?.objective = localizer.string("hud.takeToSchool", language)
+        default: break
+        }
+    }
+
+    private func speakerName(forLine lineId: String) -> String {
+        let prefix = lineId.split(separator: ".").first.map(String.init) ?? ""
+        if prefix == "pip" { return localizer.string("passenger.pip", language) }
+        return localizer.string("mom.name", language)
+    }
+
+    private func award(stars: Int) {
+        awardedStars += max(0, stars)
+        hud?.stars = awardedStars
+    }
+
+    /// Pip runs to the bus and hops aboard (fade + shrink), with a friendly toot.
+    private func boardPassenger() {
+        pipNode.removeAllActions()
+        pipNode.run(.sequence([
+            .group([.move(to: busNode.position, duration: 0.45),
+                    .scale(to: 0.2, duration: 0.45),
+                    .fadeOut(withDuration: 0.45)]),
+            .removeFromParent(),
+        ]))
+        busNode.run(.sequence([.scale(to: 1.06, duration: 0.1), .scale(to: 1.0, duration: 0.14)]))
+        spawnHeart(at: busNode.position)
+    }
+
+    /// Pip hops off the bus and skips up to the school door.
+    private func dropPassenger(at placeId: String) {
+        let pip = makeKidNode(shirt: SKColor(red: 1.0, green: 0.54, blue: 0.24, alpha: 1))
+        pip.position = busNode.position
+        pip.zPosition = 9
+        pip.setScale(0.2)
+        worldNode.addChild(pip)
+        let door = pt(schoolDoor)
+        pip.run(.sequence([
+            .scale(to: 1.0, duration: 0.25),
+            .move(to: door, duration: 1.3),
+            .fadeOut(withDuration: 0.4),
+            .removeFromParent(),
+        ]))
+        spawnHeart(at: busNode.position)
+    }
+
+    private func persistReward(stars: Int, sticker: String?) {
+        let store = SaveStore()
+        var save = store.load()
+        save.award(stars: stars)
+        if let id = sticker { save.grant(sticker: id) }
+        save.markComplete(episode: "town-first-ride")
+        store.save(save)
+    }
+
+    // MARK: - EpisodeWorld (the scene is the world the runner observes)
+
+    var busPosition: Vec2 { bus.position }
+    var busSpeed: Double { bus.speed }
+    func position(ofPlace placeId: String) -> Vec2? {
+        placeId == "school" ? schoolPlace : townMap.position(ofPlace: placeId)
+    }
+    func position(ofLight lightId: String) -> Vec2? { light.position }
+    func lightState(_ lightId: String) -> TrafficLight.State { light.state }
+    func consumeDiscreteTurn() -> InputIntents.DiscreteTurn { .none }
 }

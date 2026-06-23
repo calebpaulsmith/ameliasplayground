@@ -55,6 +55,12 @@
   "m.market": "Look at the busy market!",
   "m.beach": "And look — the sparkly sea!",
 
+  "m.allAboard": "All aboard, Pip! Next stop — the school.",
+  "m.dropSchool": "Here's the school! Have a great day, Pip!",
+  "hud.pickUpPip": "Pick up Pip at the bus stop",
+  "hud.takeToSchool": "Take Pip to the school",
+  "hud.allDone": "You did it! Great driving!",
+
   "nav.tryOtherWay": "Let's try this way!",
   "find.tryAgain": "So close! Steer to another one and beep!",
   "find.spotRedBalloon": "Beep your horn at the RED balloon!",

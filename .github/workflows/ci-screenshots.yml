@@ -95,8 +95,11 @@ jobs:
           xcrun simctl io "$DEVICE_ID" recordVideo --codec=h264 --force ../media/tvos-gameplay.mp4 &
           REC_PID=$!
           # Also grab periodic stills as a fallback in case the codec misbehaves.
+          # The window runs long enough to catch the whole first ride: pick up Pip
+          # at the stop, drive to the school, drop off + reward. Stills are reliable
+          # even when the video codec tops out early on the simulator.
           prev=0
-          for t in 2 6 10 14 18 22; do
+          for t in 2 6 10 14 18 22 26 30; do
             sleep $((t - prev)); prev=$t
             xcrun simctl io "$DEVICE_ID" screenshot "../media/tvos_$(printf %02d $t)s.png" || true
           done
@@ -189,7 +192,7 @@ jobs:
 
           mkdir -p ../screenshots
           prev=0
-          for t in 3 7 11 15 19; do
+          for t in 4 9 14 19 24 29; do
             sleep $((t - prev)); prev=$t
             out="../screenshots/seq_$(printf %02d $t)s.png"
             xcrun simctl io "$DEVICE_ID" screenshot "$out"

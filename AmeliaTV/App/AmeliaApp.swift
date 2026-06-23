@@ -16,6 +16,7 @@ struct AmeliaApp: App {
 
 struct GameView: View {
     @State private var controls = DriveControls()
+    @StateObject private var hud = AdventureHUD()
     // Created once per view identity; a fixed 16:9 canvas scaled to fit.
     @State private var scene = TownScene(size: CGSize(width: 1920, height: 1080))
 
@@ -23,13 +24,20 @@ struct GameView: View {
         ZStack {
             SpriteView(scene: scene)
                 .ignoresSafeArea()
+            // The Adventure HUD (objective, stars, subtitle) sits over the scene
+            // on every platform, so both the tvOS capture and the iPhone build
+            // show the story state. Non-interactive — never steals focus/touches.
+            AdventureHUDView(hud: hud)
             #if os(iOS)
             // Touch controls only on iPhone/iPad. tvOS drives via the Siri Remote
             // / a game controller, so its screen stays clean.
             TouchControlsView(controls: controls)
             #endif
         }
-        .onAppear { scene.controls = controls }
+        .onAppear {
+            scene.controls = controls
+            scene.hud = hud
+        }
     }
 }
 
