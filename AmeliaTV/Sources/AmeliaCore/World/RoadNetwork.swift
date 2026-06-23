@@ -49,6 +49,26 @@ public struct RoadNetwork: Codable, Sendable, Equatable {
         }
         return false
     }
+
+    /// The junction points where road segments meet — every position shared by the
+    /// endpoints of two or more distinct segments. The renderer paints an asphalt
+    /// pad here so crossings read as real intersections. Order is deterministic.
+    public func intersections(tolerance: Double = 1.0) -> [Vec2] {
+        var endpoints: [Vec2] = []
+        for s in segments { endpoints.append(s.a); endpoints.append(s.b) }
+        var result: [Vec2] = []
+        for (i, p) in endpoints.enumerated() {
+            // count other endpoints that coincide with p
+            let shared = endpoints.enumerated().contains { (j, q) in
+                j != i && q.distance(to: p) <= tolerance
+            }
+            guard shared else { continue }
+            if !result.contains(where: { $0.distance(to: p) <= tolerance }) {
+                result.append(p)
+            }
+        }
+        return result
+    }
 }
 
 public extension RoadNetwork {

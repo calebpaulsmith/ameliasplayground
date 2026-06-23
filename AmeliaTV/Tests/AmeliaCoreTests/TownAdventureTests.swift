@@ -75,4 +75,15 @@ final class TownAdventureTests: XCTestCase {
             XCTAssertTrue(net.isOnRoad(pos), "town place \"\(id)\" is not on a road")
         }
     }
+
+    func testWellesNetworkHasFourCornerIntersections() {
+        // The renderer paints an asphalt pad at each junction; the perimeter loop
+        // has exactly its four corners. Guards the crosswalk/intersection layout.
+        let corners = RoadNetwork.welles.intersections()
+        XCTAssertEqual(corners.count, 4, "the Welles loop has four corners")
+        let expected = [Vec2(-800, -700), Vec2(550, -700), Vec2(820, 700), Vec2(-800, 700)]
+        for c in expected {
+            XCTAssertTrue(corners.contains { $0.distance(to: c) < 1 }, "missing junction at \(c)")
+        }
+    }
 }
