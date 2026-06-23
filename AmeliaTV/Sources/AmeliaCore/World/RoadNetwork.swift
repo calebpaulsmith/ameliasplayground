@@ -76,4 +76,26 @@ public extension RoadNetwork {
     static var demoLoop: [Vec2] {
         [Vec2(-600, -400), Vec2(600, -400), Vec2(600, 400), Vec2(-600, 400)]
     }
+
+    /// The Welles Park neighborhood (Lincoln Square): a big park bounded by
+    /// **Western Ave** (straight, west), **Montrose Ave** (north), the **Lincoln
+    /// Ave** diagonal (north-east → south-west, east), and **Sunnyside Ave**
+    /// (south). The park sits inside; church/library/apartments sit outside.
+    static var welles: RoadNetwork {
+        func seg(_ ax: Double, _ az: Double, _ bx: Double, _ bz: Double) -> RoadSegment {
+            RoadSegment(a: Vec2(ax, az), b: Vec2(bx, bz), width: 110)
+        }
+        return RoadNetwork(segments: [
+            seg(-800, -700, -800, 700),   // Western (west, N–S)
+            seg(-800, -700, 550, -700),   // Montrose (north)
+            seg(550, -700, 820, 700),     // Lincoln (diagonal NE→SW, east)
+            seg(-800, 700, 820, 700),     // Sunnyside (south)
+        ])
+    }
+
+    /// Clockwise tour of the Welles perimeter (NW → NE → SE → SW), including the
+    /// Lincoln diagonal — the demo attract route on the new map.
+    static var wellesLoop: [Vec2] {
+        [Vec2(-800, -700), Vec2(550, -700), Vec2(820, 700), Vec2(-800, 700)]
+    }
 }

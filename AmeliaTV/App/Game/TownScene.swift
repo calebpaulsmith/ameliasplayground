@@ -17,22 +17,28 @@ final class TownScene: SKScene, EpisodeWorld {
     // so the town is bigger than the screen (you see a moving window of it).
     private let scale: CGFloat = 2.0
 
-    private let net = RoadNetwork.demoTown
+    private let net = RoadNetwork.welles
     private let cam = SKCameraNode()
     private let worldNode = SKNode()
 
+    // Surrounding buildings (outside the park roads): apartments on Western (west),
+    // restaurants/shops on Sunnyside (south). Church + library + school get their
+    // own builders below.
     private struct Building { var center: Vec2; var size: CGSize; var height: CGFloat }
     private let buildings: [Building] = [
-        Building(center: Vec2(-300, -200), size: CGSize(width: 200, height: 180), height: 90),
-        Building(center: Vec2(-300, 200), size: CGSize(width: 160, height: 190), height: 110),
-        Building(center: Vec2(300, 200), size: CGSize(width: 210, height: 160), height: 80),
+        Building(center: Vec2(-1010, -320), size: CGSize(width: 220, height: 300), height: 150),  // apartments W
+        Building(center: Vec2(-1010, 160), size: CGSize(width: 220, height: 280), height: 120),   // apartments W
+        Building(center: Vec2(160, 920), size: CGSize(width: 240, height: 190), height: 90),       // restaurant S
+        Building(center: Vec2(560, 940), size: CGSize(width: 220, height: 180), height: 80),       // shop S
+        Building(center: Vec2(-200, 920), size: CGSize(width: 280, height: 210), height: 100),     // the school (S, off Sunnyside)
     ]
 
     // A landmark building whose faked height re-projects from the camera each
     // frame, so it appears to change perspective (GTA-style) as the bus drives
     // around it. The logic underneath is still a flat top-down footprint.
-    private let perspCenter = Vec2(300, -200)
-    private let perspSize = CGSize(width: 200, height: 170)
+    // The library, across Lincoln Ave on the east.
+    private let perspCenter = Vec2(1020, 300)
+    private let perspSize = CGSize(width: 230, height: 200)
     private let perspLean: CGFloat = 70
     private let perspNode = SKNode()
     private let perspWall = SKShapeNode()
@@ -40,18 +46,18 @@ final class TownScene: SKScene, EpisodeWorld {
 
     // The bus drives the loop clockwise; the car drives it the other way, so the
     // two pass on opposite sides (real two-way traffic) instead of tailgating.
-    private let busLoop = RoadNetwork.demoLoop
-    private let carLoop = Array(RoadNetwork.demoLoop.reversed())
+    private let busLoop = RoadNetwork.wellesLoop
+    private let carLoop = Array(RoadNetwork.wellesLoop.reversed())
 
-    private var bus = BusKinematics(position: Vec2(-300, -400), heading: 0,
+    private var bus = BusKinematics(position: Vec2(-300, -700), heading: 0,
                                     maxSpeed: 170, turnRate: 2.8)
     private var busNode = SKNode()
-    private var busTarget = 1   // first head toward (600,-400), the +x corner
+    private var busTarget = 1   // first head along Montrose toward the NE corner
 
-    private var car = BusKinematics(position: Vec2(600, 400), heading: -.pi / 2,
+    private var car = BusKinematics(position: Vec2(200, 700), heading: 0,
                                     maxSpeed: 150, turnRate: 2.8)
     private var carNode = SKNode()
-    private var carTarget = 2   // carLoop[2] = (600,-400): head up the right side
+    private var carTarget = 1   // carLoop[1] = (820,700): head east along Sunnyside
 
     private var lastUpdate: TimeInterval = 0
     private var inputActive = false
@@ -59,8 +65,8 @@ final class TownScene: SKScene, EpisodeWorld {
     // Camera opens on a wide establishing shot of the whole town (so a CI capture
     // can verify scenery anywhere on the map), then eases in to follow the bus.
     private var elapsed: TimeInterval = 0
-    private let wideZoom: CGFloat = 2.6
-    private let closeZoom: CGFloat = 0.9
+    private let wideZoom: CGFloat = 3.0    // bigger Welles map needs a wider establishing shot
+    private let closeZoom: CGFloat = 1.0
     // A brief wide shot of the town, then ease in to follow the bus as the ride
     // begins. Kept short so the whole first ride fits a CI capture window.
     private let establishHold: TimeInterval = 3.0
@@ -104,12 +110,12 @@ final class TownScene: SKScene, EpisodeWorld {
     private var awardedStars = 0
     private var subtitleClearAt: TimeInterval = -1
     private var pipNode = SKNode()                 // Pip waiting at the stop
-    private let schoolPlace = Vec2(300, 400)       // drop-off, on the bottom road
-    private let schoolDoor = Vec2(300, 280)        // building (300,200) is the school
+    private let schoolPlace = Vec2(-200, 700)      // drop-off, on Sunnyside (south)
+    private let schoolDoor = Vec2(-200, 830)       // the school building sits south of the road
     private let beaconNode = SKShapeNode()         // floating arrow to the goal
 
-    // A traffic light on the right road the bus (and car) stop at on red.
-    private var light = TrafficLight(id: "main", position: Vec2(600, 0), phase: 0,
+    // A traffic light on Sunnyside (south road) the bus (and car) stop at on red.
+    private var light = TrafficLight(id: "main", position: Vec2(300, 700), phase: 0,
                                      green: 3, yellow: 1.5, red: 6)
     private var lampRed: SKShapeNode!
     private var lampYellow: SKShapeNode!
@@ -118,7 +124,7 @@ final class TownScene: SKScene, EpisodeWorld {
     // "Quick Stop!" challenge (CH-01): a ball crosses the right road; brake in time.
     private var quickStop = QuickStopChallenge()
     private var challengeDone = false
-    private let challengePoint = Vec2(600, -150)
+    private let challengePoint = Vec2(100, -700)   // on Montrose (north road)
     private let ballNode = SKShapeNode(circleOfRadius: 13)
     private let meterBG = SKShapeNode()
     private let meterFill = SKShapeNode()
@@ -153,7 +159,7 @@ final class TownScene: SKScene, EpisodeWorld {
 
         addChild(cam)
         camera = cam
-        cam.position = pt(Vec2(0, 0))   // start on the wide establishing shot
+        cam.position = pt(Vec2(10, 0))   // start on the wide establishing shot
         cam.setScale(wideZoom)
         syncNodes()
     }
@@ -340,9 +346,11 @@ final class TownScene: SKScene, EpisodeWorld {
     /// camera shows at the edges, plus a few inside the blocks for life.
     private func buildTrees() {
         let spots: [Vec2] = [
-            Vec2(-300, -560), Vec2(300, -560), Vec2(-300, 560), Vec2(300, 560),
-            Vec2(-760, -150), Vec2(-760, 150), Vec2(760, -150), Vec2(760, 150),
-            Vec2(-770, -560), Vec2(770, 560), Vec2(150, -290), Vec2(-150, 290),
+            Vec2(-400, -830), Vec2(250, -830),          // N, beyond Montrose
+            Vec2(-960, -350), Vec2(-960, 300),          // W, beyond Western
+            Vec2(1010, -150), Vec2(1090, 480),          // E, beyond Lincoln
+            Vec2(-520, 880), Vec2(420, 880),            // S, beyond Sunnyside
+            Vec2(210, 240), Vec2(300, 330), Vec2(170, 380), Vec2(290, 200),  // adventure grove (inside)
         ]
         for s in spots { worldNode.addChild(tree(at: s)) }
     }
@@ -361,10 +369,10 @@ final class TownScene: SKScene, EpisodeWorld {
     /// about. All off the roads so nothing blocks driving.
     private func buildScenery() {
         buildPark()
-        addBusStop(at: Vec2(-160, -330))
+        addBusStop(at: Vec2(-200, -600))   // on the Montrose curb, inside the park
         let flowers: [Vec2] = [
-            Vec2(-500, -120), Vec2(500, 120), Vec2(120, -300), Vec2(-120, 300),
-            Vec2(480, -300), Vec2(-690, 320), Vec2(690, -320),
+            Vec2(-500, -400), Vec2(-300, 250), Vec2(120, -300), Vec2(-150, 450),
+            Vec2(380, -350), Vec2(-650, 0), Vec2(60, 520),
         ]
         for f in flowers { addFlowers(at: f) }
     }
@@ -372,13 +380,13 @@ final class TownScene: SKScene, EpisodeWorld {
     /// A real city park below the loop: a soccer field with kids, a pond with a
     /// fountain statue + pigeons, benches, and shade trees.
     private func buildPark() {
-        addSoccerField(center: Vec2(-330, 600), size: CGSize(width: 360, height: 210))
-        addPond(at: Vec2(330, 600), size: CGSize(width: 250, height: 150))
-        addStatue(at: Vec2(330, 600))                       // fountain statue in the pond
-        addBench(at: Vec2(150, 600)); addBench(at: Vec2(520, 600))
-        for p in [Vec2(120, 510), Vec2(540, 510), Vec2(-560, 710), Vec2(560, 710)] { addShadeTree(at: p) }
-        for p in [Vec2(180, 650), Vec2(230, 560), Vec2(470, 660), Vec2(420, 560), Vec2(300, 700)] { addPigeon(at: p) }
-        for p in [Vec2(-430, 560), Vec2(-250, 650), Vec2(-330, 540)] { addKid(at: p) }
+        addSoccerField(center: Vec2(-430, -250), size: CGSize(width: 420, height: 260))   // ball field (NW)
+        addPond(at: Vec2(250, -150), size: CGSize(width: 240, height: 150))
+        addStatue(at: Vec2(250, -150))                       // fountain statue in the pond
+        addBench(at: Vec2(60, -150)); addBench(at: Vec2(440, -150))
+        for p in [Vec2(-120, 150), Vec2(440, 150), Vec2(-650, -560), Vec2(-650, 560)] { addShadeTree(at: p) }
+        for p in [Vec2(150, -90), Vec2(330, -80), Vec2(200, -210), Vec2(300, -210)] { addPigeon(at: p) }
+        for p in [Vec2(220, 300), Vec2(300, 360), Vec2(170, 360)] { addKid(at: p) }   // adventure grove
     }
 
     private func addStatue(at v: Vec2) {
@@ -519,9 +527,11 @@ final class TownScene: SKScene, EpisodeWorld {
         // Onlookers ringing the loop + clustered at the park and bus stop, so the
         // bus is always near a few and honk reactions land on camera.
         let homes: [Vec2] = [
-            Vec2(-300, -340), Vec2(300, -340), Vec2(-300, 340), Vec2(300, 340),
-            Vec2(-540, -150), Vec2(-540, 150), Vec2(540, -150), Vec2(540, 150),
-            Vec2(80, 560), Vec2(-80, 560), Vec2(-160, -300),
+            Vec2(-400, -600), Vec2(300, -600),       // along Montrose (inside)
+            Vec2(-400, 600), Vec2(300, 600),         // along Sunnyside (inside)
+            Vec2(-690, -300), Vec2(-690, 300),       // along Western (inside)
+            Vec2(450, -400), Vec2(560, 300),         // toward Lincoln (inside)
+            Vec2(120, 60), Vec2(-260, 80), Vec2(-200, -600),
         ]
         for (i, h) in homes.enumerated() {
             let ped = Ped(home: h, reactorIndex: i)
@@ -650,7 +660,7 @@ final class TownScene: SKScene, EpisodeWorld {
 
     /// Hold the wide establishing shot, then smoothly ease in to follow the bus.
     private func updateCamera() {
-        let center = pt(Vec2(0, 0))
+        let center = pt(Vec2(10, 0))
         if elapsed < establishHold {
             cam.position = center
             cam.setScale(wideZoom)
@@ -883,8 +893,8 @@ final class TownScene: SKScene, EpisodeWorld {
     // MARK: - "Quick Stop!" challenge (CH-01)
 
     private func buildChallenge() {
-        // a kid at the west curb of the right road, about to chase the ball
-        let kid = SKNode(); kid.position = pt(Vec2(515, -150)); kid.zPosition = 8
+        // a kid at the north curb of Montrose, about to chase the ball
+        let kid = SKNode(); kid.position = pt(Vec2(40, -805)); kid.zPosition = 8
         let sh = SKShapeNode(circleOfRadius: 10)
         sh.fillColor = SKColor(white: 0, alpha: 0.14); sh.strokeColor = .clear
         sh.position = CGPoint(x: 3, y: -4); kid.addChild(sh)
@@ -898,7 +908,7 @@ final class TownScene: SKScene, EpisodeWorld {
 
         // the ball, resting by the curb until the challenge arms
         ballNode.fillColor = .white; ballNode.strokeColor = SKColor(white: 0, alpha: 0.4); ballNode.lineWidth = 2
-        ballNode.position = pt(Vec2(548, -150)); ballNode.zPosition = 9
+        ballNode.position = pt(Vec2(100, -800)); ballNode.zPosition = 9
         for a in stride(from: 0.0, to: Double.pi * 2, by: Double.pi / 2.5) {
             let spot = SKShapeNode(circleOfRadius: 3)
             spot.fillColor = SKColor(white: 0.1, alpha: 0.8); spot.strokeColor = .clear
@@ -919,7 +929,7 @@ final class TownScene: SKScene, EpisodeWorld {
     private func updateChallenge(dt: Double) {
         if quickStop.state == .idle, !challengeDone {
             let b = bus.position
-            if abs(b.x - challengePoint.x) < 120, b.z > -320, b.z < challengePoint.z {
+            if abs(b.z - challengePoint.z) < 130, b.x > -250, b.x < challengePoint.x {
                 quickStop.arm()
                 startBallRoll()
                 meterBG.isHidden = false; meterFill.isHidden = false
@@ -934,9 +944,9 @@ final class TownScene: SKScene, EpisodeWorld {
 
     private func startBallRoll() {
         ballNode.removeAllActions()
-        ballNode.position = pt(Vec2(548, -150))
+        ballNode.position = pt(Vec2(100, -800))
         ballNode.run(.group([
-            .move(to: pt(Vec2(664, -150)), duration: quickStop.duration + 0.6),
+            .move(to: pt(Vec2(100, -600)), duration: quickStop.duration + 0.6),   // roll south across Montrose
             .repeatForever(.rotate(byAngle: .pi * 2, duration: 0.5)),
         ]))
     }
@@ -1014,7 +1024,7 @@ final class TownScene: SKScene, EpisodeWorld {
     /// Pip waits at the bus-stop shelter, doing a gentle idle bob until boarding.
     private func buildPassenger() {
         pipNode = makeKidNode(shirt: SKColor(red: 1.0, green: 0.54, blue: 0.24, alpha: 1))
-        pipNode.position = pt(Vec2(-160, -335))   // on the curb by the stop shelter
+        pipNode.position = pt(Vec2(-200, -625))   // on the curb by the stop shelter (Montrose)
         pipNode.zPosition = 9
         pipNode.run(.repeatForever(.sequence([
             .moveBy(x: 0, y: 8, duration: 0.5), .moveBy(x: 0, y: -8, duration: 0.5),
@@ -1040,7 +1050,7 @@ final class TownScene: SKScene, EpisodeWorld {
     /// Mark the bottom-right building as the school: a flagpole with a pennant and
     /// a little yellow nameplate, so the drop-off has a clear destination.
     private func buildSchoolSign() {
-        let node = SKNode(); node.position = pt(Vec2(300, 200)); node.zPosition = 6
+        let node = SKNode(); node.position = pt(Vec2(-200, 860)); node.zPosition = 6
         let plate = SKShapeNode(rectOf: CGSize(width: 96, height: 30), cornerRadius: 6)
         plate.fillColor = SKColor(red: 1.0, green: 0.82, blue: 0.25, alpha: 1)
         plate.strokeColor = SKColor(white: 0, alpha: 0.25); plate.lineWidth = 2
