@@ -1144,7 +1144,10 @@ final class TownScene: SKScene, EpisodeWorld {
     private func updateChallenge(dt: Double) {
         if quickStop.state == .idle, !challengeDone {
             let b = bus.position
-            if abs(b.z - challengePoint.z) < 130, b.x > -250, b.x < challengePoint.x {
+            // Arm only as the bus *approaches the ball*, east of the bus-stop pickup
+            // (else it would trigger while stopped boarding Pip and "succeed" for
+            // free). The ~160u run-up leaves time to react before the crossing.
+            if abs(b.z - challengePoint.z) < 130, b.x > challengePoint.x - 160, b.x < challengePoint.x {
                 quickStop.arm()
                 startBallRoll()
                 meterBG.isHidden = false; meterFill.isHidden = false
