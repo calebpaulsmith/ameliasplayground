@@ -200,6 +200,9 @@ final class TownScene: SKScene, EpisodeWorld {
             addEdgeLines(s.a, s.b, halfWidth: s.width / 2 - 7)
             worldNode.addChild(centerDashes(s.a, s.b))
         }
+        // A continuous concrete sidewalk flush against both edges of every road, so
+        // the walkways read as attached to the streets (not floating in the grass).
+        for s in net.segments { addSidewalkStrip(s.a, s.b, width: s.width) }
 
         // Painted zebra crosswalks where children cross: at the bus stop, the
         // school drop-off, and the traffic light. Bars run across the road.
@@ -210,6 +213,19 @@ final class TownScene: SKScene, EpisodeWorld {
         // Every junction is a four-way stop now that the avenues continue past the
         // block — a little stop sign on the interior curb of each corner.
         for c in net.intersections() { addFourWayStop(at: c) }
+    }
+
+    /// A continuous concrete sidewalk band just outside both edges of a road.
+    private func addSidewalkStrip(_ a: Vec2, _ b: Vec2, width: Double) {
+        let d = b - a; let len = d.length
+        guard len > 1 else { return }
+        let perp = Vec2(-d.z / len, d.x / len)
+        for side in [-1.0, 1.0] {
+            let off = perp * (width / 2 + 19)
+            let strip = roadLine(a + off, b + off, width: 24,
+                                 color: SKColor(red: 0.81, green: 0.80, blue: 0.78, alpha: 1), z: -0.1)
+            worldNode.addChild(strip)
+        }
     }
 
     /// A small stop sign on a post, nudged onto the interior curb of a corner.
@@ -722,28 +738,38 @@ final class TownScene: SKScene, EpisodeWorld {
     /// a large playground (two swing sets, a play structure, a splash pad). The park
     /// life — runners, dogs, families — is filled in by `buildPeds`.
     private func buildPark() {
-        addGazebo(at: Vec2(-250, -30))
-        addPool(center: Vec2(150, -500))                         // right of the walk, by the N road
-        addGym(center: Vec2(440, -500))
-        addBaseballField(center: Vec2(430, -150), radius: 200)   // NE corner
-        addBaseballField(center: Vec2(400, 380), radius: 200)    // SE corner
-        addCourts(center: Vec2(-80, 500))                        // south-middle
-        addPlayground(center: Vec2(-400, -300))                  // big, NW
-        addWoods(center: Vec2(-440, 380))                        // SW trees + path
-        for p in [Vec2(-150, 250), Vec2(80, 380), Vec2(-580, -120), Vec2(160, 150)] { addShadeTree(at: p) }
+        addPlayground(center: Vec2(-540, -90))                   // fenced, on the west by Western
+        addPool(center: Vec2(10, -250))                          // the central fieldhouse: pool…
+        addGym(center: Vec2(270, -250))                          // …and gymnasium, side by side
+        addGazebo(at: Vec2(-250, 150))
+        addCourts(center: Vec2(120, 80))                         // centre, just south of the fieldhouse
+        addBaseballField(center: Vec2(60, 460), radius: 170)     // south-centre
+        addBaseballField(center: Vec2(490, 430), radius: 170)    // south-east
+        addWoods(center: Vec2(-470, 390))                        // SW trees, path joins the central walk
+        for p in [Vec2(-300, -360), Vec2(420, -260), Vec2(330, 120)] { addShadeTree(at: p) }
     }
 
-    /// The light paved walk up the middle of the park (N↔S), with a couple of benches.
+    /// The paved walk up the middle of the park. It meets the north and south roads
+    /// (so it connects to the sidewalks) and *winds left* around the central
+    /// buildings on its way down. The wooded southwest path joins it (see addWoods).
+    private let centerWalkControls = (
+        top: Vec2(-40, -652), c1: Vec2(-300, -360), c2: Vec2(-300, 60),
+        mid: Vec2(-120, 200), c3: Vec2(20, 360), c4: Vec2(-40, 560), bottom: Vec2(-40, 652)
+    )
     private func addParkSidewalk() {
+        let w = centerWalkControls
         let path = CGMutablePath()
-        path.move(to: pt(Vec2(-40, -645))); path.addLine(to: pt(Vec2(-40, 645)))
+        path.move(to: pt(w.top))
+        path.addCurve(to: pt(w.mid), control1: pt(w.c1), control2: pt(w.c2))   // bow west around the buildings
+        path.addCurve(to: pt(w.bottom), control1: pt(w.c3), control2: pt(w.c4))
         let walk = SKShapeNode(path: path)
         walk.strokeColor = SKColor(red: 0.85, green: 0.83, blue: 0.77, alpha: 1)
-        walk.lineWidth = 30; walk.lineCap = .round; walk.zPosition = 1.4; worldNode.addChild(walk)
+        walk.lineWidth = 30; walk.lineCap = .round; walk.fillColor = .clear; walk.zPosition = 1.4
+        worldNode.addChild(walk)
         let seam = SKShapeNode(path: path.copy(dashingWithPhase: 0, lengths: [14, 16]))
-        seam.strokeColor = SKColor(white: 0.7, alpha: 0.4); seam.lineWidth = 1.5; seam.zPosition = 1.45
-        worldNode.addChild(seam)
-        addBench(at: Vec2(-90, -200)); addBench(at: Vec2(10, 180))
+        seam.strokeColor = SKColor(white: 0.7, alpha: 0.4); seam.lineWidth = 1.5; seam.fillColor = .clear
+        seam.zPosition = 1.45; worldNode.addChild(seam)
+        addBench(at: Vec2(-220, -120)); addBench(at: Vec2(-80, 240))
     }
 
     private func polygonPath(sides: Int, radius: CGFloat) -> CGPath {
@@ -961,6 +987,8 @@ final class TownScene: SKScene, EpisodeWorld {
         let pad = SKShapeNode(rectOf: CGSize(width: w, height: d), cornerRadius: 26)
         pad.fillColor = SKColor(red: 0.88, green: 0.74, blue: 0.52, alpha: 1)
         pad.strokeColor = SKColor(white: 1, alpha: 0.22); pad.lineWidth = 2; node.addChild(pad)
+        // a low fence around the playground, with a gap for the gate at the bottom
+        addPlaygroundFence(to: node, w: w + 26, d: d + 26)
         // play structure: a platform tower with a peaked roof + a slide chute
         let tower = SKShapeNode(rectOf: CGSize(width: 72, height: 62), cornerRadius: 6)
         tower.fillColor = SKColor(red: 0.40, green: 0.62, blue: 0.55, alpha: 1); tower.strokeColor = .clear
@@ -984,6 +1012,29 @@ final class TownScene: SKScene, EpisodeWorld {
         for off in [Vec2(-150, 40), Vec2(110, 90), Vec2(60, -60), Vec2(-60, 110), Vec2(170, -40)] {
             addKid(at: center + off)
         }
+    }
+
+    /// A low picket fence around the playground rim, with a gate gap at the bottom.
+    private func addPlaygroundFence(to node: SKNode, w: CGFloat, d: CGFloat) {
+        let rail = SKShapeNode(rectOf: CGSize(width: w, height: d), cornerRadius: 10)
+        rail.fillColor = .clear; rail.strokeColor = SKColor(red: 0.95, green: 0.95, blue: 0.92, alpha: 0.95)
+        rail.lineWidth = 4; rail.zPosition = 0.1; node.addChild(rail)
+        let step = 34.0
+        func post(_ x: CGFloat, _ y: CGFloat) {
+            let p = SKShapeNode(circleOfRadius: 3.5)
+            p.fillColor = SKColor(white: 0.97, alpha: 1); p.strokeColor = .clear
+            p.position = CGPoint(x: x, y: y); p.zPosition = 0.12; node.addChild(p)
+        }
+        var x = -w / 2
+        while x <= w / 2 {
+            if abs(x) > 36 { post(x, d / 2) }          // top rail posts
+            post(x, -d / 2)                            // bottom rail posts (gate gap left open by pad)
+            x += step
+        }
+        var y = -d / 2
+        while y <= d / 2 { post(-w / 2, y); post(w / 2, y); y += step }
+        // gate posts marking the entrance at the bottom-centre
+        post(-36, d / 2); post(36, d / 2)
     }
 
     private func addSwingSet(to node: SKNode, at p: CGPoint) {
@@ -1027,24 +1078,26 @@ final class TownScene: SKScene, EpisodeWorld {
         worldNode.addChild(node)
     }
 
-    /// The wooded southwest corner: a grove of shade trees with a winding dirt path
-    /// and flower clumps — a calm contrast to the busy playground.
+    /// The wooded southwest of the park: a grove of shade trees threaded by a dirt
+    /// "adventure" path that winds up to **join the central walk** (so the paths
+    /// connect, as on the real map). Flower clumps fill the grass between.
     private func addWoods(center: Vec2) {
+        let join = Vec2(-120, 210)        // where the adventure path meets the central walk
         let path = CGMutablePath()
-        path.move(to: pt(center + Vec2(-180, 200)))
-        path.addQuadCurve(to: pt(center + Vec2(40, 40)), control: pt(center + Vec2(-160, 60)))
-        path.addQuadCurve(to: pt(center + Vec2(200, -180)), control: pt(center + Vec2(160, -10)))
+        path.move(to: pt(center + Vec2(-170, 170)))
+        path.addQuadCurve(to: pt(center + Vec2(70, 60)), control: pt(center + Vec2(-150, 40)))
+        path.addQuadCurve(to: pt(join), control: pt(center + Vec2(300, -40)))
         let walk = SKShapeNode(path: path)
         walk.strokeColor = SKColor(red: 0.78, green: 0.70, blue: 0.55, alpha: 1)
         walk.lineWidth = 18; walk.lineCap = .round; walk.fillColor = .clear; walk.zPosition = 1.3
         worldNode.addChild(walk)
         let spots: [Vec2] = [
-            Vec2(-200, 120), Vec2(-120, 220), Vec2(-40, 130), Vec2(-220, 0), Vec2(-100, 40),
-            Vec2(60, 170), Vec2(-180, -120), Vec2(40, -60), Vec2(170, 70), Vec2(120, -150),
-            Vec2(-60, -170), Vec2(210, -40),
+            Vec2(-190, 150), Vec2(-110, 230), Vec2(-30, 150), Vec2(-210, 30), Vec2(-90, 60),
+            Vec2(40, 190), Vec2(-180, -80), Vec2(60, -40), Vec2(160, 100), Vec2(120, -120),
+            Vec2(-50, -150), Vec2(200, 0),
         ]
         for s in spots { addShadeTree(at: center + s) }
-        for s in [Vec2(-90, 90), Vec2(30, -20), Vec2(120, -70)] { addFlowers(at: center + s) }
+        for s in [Vec2(-90, 100), Vec2(40, 10), Vec2(130, -60)] { addFlowers(at: center + s) }
     }
 
     private func addStatue(at v: Vec2) {
