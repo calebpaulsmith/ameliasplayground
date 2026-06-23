@@ -71,6 +71,18 @@ final class TownScene: SKScene {
     private var honkTimer: TimeInterval = 0
     private var honkCount = 0
 
+    // Input: touch controls (iOS) write here; the scene also polls GameController.
+    var controls: DriveControls?
+    private let cruiseSpeed = 120.0
+    private var honkButtonWasDown = false
+
+    // A traffic light on the right road the bus (and car) stop at on red.
+    private var light = TrafficLight(id: "main", position: Vec2(600, 0), phase: 0,
+                                     green: 3, yellow: 1.5, red: 6)
+    private var lampRed: SKShapeNode!
+    private var lampYellow: SKShapeNode!
+    private var lampGreen: SKShapeNode!
+
     // MARK: - Setup
 
     override func didMove(to view: SKView) {
@@ -82,6 +94,7 @@ final class TownScene: SKScene {
         buildBuildings()
         buildScenery()
         buildPeds()
+        buildTrafficLight()
 
         busNode = makeBus()
         busNode.zPosition = 10
@@ -502,11 +515,17 @@ final class TownScene: SKScene {
         guard dt > 0 else { return }
 
         elapsed += dt
+        light.update(dt: dt)
         driveBus(dt: dt)
         driveCar(dt: dt)
         updatePeds(dt: dt)
-        honkTimer += dt
-        if honkTimer >= 3.0 { honkTimer = 0; honk() }
+        // The demo bus honks on its own so CI captures reactions; a real driver
+        // honks with the button instead.
+        if !inputActive {
+            honkTimer += dt
+            if honkTimer >= 3.0 { honkTimer = 0; honk() }
+        }
+        updateLightRender()
         syncNodes()
         updateCamera()
     }
@@ -528,17 +547,42 @@ final class TownScene: SKScene {
     }
 
     private func driveBus(dt: Double) {
-        if let input = controllerInput() {
-            inputActive = true
-            applyMove(&bus, throttle: input.throttle, steer: input.steer, dt: dt)
+        // Gather input from touch (iOS) and/or a controller / Siri Remote. The
+        // bus auto-rolls forward; the player only steers, brakes, and honks.
+        var steer = 0.0
+        var braking = false
+        var active = false
+
+        if let c = controls {
+            if c.consumeHonk() { honk() }
+            if c.steer != 0 { steer = c.steer; active = true }
+            if c.braking { braking = true; active = true }
+            if c.engaged { active = true }
+        }
+        if let g = controllerDrive() {
+            if abs(g.steer) > 0.12 { steer = g.steer }
+            if g.braking { braking = true }
+            if g.honk { honk() }
+            if g.active { active = true }
+        }
+        if active { inputActive = true }
+
+        if inputActive {
+            var throttle: Double
+            if braking { throttle = -0.8 }
+            else if bus.speed > cruiseSpeed { throttle = 0.0 }   // coast at cruise
+            else { throttle = 0.8 }
+            if shouldStop(bus.position) { throttle = -1.0 }
+            applyMove(&bus, throttle: throttle, steer: steer, dt: dt)
             return
         }
-        if inputActive { return }
-        // Demo attract-drive: follow the outer loop, easing off into corners.
+
+        // Demo attract-drive: follow the loop, easing off into corners.
         let target = busLoop[busTarget % busLoop.count]
         let dist = bus.position.distance(to: target)
         if dist < 70 { busTarget = (busTarget + 1) % busLoop.count }
-        let throttle = dist < 180 ? 0.35 : 1.0
+        var throttle = dist < 180 ? 0.35 : 1.0
+        if shouldStop(bus.position) { throttle = -1.0 }
         applyMove(&bus, throttle: throttle, steer: bus.steer(toward: target), dt: dt)
     }
 
@@ -546,8 +590,14 @@ final class TownScene: SKScene {
         let target = carLoop[carTarget % carLoop.count]
         let dist = car.position.distance(to: target)
         if dist < 70 { carTarget = (carTarget + 1) % carLoop.count }
-        let throttle = dist < 180 ? 0.4 : 1.0
+        var throttle = dist < 180 ? 0.4 : 1.0
+        if shouldStop(car.position) { throttle = -1.0 }
         applyMove(&car, throttle: throttle, steer: car.steer(toward: target), dt: dt)
+    }
+
+    /// True when a vehicle should hold at the red light's stop zone.
+    private func shouldStop(_ pos: Vec2) -> Bool {
+        light.state == .red && pos.distance(to: light.position) < 95
     }
 
     /// Apply kinematics, then refuse moves that would enter a building (collision).
@@ -587,22 +637,59 @@ final class TownScene: SKScene {
 
     // MARK: - Input
 
-    private func controllerInput() -> (throttle: Double, steer: Double)? {
+    /// Steer / brake / honk from an MFi controller or the Siri Remote. Honk is
+    /// edge-detected so one press = one honk. Steer left/right; brake = B / left
+    /// trigger (controller) or swipe-down (remote); honk = A or Play/Pause.
+    private func controllerDrive() -> (steer: Double, braking: Bool, honk: Bool, active: Bool)? {
         #if canImport(GameController)
         for c in GCController.controllers() {
             if let g = c.extendedGamepad {
-                let x = Double(g.leftThumbstick.xAxis.value)
-                let y = Double(g.leftThumbstick.yAxis.value)
-                if abs(x) > 0.12 || abs(y) > 0.12 { return (y, x) }
-                let dx = Double(g.dpad.xAxis.value), dy = Double(g.dpad.yAxis.value)
-                if abs(dx) > 0.12 || abs(dy) > 0.12 { return (dy, dx) }
+                let stick = g.leftThumbstick.xAxis.value
+                let steer = Double(abs(stick) > 0.12 ? stick : g.dpad.xAxis.value)
+                let braking = g.buttonB.isPressed || g.leftTrigger.value > 0.3
+                let honkDown = g.buttonA.isPressed || g.buttonX.isPressed
+                let honk = honkDown && !honkButtonWasDown
+                honkButtonWasDown = honkDown
+                return (steer, braking, honk, abs(steer) > 0.12 || braking || honkDown)
             } else if let m = c.microGamepad {
                 m.reportsAbsoluteDpadValues = true
-                let x = Double(m.dpad.xAxis.value), y = Double(m.dpad.yAxis.value)
-                if abs(x) > 0.12 || abs(y) > 0.12 { return (y, x) }
+                let steer = Double(m.dpad.xAxis.value)
+                let braking = m.dpad.yAxis.value < -0.5
+                let honkDown = m.buttonA.isPressed || m.buttonX.isPressed
+                let honk = honkDown && !honkButtonWasDown
+                honkButtonWasDown = honkDown
+                return (steer, braking, honk, abs(steer) > 0.12 || braking || honkDown)
             }
         }
         #endif
         return nil
+    }
+
+    // MARK: - Traffic light
+
+    private func buildTrafficLight() {
+        let node = SKNode()
+        node.position = pt(Vec2(680, 70))   // roadside, NE corner of the junction
+        node.zPosition = 7
+        let housing = SKShapeNode(rectOf: CGSize(width: 34, height: 90), cornerRadius: 8)
+        housing.fillColor = SKColor(white: 0.16, alpha: 1)
+        housing.strokeColor = SKColor(white: 0, alpha: 0.25); housing.lineWidth = 2
+        node.addChild(housing)
+        func lamp(_ y: CGFloat, _ color: SKColor) -> SKShapeNode {
+            let l = SKShapeNode(circleOfRadius: 11)
+            l.fillColor = color; l.strokeColor = .clear; l.position = CGPoint(x: 0, y: y)
+            node.addChild(l); return l
+        }
+        lampRed = lamp(28, SKColor(red: 0.92, green: 0.24, blue: 0.22, alpha: 1))
+        lampYellow = lamp(0, SKColor(red: 0.96, green: 0.80, blue: 0.24, alpha: 1))
+        lampGreen = lamp(-28, SKColor(red: 0.30, green: 0.80, blue: 0.36, alpha: 1))
+        worldNode.addChild(node)
+        updateLightRender()
+    }
+
+    private func updateLightRender() {
+        lampRed.alpha = light.state == .red ? 1.0 : 0.16
+        lampYellow.alpha = light.state == .yellow ? 1.0 : 0.16
+        lampGreen.alpha = light.state == .green ? 1.0 : 0.16
     }
 }
