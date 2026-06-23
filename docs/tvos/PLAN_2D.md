@@ -210,3 +210,54 @@ decision systems, `ReactionSystem` — all pure and unit-tested.
 - **D-2D-REPO — repo/App Store.** Decided: **same repo, one app target**; the 2D
   game supersedes the archived 3D in dev; the App Store listing/bundle decision is
   deferred to ship time. (Avoids rebuilding the hard-won signing pipeline.)
+
+## Part 7 — Added scope (2026-06-23, owner request)
+
+New ideas to fold into the milestones above. Keep moving; implement the visual
+pieces now, leave the interactive ones to their milestone.
+
+### CH-01 — "Quick Stop!" challenge (an Adventure beat → M3, posed visual now)
+A **cutscene-driven driving challenge**: a **ball rolls across the street** and a
+**kid is about to chase it**; Amelia must **brake in time**. Mechanics:
+- A **reaction meter** appears and **drains**; the bus must come to a stop **before
+  it empties**. Stop in time → **points + reward** (more points the quicker/closer
+  to the line); never a harsh fail — if missed, the kid safely waits and we retry
+  with encouragement (no harm shown, child-appropriate).
+- Teaches **stopping, looking, road safety**. Pairs with the traffic-light beat.
+- **Now:** a **posed still** (ball mid-street, kid at the curb, bus stopped) so we
+  can see the moment. **Later (M3):** the live meter + scoring + the brake input
+  hooked to the reaction window, authored as an `Episode` beat (`quickStop`).
+
+### ART-PARK-01 — the city park (M2 charm, build now)
+Turn the placeholder pond into a **real city park**: **water** (pond/fountain),
+a **statue**, **pigeons** (peck/hop), **trees + shade**, a **soccer field** with a
+ball and goals, and **kids playing**. Static/animated dressing; no new systems.
+
+### ART-PERSP-01 — a building with GTA-style shifting perspective (build now)
+At least **one landmark building** whose **faked height re-projects as the bus
+drives around it** — the roof/walls lean based on the camera's position, so you
+appear to orbit a 3D box (while the logic stays flat top-down). Proves the look;
+generalize to more buildings later if it reads well. (Softens R-2D-1: we *can*
+fake parallax per-building without real 3D.)
+
+### ART-BUS-01 — cuter hero bus (build now)
+The bus is the star and must be **cute**: rounder, friendlier proportions, **big
+eyes / a face**, warm details. Original design (D-IP-1).
+
+### D-ART-1 — where to source real art (recommendation, for the owner)
+Until commissioned/AI art lands, everything is original placeholder shapes. Paths,
+roughly cheapest→nicest:
+- **Ready-made 2D top-down asset packs** (fastest): **Kenney.nl** (free, CC0,
+  cohesive top-down/roads/characters — ideal first pass), **itch.io** asset packs,
+  **Game Art 2D**, **CraftPix**, **Unity/Unreal asset stores** (sprites are engine-
+  agnostic PNGs). Check licenses (CC0/royalty-free, commercial OK).
+- **AI generation** for sprites/tiles: **Midjourney**, **DALL·E**, **Stable
+  Diffusion** (with a fixed top-down style prompt), then trace/clean to a
+  consistent palette. Watch originality/IP (D-IP-1) and license terms.
+- **Commission a 2D artist** (best cohesion): **Fiverr / Upwork**, **ArtStation**
+  marketplace, or a children's-illustration freelancer for a bespoke cozy look.
+- **Audio** (separate): **Freesound** (CC0 SFX), **Kenney audio**, or a composer on
+  Fiverr; voice via on-device TTS now, hero VO later.
+Recommendation: start with **Kenney top-down packs** to get a cohesive look fast,
+then **commission a hero set** (bus + Amelia + key buildings) once the play proves
+out. **Pick one art director/reviewer** to keep style + originality consistent.
