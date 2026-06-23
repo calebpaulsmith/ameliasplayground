@@ -227,6 +227,15 @@ A **cutscene-driven driving challenge**: a **ball rolls across the street** and 
 - **Now:** a **posed still** (ball mid-street, kid at the curb, bus stopped) so we
   can see the moment. **Later (M3):** the live meter + scoring + the brake input
   hooked to the reaction window, authored as an `Episode` beat (`quickStop`).
+- **Done (2026-06-23):** the meter is now **interactive on the Montrose crossing**.
+  When the ball arms, a spoken + subtitled **bilingual prompt** ("A ball! Press the
+  brake!" / "¡Una pelota! ¡Frena!") fires and a pulsing **"Brake!"** cue floats over
+  the bus; the goal beacon hides so the eyes go to the brake. The player's real brake
+  drives the unit-tested `QuickStopChallenge` (stop before the meter empties → score
+  + sparkle + praise; the kid trots out, scoops the ball, hops home). **No harsh
+  failure:** a miss rolls the ball safely clear, offers gentle encouragement, and
+  re-arms for another try. Still scene-driven; authoring it as a first-class
+  `Episode` `quickStop` beat (so it sequences in data) remains the follow-up.
 
 ### ART-PARK-01 — the city park (M2 charm, build now)
 Turn the placeholder pond into a **real city park**: **water** (pond/fountain),

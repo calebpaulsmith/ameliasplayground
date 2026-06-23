@@ -72,6 +72,11 @@
   "light.greenGo": "¡Verde! Ya podemos ir.",
   "light.goodStop": "¡Muy bien! Te paraste en el rojo. ",
 
+  "qs.lookOut": "¡Una pelota! ¡Frena!",
+  "qs.greatStop": "¡Buen frenado! Cuidaste a todos.",
+  "qs.tryBrake": "¡Casi! Frena para parar a tiempo.",
+  "hud.brake": "¡Frena!",
+
   "episode.firstDay.title": "El Primer Día",
   "reward.complete": "¡Lo lograste! Mamá te da un gran abrazo. ",
   "reward.greatDriving": "¡Muy bien conducido, Amelia!",

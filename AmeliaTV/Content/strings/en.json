@@ -72,6 +72,11 @@
   "light.greenGo": "Green light! Now we can go.",
   "light.goodStop": "Great job stopping at the red light! ",
 
+  "qs.lookOut": "A ball is rolling out! Press the brake!",
+  "qs.greatStop": "Great stop! You kept everyone safe.",
+  "qs.tryBrake": "Almost! Press the brake to stop in time.",
+  "hud.brake": "Brake!",
+
   "episode.firstDay.title": "First Day Driving",
   "reward.complete": "You did it! Mom gives you a big hug. ",
   "reward.greatDriving": "Great driving, Amelia!",
