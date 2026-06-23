@@ -69,7 +69,7 @@ final class TownScene: SKScene, EpisodeWorld {
     private let closeZoom: CGFloat = 1.0
     // A brief wide shot of the town, then ease in to follow the bus as the ride
     // begins. Kept short so the whole first ride fits a CI capture window.
-    private let establishHold: TimeInterval = 3.0
+    private let establishHold: TimeInterval = 4.0
     private let establishEase: TimeInterval = 2.0
 
     // Pedestrians + "honk → the world reacts" (M2).
