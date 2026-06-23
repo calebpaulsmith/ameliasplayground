@@ -24,13 +24,14 @@ final class TownScene: SKScene, EpisodeWorld {
     // Surrounding buildings (outside the park roads): apartments on Western (west),
     // restaurants/shops on Sunnyside (south). Church + library + school get their
     // own builders below.
-    private struct Building { var center: Vec2; var size: CGSize; var height: CGFloat }
+    private enum BuildingKind { case apartments, restaurant, shop, school }
+    private struct Building { var center: Vec2; var size: CGSize; var height: CGFloat; var kind: BuildingKind }
     private let buildings: [Building] = [
-        Building(center: Vec2(-1010, -320), size: CGSize(width: 220, height: 300), height: 150),  // apartments W
-        Building(center: Vec2(-1010, 160), size: CGSize(width: 220, height: 280), height: 120),   // apartments W
-        Building(center: Vec2(160, 920), size: CGSize(width: 240, height: 190), height: 90),       // restaurant S
-        Building(center: Vec2(560, 940), size: CGSize(width: 220, height: 180), height: 80),       // shop S
-        Building(center: Vec2(-200, 920), size: CGSize(width: 280, height: 210), height: 100),     // the school (S, off Sunnyside)
+        Building(center: Vec2(-1010, -320), size: CGSize(width: 220, height: 300), height: 150, kind: .apartments),  // apartments W
+        Building(center: Vec2(-1010, 160), size: CGSize(width: 220, height: 280), height: 120, kind: .apartments),   // apartments W
+        Building(center: Vec2(160, 920), size: CGSize(width: 240, height: 190), height: 90, kind: .restaurant),       // restaurant S
+        Building(center: Vec2(560, 940), size: CGSize(width: 220, height: 180), height: 80, kind: .shop),             // shop S
+        Building(center: Vec2(-200, 920), size: CGSize(width: 280, height: 210), height: 100, kind: .school),         // the school (S, off Sunnyside)
     ]
 
     // A landmark building whose faked height re-projects from the camera each
@@ -301,18 +302,31 @@ final class TownScene: SKScene, EpisodeWorld {
             body.position = CGPoint(x: 0, y: h / 2)
             node.addChild(body)
 
-            // windows across the exposed front face (the lower `h` band)
+            // windows across the exposed front face (the lower `h` band). Some are
+            // warm-lit (a cozy golden glow), the rest cool glass — each gets a frame
+            // + mullion so the buildings feel lived-in rather than flat.
             let cols = max(2, Int(w / 90))
             let rows = max(1, Int(h / 60))
+            let lit = SKColor(red: 1.0, green: 0.86, blue: 0.46, alpha: 1)
+            let glass = SKColor(red: 0.66, green: 0.82, blue: 0.95, alpha: 1)
             for cx in 0..<cols {
                 for ry in 0..<rows {
-                    let win = SKShapeNode(rectOf: CGSize(width: w / CGFloat(cols) * 0.5,
-                                                         height: h / CGFloat(rows) * 0.5),
-                                         cornerRadius: 2)
-                    win.fillColor = pal.win; win.strokeColor = .clear
-                    win.position = CGPoint(x: -w / 2 + (CGFloat(cx) + 0.5) * (w / CGFloat(cols)),
-                                           y: -d / 2 + (CGFloat(ry) + 0.5) * (h / CGFloat(rows)))
-                    node.addChild(win)
+                    let wW = w / CGFloat(cols) * 0.52, wH = h / CGFloat(rows) * 0.52
+                    let px = -w / 2 + (CGFloat(cx) + 0.5) * (w / CGFloat(cols))
+                    let py = -d / 2 + (CGFloat(ry) + 0.5) * (h / CGFloat(rows))
+                    let isLit = (cx + ry) % 3 == 0
+                    if isLit {   // warm spill of light around a lit window
+                        let glow = SKShapeNode(circleOfRadius: wW * 0.55)
+                        glow.fillColor = SKColor(red: 1, green: 0.85, blue: 0.42, alpha: 0.18)
+                        glow.strokeColor = .clear; glow.position = CGPoint(x: px, y: py); node.addChild(glow)
+                    }
+                    let win = SKShapeNode(rectOf: CGSize(width: wW, height: wH), cornerRadius: 2)
+                    win.fillColor = isLit ? lit : glass
+                    win.strokeColor = SKColor(white: 0.18, alpha: 0.35); win.lineWidth = 1.5
+                    win.position = CGPoint(x: px, y: py); node.addChild(win)
+                    let mull = SKShapeNode(rectOf: CGSize(width: wW, height: 1.2))
+                    mull.fillColor = SKColor(white: 0.18, alpha: 0.3); mull.strokeColor = .clear
+                    mull.position = CGPoint(x: px, y: py); node.addChild(mull)
                 }
             }
 
@@ -323,8 +337,171 @@ final class TownScene: SKScene, EpisodeWorld {
             roof.position = CGPoint(x: 0, y: h)
             node.addChild(roof)
 
+            decorateBuilding(node, kind: b.kind, w: w, d: d, h: h)
             worldNode.addChild(node)
         }
+    }
+
+    /// Per-building charm on the visible street face: awnings + an iconic sign for
+    /// the shops, a flag + clock + doors for the school, a stoop + balconies for the
+    /// apartments. Icons (mug/bag/bell) stay wordless so pre-readers "get" them and
+    /// nothing needs translating.
+    private func decorateBuilding(_ node: SKNode, kind: BuildingKind, w: CGFloat, d: CGFloat, h: CGFloat) {
+        let street = -d / 2           // front edge of the footprint (toward the camera)
+        switch kind {
+        case .restaurant:
+            addAwning(to: node, width: w * 0.82, y: street + 26,
+                      base: SKColor(red: 0.86, green: 0.30, blue: 0.32, alpha: 1))
+            addDoor(to: node, w: w, street: street, color: SKColor(red: 0.45, green: 0.30, blue: 0.22, alpha: 1))
+            addSign(to: node, at: CGPoint(x: w * 0.34, y: h * 0.45)) { self.mugIcon() }
+        case .shop:
+            addAwning(to: node, width: w * 0.82, y: street + 26,
+                      base: SKColor(red: 0.24, green: 0.62, blue: 0.60, alpha: 1))
+            addDoor(to: node, w: w, street: street, color: SKColor(red: 0.40, green: 0.28, blue: 0.20, alpha: 1))
+            addSign(to: node, at: CGPoint(x: w * 0.34, y: h * 0.45)) { self.bagIcon() }
+        case .school:
+            addDoubleDoors(to: node, w: w, street: street)
+            addClock(to: node, at: CGPoint(x: 0, y: h * 0.55))
+            addFlag(to: node, at: CGPoint(x: -w * 0.34, y: h + d * 0.35))
+            addSign(to: node, at: CGPoint(x: w * 0.34, y: h * 0.5)) { self.bellIcon() }
+        case .apartments:
+            addDoor(to: node, w: w, street: street, color: SKColor(red: 0.40, green: 0.42, blue: 0.50, alpha: 1))
+            for ry in 0..<2 {            // simple balcony rails on the front face
+                let rail = SKShapeNode(rectOf: CGSize(width: w * 0.7, height: 5), cornerRadius: 2)
+                rail.fillColor = SKColor(white: 0.25, alpha: 0.5); rail.strokeColor = .clear
+                rail.position = CGPoint(x: 0, y: street + 36 + CGFloat(ry) * 52); node.addChild(rail)
+            }
+        }
+    }
+
+    /// A scalloped, striped shop awning over the storefront.
+    private func addAwning(to node: SKNode, width: CGFloat, y: CGFloat, base: SKColor) {
+        let awn = SKNode(); awn.position = CGPoint(x: 0, y: y); awn.zPosition = 1
+        let height: CGFloat = 20
+        let n = max(4, Int(width / 22)); let sw = width / CGFloat(n)
+        for i in 0..<n {
+            let col = i % 2 == 0 ? base : SKColor(white: 0.97, alpha: 1)
+            let stripe = SKShapeNode(rectOf: CGSize(width: sw, height: height))
+            stripe.fillColor = col; stripe.strokeColor = .clear
+            stripe.position = CGPoint(x: -width / 2 + (CGFloat(i) + 0.5) * sw, y: 0); awn.addChild(stripe)
+            let scallop = SKShapeNode(circleOfRadius: sw * 0.5)
+            scallop.fillColor = col; scallop.strokeColor = .clear
+            scallop.position = CGPoint(x: stripe.position.x, y: -height / 2); awn.addChild(scallop)
+        }
+        let trim = SKShapeNode(rectOf: CGSize(width: width, height: 4))
+        trim.fillColor = SKColor(white: 0, alpha: 0.18); trim.strokeColor = .clear
+        trim.position = CGPoint(x: 0, y: height / 2); awn.addChild(trim)
+        node.addChild(awn)
+    }
+
+    /// A hanging sign placard with a little icon drawn by `icon`.
+    private func addSign(to node: SKNode, at p: CGPoint, icon: () -> SKNode) {
+        let board = SKShapeNode(rectOf: CGSize(width: 42, height: 32), cornerRadius: 6)
+        board.fillColor = SKColor(red: 0.97, green: 0.95, blue: 0.88, alpha: 1)
+        board.strokeColor = SKColor(red: 0.45, green: 0.32, blue: 0.20, alpha: 1); board.lineWidth = 2.5
+        board.position = p; board.zPosition = 2
+        let arm = SKShapeNode(rectOf: CGSize(width: 3, height: 14))
+        arm.fillColor = SKColor(white: 0.3, alpha: 0.8); arm.strokeColor = .clear
+        arm.position = CGPoint(x: p.x, y: p.y + 22); node.addChild(arm)
+        board.addChild(icon())
+        node.addChild(board)
+    }
+
+    private func addDoor(to node: SKNode, w: CGFloat, street: CGFloat, color: SKColor) {
+        let door = SKShapeNode(rectOf: CGSize(width: 26, height: 40), cornerRadius: 12)
+        door.fillColor = color; door.strokeColor = SKColor(white: 0, alpha: 0.25); door.lineWidth = 1.5
+        door.position = CGPoint(x: 0, y: street + 22); door.zPosition = 1; node.addChild(door)
+        let knob = SKShapeNode(circleOfRadius: 2.5)
+        knob.fillColor = SKColor(red: 1, green: 0.85, blue: 0.4, alpha: 1); knob.strokeColor = .clear
+        knob.position = CGPoint(x: 7, y: street + 20); knob.zPosition = 1.1; node.addChild(knob)
+    }
+
+    private func addDoubleDoors(to node: SKNode, w: CGFloat, street: CGFloat) {
+        for dx in [-15.0, 15.0] {
+            let door = SKShapeNode(rectOf: CGSize(width: 26, height: 44), cornerRadius: 6)
+            door.fillColor = SKColor(red: 0.40, green: 0.55, blue: 0.70, alpha: 1)
+            door.strokeColor = SKColor(white: 0, alpha: 0.25); door.lineWidth = 1.5
+            door.position = CGPoint(x: CGFloat(dx), y: street + 24); door.zPosition = 1; node.addChild(door)
+        }
+        let step = SKShapeNode(rectOf: CGSize(width: 78, height: 12), cornerRadius: 3)
+        step.fillColor = SKColor(white: 0.78, alpha: 1); step.strokeColor = .clear
+        step.position = CGPoint(x: 0, y: street + 2); node.addChild(step)
+    }
+
+    private func addClock(to node: SKNode, at p: CGPoint) {
+        let face = SKShapeNode(circleOfRadius: 16)
+        face.fillColor = .white; face.strokeColor = SKColor(red: 0.4, green: 0.3, blue: 0.22, alpha: 1)
+        face.lineWidth = 3; face.position = p; face.zPosition = 2; node.addChild(face)
+        for (dx, dy) in [(0.0, 9.0), (7.0, 0.0)] {     // two simple hands
+            let hand = SKShapeNode(path: { let q = CGMutablePath(); q.move(to: .zero)
+                q.addLine(to: CGPoint(x: dx, y: dy)); return q }())
+            hand.strokeColor = SKColor(white: 0.15, alpha: 0.9); hand.lineWidth = 2.5
+            hand.position = p; hand.zPosition = 2.1; node.addChild(hand)
+        }
+    }
+
+    private func addFlag(to node: SKNode, at p: CGPoint) {
+        let pole = SKShapeNode(rectOf: CGSize(width: 3, height: 56))
+        pole.fillColor = SKColor(white: 0.55, alpha: 1); pole.strokeColor = .clear
+        pole.position = p; pole.zPosition = 2; node.addChild(pole)
+        let flag = SKShapeNode(rectOf: CGSize(width: 34, height: 22), cornerRadius: 2)
+        flag.fillColor = SKColor(red: 0.90, green: 0.36, blue: 0.34, alpha: 1); flag.strokeColor = .clear
+        flag.position = CGPoint(x: p.x + 18, y: p.y + 20); flag.zPosition = 2.1
+        flag.run(.repeatForever(.sequence([                       // gentle wave
+            .scaleX(to: 0.85, y: 1, duration: 0.7), .scaleX(to: 1, y: 1, duration: 0.7),
+        ])))
+        node.addChild(flag)
+    }
+
+    // --- wordless shop-sign icons (child-readable, nothing to translate) ---
+    private func mugIcon() -> SKNode {
+        let n = SKNode()
+        let cup = SKShapeNode(rectOf: CGSize(width: 16, height: 14), cornerRadius: 3)
+        cup.fillColor = SKColor(red: 0.85, green: 0.45, blue: 0.30, alpha: 1); cup.strokeColor = .clear
+        cup.position = CGPoint(x: -2, y: -2); n.addChild(cup)
+        let handle = SKShapeNode(circleOfRadius: 5)
+        handle.fillColor = .clear; handle.strokeColor = SKColor(red: 0.85, green: 0.45, blue: 0.30, alpha: 1)
+        handle.lineWidth = 3; handle.position = CGPoint(x: 8, y: -2); n.addChild(handle)
+        let steam = SKShapeNode(rectOf: CGSize(width: 2.5, height: 8))
+        steam.fillColor = SKColor(white: 0.6, alpha: 0.7); steam.strokeColor = .clear
+        steam.position = CGPoint(x: -2, y: 10); n.addChild(steam)
+        return n
+    }
+    private func bagIcon() -> SKNode {
+        let n = SKNode()
+        let bag = SKShapeNode(rectOf: CGSize(width: 16, height: 16), cornerRadius: 2)
+        bag.fillColor = SKColor(red: 0.30, green: 0.62, blue: 0.58, alpha: 1); bag.strokeColor = .clear
+        n.addChild(bag)
+        let handle = SKShapeNode(circleOfRadius: 5)
+        handle.fillColor = .clear; handle.strokeColor = SKColor(red: 0.30, green: 0.62, blue: 0.58, alpha: 1)
+        handle.lineWidth = 2.5; handle.position = CGPoint(x: 0, y: 9); n.addChild(handle)
+        return n
+    }
+    private func bellIcon() -> SKNode {
+        let n = SKNode()
+        let bell = SKShapeNode(path: { () -> CGPath in
+            let p = CGMutablePath()
+            p.move(to: CGPoint(x: -8, y: -6)); p.addQuadCurve(to: CGPoint(x: 8, y: -6),
+                control: CGPoint(x: 0, y: 12)); p.closeSubpath(); return p
+        }())
+        bell.fillColor = SKColor(red: 0.95, green: 0.78, blue: 0.30, alpha: 1); bell.strokeColor = .clear
+        n.addChild(bell)
+        let clap = SKShapeNode(circleOfRadius: 2.5)
+        clap.fillColor = SKColor(red: 0.6, green: 0.45, blue: 0.15, alpha: 1); clap.strokeColor = .clear
+        clap.position = CGPoint(x: 0, y: -7); n.addChild(clap)
+        return n
+    }
+    private func bookIcon() -> SKNode {
+        let n = SKNode()
+        for sx in [-1.0, 1.0] {     // two pages of an open book
+            let page = SKShapeNode(rectOf: CGSize(width: 13, height: 16), cornerRadius: 1)
+            page.fillColor = sx < 0 ? SKColor(red: 0.55, green: 0.70, blue: 0.95, alpha: 1)
+                                    : SKColor(red: 0.95, green: 0.55, blue: 0.55, alpha: 1)
+            page.strokeColor = SKColor(white: 1, alpha: 0.8); page.lineWidth = 1
+            page.zRotation = CGFloat(sx) * 0.12
+            page.position = CGPoint(x: CGFloat(sx) * 7, y: 0); n.addChild(page)
+        }
+        return n
     }
 
     // Kenney art (CC0, Racing Pack) — see AmeliaTV/Assets/Kenney/. The hero bus
@@ -665,6 +842,26 @@ final class TownScene: SKScene, EpisodeWorld {
         rose.fillColor = SKColor(red: 0.62, green: 0.78, blue: 0.92, alpha: 1)
         rose.strokeColor = SKColor(white: 1, alpha: 0.7); rose.lineWidth = 2
         rose.position = CGPoint(x: w * 0.12, y: h + d * 0.1); node.addChild(rose)
+
+        // arched stained-glass windows along the nave front, warmly lit
+        let glassColors = [SKColor(red: 0.95, green: 0.55, blue: 0.45, alpha: 1),
+                           SKColor(red: 0.60, green: 0.78, blue: 0.95, alpha: 1),
+                           SKColor(red: 0.70, green: 0.85, blue: 0.55, alpha: 1)]
+        for (i, gx) in [-0.28, 0.06, 0.30].enumerated() {
+            let win = SKNode(); win.position = CGPoint(x: w * CGFloat(gx), y: -d * 0.08)
+            let body = SKShapeNode(rectOf: CGSize(width: 18, height: 30), cornerRadius: 2)
+            body.fillColor = glassColors[i % glassColors.count]
+            body.strokeColor = SKColor(white: 1, alpha: 0.7); body.lineWidth = 1.5; win.addChild(body)
+            let arch = SKShapeNode(circleOfRadius: 9)
+            arch.fillColor = body.fillColor; arch.strokeColor = body.strokeColor; arch.lineWidth = 1.5
+            arch.position = CGPoint(x: 0, y: 15); win.addChild(arch)
+            node.addChild(win)
+        }
+        // arched wooden door
+        let door = SKShapeNode(rectOf: CGSize(width: 26, height: 34), cornerRadius: 13)
+        door.fillColor = SKColor(red: 0.50, green: 0.33, blue: 0.20, alpha: 1)
+        door.strokeColor = SKColor(white: 0, alpha: 0.25); door.lineWidth = 1.5
+        door.position = CGPoint(x: w * 0.30, y: -d * 0.30); node.addChild(door)
         worldNode.addChild(node)
     }
 
@@ -1065,6 +1262,26 @@ final class TownScene: SKScene, EpisodeWorld {
         perspNode.addChild(perspRoof)
         worldNode.addChild(perspNode)
         updatePerspectiveBuilding()
+        addLibrarySign(at: perspCenter - Vec2(170, 0))   // monument sign toward Lincoln Ave
+    }
+
+    /// A little monument sign in front of the library: a board on two posts with a
+    /// wordless open-book icon, so the landmark reads as the library from the road.
+    private func addLibrarySign(at v: Vec2) {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 6
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: 64, height: 20))
+        shadow.fillColor = SKColor(white: 0, alpha: 0.14); shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 4, y: -22); node.addChild(shadow)
+        for dx in [-22.0, 22.0] {
+            let post = SKShapeNode(rectOf: CGSize(width: 6, height: 30), cornerRadius: 2)
+            post.fillColor = SKColor(red: 0.45, green: 0.32, blue: 0.20, alpha: 1); post.strokeColor = .clear
+            post.position = CGPoint(x: CGFloat(dx), y: -16); node.addChild(post)
+        }
+        let board = SKShapeNode(rectOf: CGSize(width: 70, height: 40), cornerRadius: 6)
+        board.fillColor = SKColor(red: 0.42, green: 0.55, blue: 0.42, alpha: 1)
+        board.strokeColor = SKColor(white: 1, alpha: 0.8); board.lineWidth = 2.5; node.addChild(board)
+        let icon = bookIcon(); icon.setScale(1.15); node.addChild(icon)
+        worldNode.addChild(node)
     }
 
     /// Re-project the box from the camera each frame: the roof leans in the

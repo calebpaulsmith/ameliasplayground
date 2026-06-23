@@ -289,3 +289,17 @@ doesn't strand it short of the arrival radius).
   (west, Western), **restaurants/shops** (south, Sunnyside), the **library** as the
   shifting-perspective landmark (east, across Lincoln), and the **school** at the
   drop-off. Original, generic silhouettes only (D-IP-1).
+
+### WORLD-02 — charm/detail pass (2026-06-23, owner request)
+Make the buildings feel lived-in (render-only, no Core change):
+- **Warmer windows everywhere:** mix of warm-**lit** (golden glow + spill) and cool
+  glass panes, each with a frame + mullion, on every building's street face.
+- **Storefronts:** striped scalloped **awnings** + a wordless **icon sign** — a
+  steaming **mug** for the café/restaurant, a **shopping bag** for the shop — plus a
+  door. Icons (not words) so pre-readers get them and nothing needs translating.
+- **School:** double doors + step, a **clock**, a waving **flag**, and a **bell** sign.
+- **Apartments:** a stoop door + balcony rails.
+- **Church:** arched **stained-glass** windows + an arched wooden door (keeps the
+  bell tower, spire, rose window).
+- **Library:** a **monument sign** (board on posts) with a wordless open-**book**
+  icon, set toward Lincoln Ave so the landmark reads from the road.
