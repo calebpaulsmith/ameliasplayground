@@ -418,12 +418,22 @@ final class TownScene: SKScene {
             let to = ped.target - ped.pos
             let d = to.length
             if d < 6 {
-                ped.target = ped.home + Vec2(Double.random(in: -70...70), Double.random(in: -70...70))
+                ped.target = offRoadTarget(near: ped.home)
             } else {
                 ped.pos = ped.pos + to * min(1.0, (40 * dt) / d)
                 ped.node.position = pt(ped.pos)
             }
         }
+    }
+
+    /// A wander target near `home` that is NOT on a road — so pedestrians amble on
+    /// the grass/sidewalk and the bus never appears to drive through them.
+    private func offRoadTarget(near home: Vec2) -> Vec2 {
+        for _ in 0..<8 {
+            let c = home + Vec2(Double.random(in: -70...70), Double.random(in: -70...70))
+            if !net.isOnRoad(c) { return c }
+        }
+        return home
     }
 
     private func honk() {
