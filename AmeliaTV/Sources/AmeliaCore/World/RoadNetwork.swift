@@ -49,6 +49,26 @@ public struct RoadNetwork: Codable, Sendable, Equatable {
         }
         return false
     }
+
+    /// The junction points where road segments meet — every position shared by the
+    /// endpoints of two or more distinct segments. The renderer paints an asphalt
+    /// pad here so crossings read as real intersections. Order is deterministic.
+    public func intersections(tolerance: Double = 1.0) -> [Vec2] {
+        var endpoints: [Vec2] = []
+        for s in segments { endpoints.append(s.a); endpoints.append(s.b) }
+        var result: [Vec2] = []
+        for (i, p) in endpoints.enumerated() {
+            // count other endpoints that coincide with p
+            let shared = endpoints.enumerated().contains { (j, q) in
+                j != i && q.distance(to: p) <= tolerance
+            }
+            guard shared else { continue }
+            if !result.contains(where: { $0.distance(to: p) <= tolerance }) {
+                result.append(p)
+            }
+        }
+        return result
+    }
 }
 
 public extension RoadNetwork {
@@ -75,5 +95,27 @@ public extension RoadNetwork {
     /// drives when no one is at the controller (so CI captures motion).
     static var demoLoop: [Vec2] {
         [Vec2(-600, -400), Vec2(600, -400), Vec2(600, 400), Vec2(-600, 400)]
+    }
+
+    /// The Welles Park neighborhood (Lincoln Square): a big park bounded by
+    /// **Western Ave** (straight, west), **Montrose Ave** (north), the **Lincoln
+    /// Ave** diagonal (north-east → south-west, east), and **Sunnyside Ave**
+    /// (south). The park sits inside; church/library/apartments sit outside.
+    static var welles: RoadNetwork {
+        func seg(_ ax: Double, _ az: Double, _ bx: Double, _ bz: Double) -> RoadSegment {
+            RoadSegment(a: Vec2(ax, az), b: Vec2(bx, bz), width: 110)
+        }
+        return RoadNetwork(segments: [
+            seg(-800, -700, -800, 700),   // Western (west, N–S)
+            seg(-800, -700, 550, -700),   // Montrose (north)
+            seg(550, -700, 820, 700),     // Lincoln (diagonal NE→SW, east)
+            seg(-800, 700, 820, 700),     // Sunnyside (south)
+        ])
+    }
+
+    /// Clockwise tour of the Welles perimeter (NW → NE → SE → SW), including the
+    /// Lincoln diagonal — the demo attract route on the new map.
+    static var wellesLoop: [Vec2] {
+        [Vec2(-800, -700), Vec2(550, -700), Vec2(820, 700), Vec2(-800, 700)]
     }
 }

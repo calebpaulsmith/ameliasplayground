@@ -20,9 +20,9 @@ public struct TownMap: Sendable, Equatable {
     /// road, and the garage on the left side — all sitting *on*
     /// `RoadNetwork.demoTown` so the bus reaches them just by driving the loop.
     public static let demo = TownMap(places: [
-        "stopA": Vec2(-160, -400),   // top road, west of centre
-        "school": Vec2(300, 400),    // bottom road, by the school building
-        "garage": Vec2(-600, 0),     // left road, middle
+        "stopA": Vec2(-200, -700),   // Montrose (north road), west of centre
+        "school": Vec2(-200, 700),   // Sunnyside (south road), by the school
+        "garage": Vec2(-800, 0),     // Western (west road), middle
     ])
 }
 

@@ -70,9 +70,20 @@ final class TownAdventureTests: XCTestCase {
     func testTownMapPlacesSitOnTheRoadNetwork() {
         // Every story stop must be drivable — i.e. on a road — or the bus could
         // never stop there. Guards against authoring a place out in the grass.
-        let net = RoadNetwork.demoTown
+        let net = RoadNetwork.welles   // the scene drives the Welles Park network now
         for (id, pos) in TownMap.demo.places {
             XCTAssertTrue(net.isOnRoad(pos), "town place \"\(id)\" is not on a road")
+        }
+    }
+
+    func testWellesNetworkHasFourCornerIntersections() {
+        // The renderer paints an asphalt pad at each junction; the perimeter loop
+        // has exactly its four corners. Guards the crosswalk/intersection layout.
+        let corners = RoadNetwork.welles.intersections()
+        XCTAssertEqual(corners.count, 4, "the Welles loop has four corners")
+        let expected = [Vec2(-800, -700), Vec2(550, -700), Vec2(820, 700), Vec2(-800, 700)]
+        for c in expected {
+            XCTAssertTrue(corners.contains { $0.distance(to: c) < 1 }, "missing junction at \(c)")
         }
     }
 }

@@ -261,3 +261,22 @@ roughly cheapest→nicest:
 Recommendation: start with **Kenney top-down packs** to get a cohesive look fast,
 then **commission a hero set** (bus + Amelia + key buildings) once the play proves
 out. **Pick one art director/reviewer** to keep style + originality consistent.
+
+### WORLD-01 — Welles Park reshape (2026-06-23, owner request, build now)
+Reshape the demo block into a **real neighborhood** modeled on **Welles Park,
+Lincoln Square, Chicago**: a big park bounded by **Western Ave** (west, straight),
+**Montrose** (north), the **Lincoln Ave diagonal** (NE→SW, east), and **Sunnyside**
+(south) — `RoadNetwork.welles` + `wellesLoop`. The `first-day` episode is re-homed
+onto this loop and still runs end-to-end (bus homes in on the goal so the bigger map
+doesn't strand it short of the arrival radius).
+- **Road tiles / markings:** solid white lane-edge lines inset from both curbs,
+  **zebra crosswalks** at the bus stop / school / traffic light, and **asphalt
+  intersection pads** at the four corners (`RoadNetwork.intersections()`, unit-tested).
+- **Park interior** (off the roads), laid out like the real park: a **baseball
+  diamond**, the **gym + indoor-pool fieldhouse**, **tennis** and **pickleball**
+  courts, a **playground** (slide/swings/sandbox), the **pond + fountain**, and an
+  **adventure grove** of trees with children.
+- **Outside the roads:** a generic neighborhood **church** (north), **apartments**
+  (west, Western), **restaurants/shops** (south, Sunnyside), the **library** as the
+  shifting-perspective landmark (east, across Lincoln), and the **school** at the
+  drop-off. Original, generic silhouettes only (D-IP-1).

@@ -88,18 +88,19 @@ jobs:
           xcrun simctl bootstatus "$DEVICE_ID" -b
           xcrun simctl install "$DEVICE_ID" "$APP"
           xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
-          sleep 3   # let the scene present and the demo walk begin
+          sleep 2   # let the scene present (kept short so the first still catches the wide overview)
 
           mkdir -p ../media
           # Record the framebuffer (works headlessly) while the demo walk runs.
           xcrun simctl io "$DEVICE_ID" recordVideo --codec=h264 --force ../media/tvos-gameplay.mp4 &
           REC_PID=$!
           # Also grab periodic stills as a fallback in case the codec misbehaves.
-          # The window runs long enough to catch the whole first ride: pick up Pip
-          # at the stop, drive to the school, drop off + reward. Stills are reliable
-          # even when the video codec tops out early on the simulator.
+          # The first still (t=1) lands during the wide establishing shot so we see
+          # the WHOLE park overview; the rest catch the first ride: pick up Pip,
+          # drive to the school, drop off + reward. Stills are reliable even when the
+          # video codec tops out early on the simulator.
           prev=0
-          for t in 2 6 10 14 18 22 26 30; do
+          for t in 1 4 8 12 16 20 24 28 32; do
             sleep $((t - prev)); prev=$t
             xcrun simctl io "$DEVICE_ID" screenshot "../media/tvos_$(printf %02d $t)s.png" || true
           done
