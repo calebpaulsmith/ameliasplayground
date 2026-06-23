@@ -120,9 +120,7 @@ final class TownScene: SKScene {
         busNode.zPosition = 10
         worldNode.addChild(busNode)
 
-        carNode = makeVehicle(length: 92, width: 44,
-                              body: SKColor(red: 0.85, green: 0.32, blue: 0.30, alpha: 1),
-                              roof: SKColor(red: 0.70, green: 0.22, blue: 0.20, alpha: 1))
+        carNode = makeKenneyCar("car_red_1")
         carNode.zPosition = 10
         worldNode.addChild(carNode)
 
@@ -237,34 +235,34 @@ final class TownScene: SKScene {
         }
     }
 
-    private func makeVehicle(length: CGFloat, width: CGFloat, body: SKColor, roof: SKColor) -> SKNode {
+    // Kenney art (CC0, Racing Pack) — see AmeliaTV/Assets/Kenney/. The hero bus
+    // and the oblique buildings stay hand-drawn; traffic, people, and trees use
+    // these sprites.
+    private let kenneyCharacters = ["character_brown_blue", "character_blonde_red",
+                                    "character_black_green", "character_blonde_white",
+                                    "character_brown_red"]
+
+    /// Load a bundled Kenney PNG as a sprite scaled to `height`, preserving aspect.
+    private func kenneySprite(_ name: String, height: CGFloat) -> SKSpriteNode {
+        let s = SKSpriteNode(imageNamed: name)
+        if s.size.height > 1 {
+            s.size = CGSize(width: height * (s.size.width / s.size.height), height: height)
+        } else {
+            s.size = CGSize(width: height, height: height)   // texture missing — visible fallback
+        }
+        return s
+    }
+
+    /// A Kenney top-down car. The art faces "up", so the sprite is turned to point
+    /// along +x; the container is what the scene rotates to the heading.
+    private func makeKenneyCar(_ name: String) -> SKNode {
         let node = SKNode()
-        let shadow = SKShapeNode(rectOf: CGSize(width: length, height: width * 1.18), cornerRadius: 10)
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: 100, height: 54))
         shadow.fillColor = SKColor(white: 0, alpha: 0.16); shadow.strokeColor = .clear
         shadow.position = CGPoint(x: 0, y: -5); node.addChild(shadow)
-        // wheels (drawn first, underneath)
-        for sx in [-length * 0.28, length * 0.28] {
-            for sy in [-width * 0.55, width * 0.55] {
-                let wheel = SKShapeNode(rectOf: CGSize(width: length * 0.18, height: width * 0.16), cornerRadius: 3)
-                wheel.fillColor = SKColor(white: 0.12, alpha: 1); wheel.strokeColor = .clear
-                wheel.position = CGPoint(x: sx, y: sy)
-                node.addChild(wheel)
-            }
-        }
-        let chassis = SKShapeNode(rectOf: CGSize(width: length, height: width), cornerRadius: 10)
-        chassis.fillColor = body
-        chassis.strokeColor = SKColor(white: 0, alpha: 0.25)
-        chassis.lineWidth = 2
-        node.addChild(chassis)
-        // roof patch toward the back, windshield toward the front (+x)
-        let roofPatch = SKShapeNode(rectOf: CGSize(width: length * 0.5, height: width * 0.74), cornerRadius: 6)
-        roofPatch.fillColor = roof; roofPatch.strokeColor = .clear
-        roofPatch.position = CGPoint(x: -length * 0.1, y: 0)
-        node.addChild(roofPatch)
-        let windshield = SKShapeNode(rectOf: CGSize(width: length * 0.16, height: width * 0.66), cornerRadius: 4)
-        windshield.fillColor = SKColor(red: 0.6, green: 0.8, blue: 0.95, alpha: 1); windshield.strokeColor = .clear
-        windshield.position = CGPoint(x: length * 0.34, y: 0)
-        node.addChild(windshield)
+        let car = kenneySprite(name, height: 96)
+        car.zRotation = -.pi / 2
+        node.addChild(car)
         return node
     }
 
@@ -324,20 +322,10 @@ final class TownScene: SKScene {
 
     private func tree(at v: Vec2) -> SKNode {
         let node = SKNode(); node.position = pt(v); node.zPosition = 6
-        let r: CGFloat = 28
-        let shadow = SKShapeNode(circleOfRadius: r * 1.05)
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: 58, height: 30))
         shadow.fillColor = SKColor(white: 0, alpha: 0.15); shadow.strokeColor = .clear
-        shadow.position = CGPoint(x: 8, y: -8); node.addChild(shadow)
-        let trunk = SKShapeNode(rectOf: CGSize(width: 10, height: 16), cornerRadius: 2)
-        trunk.fillColor = SKColor(red: 0.45, green: 0.30, blue: 0.18, alpha: 1); trunk.strokeColor = .clear
-        trunk.position = CGPoint(x: 0, y: -r * 0.7); node.addChild(trunk)
-        let canopy = SKShapeNode(circleOfRadius: r)
-        canopy.fillColor = SKColor(red: 0.20, green: 0.52, blue: 0.26, alpha: 1)
-        canopy.strokeColor = SKColor(red: 0.13, green: 0.38, blue: 0.18, alpha: 1); canopy.lineWidth = 2
-        node.addChild(canopy)
-        let hi = SKShapeNode(circleOfRadius: r * 0.55)
-        hi.fillColor = SKColor(red: 0.28, green: 0.62, blue: 0.32, alpha: 1); hi.strokeColor = .clear
-        hi.position = CGPoint(x: -r * 0.25, y: r * 0.25); node.addChild(hi)
+        shadow.position = CGPoint(x: 4, y: -22); node.addChild(shadow)
+        node.addChild(kenneySprite("tree_large", height: 66))
         return node
     }
 
@@ -411,17 +399,7 @@ final class TownScene: SKScene {
         let shadow = SKShapeNode(circleOfRadius: 10)
         shadow.fillColor = SKColor(white: 0, alpha: 0.14); shadow.strokeColor = .clear
         shadow.position = CGPoint(x: 3, y: -4); node.addChild(shadow)
-        let shirts: [SKColor] = [
-            SKColor(red: 0.95, green: 0.45, blue: 0.50, alpha: 1),
-            SKColor(red: 0.35, green: 0.70, blue: 0.85, alpha: 1),
-            SKColor(red: 0.55, green: 0.45, blue: 0.85, alpha: 1),
-        ]
-        let body = SKShapeNode(circleOfRadius: 10)
-        body.fillColor = shirts[Int.random(in: 0..<shirts.count)]
-        body.strokeColor = SKColor(white: 0, alpha: 0.2); body.lineWidth = 1; node.addChild(body)
-        let head = SKShapeNode(circleOfRadius: 6)
-        head.fillColor = SKColor(red: 0.95, green: 0.80, blue: 0.66, alpha: 1); head.strokeColor = .clear
-        head.position = CGPoint(x: 0, y: 3); node.addChild(head)
+        node.addChild(kenneySprite(kenneyCharacters.randomElement()!, height: 26))
         node.run(.repeatForever(.sequence([                 // jumping, playing
             .moveBy(x: 0, y: 12, duration: 0.24),
             .moveBy(x: 0, y: -12, duration: 0.22),
@@ -518,16 +496,9 @@ final class TownScene: SKScene {
             Vec2(-540, -150), Vec2(-540, 150), Vec2(540, -150), Vec2(540, 150),
             Vec2(80, 560), Vec2(-80, 560), Vec2(-160, -300),
         ]
-        let shirts: [SKColor] = [
-            SKColor(red: 0.90, green: 0.35, blue: 0.40, alpha: 1),
-            SKColor(red: 0.30, green: 0.55, blue: 0.85, alpha: 1),
-            SKColor(red: 0.40, green: 0.70, blue: 0.45, alpha: 1),
-            SKColor(red: 0.95, green: 0.60, blue: 0.25, alpha: 1),
-            SKColor(red: 0.62, green: 0.45, blue: 0.80, alpha: 1),
-        ]
         for (i, h) in homes.enumerated() {
             let ped = Ped(home: h, reactorIndex: i)
-            addPerson(to: ped.node, shirt: shirts[i % shirts.count])
+            addPerson(to: ped.node)
             ped.node.position = pt(h)
             ped.node.zPosition = 8
             worldNode.addChild(ped.node)
@@ -535,16 +506,11 @@ final class TownScene: SKScene {
         }
     }
 
-    private func addPerson(to node: SKNode, shirt: SKColor) {
-        let shadow = SKShapeNode(circleOfRadius: 14)
+    private func addPerson(to node: SKNode) {
+        let shadow = SKShapeNode(circleOfRadius: 13)
         shadow.fillColor = SKColor(white: 0, alpha: 0.15); shadow.strokeColor = .clear
         shadow.position = CGPoint(x: 4, y: -6); node.addChild(shadow)
-        let body = SKShapeNode(circleOfRadius: 14)
-        body.fillColor = shirt; body.strokeColor = SKColor(white: 0, alpha: 0.2); body.lineWidth = 1
-        node.addChild(body)
-        let head = SKShapeNode(circleOfRadius: 8)
-        head.fillColor = SKColor(red: 0.95, green: 0.80, blue: 0.66, alpha: 1); head.strokeColor = .clear
-        head.position = CGPoint(x: 0, y: 4); node.addChild(head)
+        node.addChild(kenneySprite(kenneyCharacters.randomElement()!, height: 34))
     }
 
     private func updatePeds(dt: Double) {
