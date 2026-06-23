@@ -70,7 +70,7 @@ final class TownAdventureTests: XCTestCase {
     func testTownMapPlacesSitOnTheRoadNetwork() {
         // Every story stop must be drivable — i.e. on a road — or the bus could
         // never stop there. Guards against authoring a place out in the grass.
-        let net = RoadNetwork.demoTown
+        let net = RoadNetwork.welles   // the scene drives the Welles Park network now
         for (id, pos) in TownMap.demo.places {
             XCTAssertTrue(net.isOnRoad(pos), "town place \"\(id)\" is not on a road")
         }
