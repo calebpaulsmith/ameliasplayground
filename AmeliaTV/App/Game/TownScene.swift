@@ -24,10 +24,19 @@ final class TownScene: SKScene {
     private struct Building { var center: Vec2; var size: CGSize; var height: CGFloat }
     private let buildings: [Building] = [
         Building(center: Vec2(-300, -200), size: CGSize(width: 200, height: 180), height: 90),
-        Building(center: Vec2(300, -200), size: CGSize(width: 180, height: 150), height: 70),
         Building(center: Vec2(-300, 200), size: CGSize(width: 160, height: 190), height: 110),
         Building(center: Vec2(300, 200), size: CGSize(width: 210, height: 160), height: 80),
     ]
+
+    // A landmark building whose faked height re-projects from the camera each
+    // frame, so it appears to change perspective (GTA-style) as the bus drives
+    // around it. The logic underneath is still a flat top-down footprint.
+    private let perspCenter = Vec2(300, -200)
+    private let perspSize = CGSize(width: 200, height: 170)
+    private let perspLean: CGFloat = 70
+    private let perspNode = SKNode()
+    private let perspWall = SKShapeNode()
+    private let perspRoof = SKShapeNode()
 
     // The bus drives the loop clockwise; the car drives it the other way, so the
     // two pass on opposite sides (real two-way traffic) instead of tailgating.
@@ -95,6 +104,8 @@ final class TownScene: SKScene {
         buildScenery()
         buildPeds()
         buildTrafficLight()
+        buildPerspectiveBuilding()
+        buildQuickStopPose()
 
         busNode = makeBus()
         busNode.zPosition = 10
@@ -252,39 +263,42 @@ final class TownScene: SKScene {
     /// of side windows, windshield + dark bumper at the front (+x).
     private func makeBus() -> SKNode {
         let node = SKNode()
-        let length: CGFloat = 152, width: CGFloat = 58
-        let shadow = SKShapeNode(rectOf: CGSize(width: length, height: width * 1.18), cornerRadius: 14)
+        let length: CGFloat = 150, width: CGFloat = 64
+        let shadow = SKShapeNode(rectOf: CGSize(width: length, height: width * 1.16), cornerRadius: 26)
         shadow.fillColor = SKColor(white: 0, alpha: 0.16); shadow.strokeColor = .clear
         shadow.position = CGPoint(x: 0, y: -6); node.addChild(shadow)
         for sx in [-length * 0.30, length * 0.30] {
-            for sy in [-width * 0.56, width * 0.56] {
-                let wheel = SKShapeNode(rectOf: CGSize(width: length * 0.15, height: width * 0.14), cornerRadius: 3)
+            for sy in [-width * 0.54, width * 0.54] {
+                let wheel = SKShapeNode(rectOf: CGSize(width: length * 0.15, height: width * 0.13), cornerRadius: 4)
                 wheel.fillColor = SKColor(white: 0.12, alpha: 1); wheel.strokeColor = .clear
                 wheel.position = CGPoint(x: sx, y: sy); node.addChild(wheel)
             }
         }
-        let body = SKShapeNode(rectOf: CGSize(width: length, height: width), cornerRadius: 12)
-        body.fillColor = SKColor(red: 1.0, green: 0.80, blue: 0.16, alpha: 1)
-        body.strokeColor = SKColor(red: 0.55, green: 0.40, blue: 0.05, alpha: 1); body.lineWidth = 2
+        // rounder, friendlier body
+        let body = SKShapeNode(rectOf: CGSize(width: length, height: width), cornerRadius: 28)
+        body.fillColor = SKColor(red: 1.0, green: 0.82, blue: 0.20, alpha: 1)
+        body.strokeColor = SKColor(red: 0.85, green: 0.55, blue: 0.10, alpha: 1); body.lineWidth = 3
         node.addChild(body)
-        for sy in [-width * 0.34, width * 0.34] {
-            let stripe = SKShapeNode(rectOf: CGSize(width: length * 0.86, height: width * 0.10), cornerRadius: 2)
-            stripe.fillColor = SKColor(white: 0.12, alpha: 1); stripe.strokeColor = .clear
-            stripe.position = CGPoint(x: -length * 0.04, y: sy); node.addChild(stripe)
+        // a couple of side windows toward the back
+        for i in 0..<2 {
+            let win = SKShapeNode(rectOf: CGSize(width: length * 0.13, height: width * 0.46), cornerRadius: 4)
+            win.fillColor = SKColor(red: 0.66, green: 0.85, blue: 0.96, alpha: 1); win.strokeColor = .clear
+            win.position = CGPoint(x: -length * 0.32 + CGFloat(i) * length * 0.17, y: 0); node.addChild(win)
         }
-        let winCount = 5
-        for i in 0..<winCount {
-            let win = SKShapeNode(rectOf: CGSize(width: length * 0.12, height: width * 0.42), cornerRadius: 2)
-            win.fillColor = SKColor(red: 0.62, green: 0.82, blue: 0.95, alpha: 1); win.strokeColor = .clear
-            win.position = CGPoint(x: -length * 0.30 + CGFloat(i) * (length * 0.62 / CGFloat(winCount - 1)), y: 0)
-            node.addChild(win)
+        // a cute face at the front (+x): big eyes looking ahead + rosy cheeks
+        for sy in [-width * 0.22, width * 0.22] {
+            let eyeWhite = SKShapeNode(circleOfRadius: width * 0.17)
+            eyeWhite.fillColor = .white; eyeWhite.strokeColor = SKColor(white: 0, alpha: 0.12); eyeWhite.lineWidth = 1
+            eyeWhite.position = CGPoint(x: length * 0.28, y: sy); node.addChild(eyeWhite)
+            let pupil = SKShapeNode(circleOfRadius: width * 0.075)
+            pupil.fillColor = .black; pupil.strokeColor = .clear
+            pupil.position = CGPoint(x: length * 0.33, y: sy); node.addChild(pupil)
         }
-        let windshield = SKShapeNode(rectOf: CGSize(width: length * 0.09, height: width * 0.70), cornerRadius: 3)
-        windshield.fillColor = SKColor(red: 0.70, green: 0.86, blue: 0.96, alpha: 1); windshield.strokeColor = .clear
-        windshield.position = CGPoint(x: length * 0.40, y: 0); node.addChild(windshield)
-        let bumper = SKShapeNode(rectOf: CGSize(width: length * 0.05, height: width * 0.92), cornerRadius: 2)
-        bumper.fillColor = SKColor(white: 0.20, alpha: 1); bumper.strokeColor = .clear
-        bumper.position = CGPoint(x: length * 0.49, y: 0); node.addChild(bumper)
+        for sy in [-width * 0.36, width * 0.36] {
+            let cheek = SKShapeNode(circleOfRadius: width * 0.085)
+            cheek.fillColor = SKColor(red: 1.0, green: 0.56, blue: 0.56, alpha: 0.85); cheek.strokeColor = .clear
+            cheek.position = CGPoint(x: length * 0.40, y: sy); node.addChild(cheek)
+        }
         return node
     }
 
@@ -322,14 +336,112 @@ final class TownScene: SKScene {
     /// below the loop, a bus stop beside the road, and flower clusters scattered
     /// about. All off the roads so nothing blocks driving.
     private func buildScenery() {
-        addPond(at: Vec2(0, 560), size: CGSize(width: 240, height: 140))
-        addBench(at: Vec2(-170, 560)); addBench(at: Vec2(170, 560))
+        buildPark()
         addBusStop(at: Vec2(-160, -330))
         let flowers: [Vec2] = [
             Vec2(-500, -120), Vec2(500, 120), Vec2(120, -300), Vec2(-120, 300),
-            Vec2(480, -300), Vec2(-690, 320), Vec2(690, -320), Vec2(-470, -560),
+            Vec2(480, -300), Vec2(-690, 320), Vec2(690, -320),
         ]
         for f in flowers { addFlowers(at: f) }
+    }
+
+    /// A real city park below the loop: a soccer field with kids, a pond with a
+    /// fountain statue + pigeons, benches, and shade trees.
+    private func buildPark() {
+        addSoccerField(center: Vec2(-330, 600), size: CGSize(width: 360, height: 210))
+        addPond(at: Vec2(330, 600), size: CGSize(width: 250, height: 150))
+        addStatue(at: Vec2(330, 600))                       // fountain statue in the pond
+        addBench(at: Vec2(150, 600)); addBench(at: Vec2(520, 600))
+        for p in [Vec2(120, 510), Vec2(540, 510), Vec2(-560, 710), Vec2(560, 710)] { addShadeTree(at: p) }
+        for p in [Vec2(180, 650), Vec2(230, 560), Vec2(470, 660), Vec2(420, 560), Vec2(300, 700)] { addPigeon(at: p) }
+        for p in [Vec2(-430, 560), Vec2(-250, 650), Vec2(-330, 540)] { addKid(at: p) }
+    }
+
+    private func addStatue(at v: Vec2) {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 5
+        let base = SKShapeNode(rectOf: CGSize(width: 46, height: 22), cornerRadius: 4)
+        base.fillColor = SKColor(white: 0.72, alpha: 1)
+        base.strokeColor = SKColor(white: 0, alpha: 0.2); base.lineWidth = 1
+        node.addChild(base)
+        let torso = SKShapeNode(rectOf: CGSize(width: 16, height: 26), cornerRadius: 6)
+        torso.fillColor = SKColor(white: 0.80, alpha: 1); torso.strokeColor = .clear
+        torso.position = CGPoint(x: 0, y: 16); node.addChild(torso)
+        let head = SKShapeNode(circleOfRadius: 9)
+        head.fillColor = SKColor(white: 0.82, alpha: 1); head.strokeColor = .clear
+        head.position = CGPoint(x: 0, y: 34); node.addChild(head)
+        worldNode.addChild(node)
+    }
+
+    private func addShadeTree(at v: Vec2) {
+        let p = pt(v)
+        let shade = SKShapeNode(ellipseOf: CGSize(width: 100, height: 66))
+        shade.fillColor = SKColor(white: 0, alpha: 0.15); shade.strokeColor = .clear
+        shade.position = CGPoint(x: p.x + 6, y: p.y - 14); shade.zPosition = 5
+        worldNode.addChild(shade)
+        let t = tree(at: v); t.zPosition = 6; worldNode.addChild(t)
+    }
+
+    private func addPigeon(at v: Vec2) {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 7
+        let body = SKShapeNode(ellipseOf: CGSize(width: 17, height: 11))
+        body.fillColor = SKColor(white: 0.55, alpha: 1); body.strokeColor = .clear; node.addChild(body)
+        let head = SKShapeNode(circleOfRadius: 5)
+        head.fillColor = SKColor(white: 0.64, alpha: 1); head.strokeColor = .clear
+        head.position = CGPoint(x: 8, y: 4); node.addChild(head)
+        node.run(.repeatForever(.sequence([
+            .rotate(toAngle: -0.4, duration: 0.45),
+            .wait(forDuration: Double.random(in: 0.2...0.9)),
+            .rotate(toAngle: 0, duration: 0.4),
+            .wait(forDuration: Double.random(in: 0.3...1.1)),
+        ])))
+        worldNode.addChild(node)
+    }
+
+    private func addKid(at v: Vec2) {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 8
+        let shadow = SKShapeNode(circleOfRadius: 10)
+        shadow.fillColor = SKColor(white: 0, alpha: 0.14); shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 3, y: -4); node.addChild(shadow)
+        let shirts: [SKColor] = [
+            SKColor(red: 0.95, green: 0.45, blue: 0.50, alpha: 1),
+            SKColor(red: 0.35, green: 0.70, blue: 0.85, alpha: 1),
+            SKColor(red: 0.55, green: 0.45, blue: 0.85, alpha: 1),
+        ]
+        let body = SKShapeNode(circleOfRadius: 10)
+        body.fillColor = shirts[Int.random(in: 0..<shirts.count)]
+        body.strokeColor = SKColor(white: 0, alpha: 0.2); body.lineWidth = 1; node.addChild(body)
+        let head = SKShapeNode(circleOfRadius: 6)
+        head.fillColor = SKColor(red: 0.95, green: 0.80, blue: 0.66, alpha: 1); head.strokeColor = .clear
+        head.position = CGPoint(x: 0, y: 3); node.addChild(head)
+        node.run(.repeatForever(.sequence([                 // jumping, playing
+            .moveBy(x: 0, y: 12, duration: 0.24),
+            .moveBy(x: 0, y: -12, duration: 0.22),
+            .wait(forDuration: Double.random(in: 0.3...1.3)),
+        ])))
+        worldNode.addChild(node)
+    }
+
+    private func addSoccerField(center: Vec2, size: CGSize) {
+        let node = SKNode(); node.position = pt(center); node.zPosition = 4
+        let w = size.width * scale, h = size.height * scale
+        let field = SKShapeNode(rectOf: CGSize(width: w, height: h), cornerRadius: 6)
+        field.fillColor = SKColor(red: 0.42, green: 0.70, blue: 0.42, alpha: 1)
+        field.strokeColor = .white; field.lineWidth = 3
+        node.addChild(field)
+        let mid = SKShapeNode(rectOf: CGSize(width: 3, height: h))
+        mid.fillColor = .white; mid.strokeColor = .clear; node.addChild(mid)
+        let circle = SKShapeNode(circleOfRadius: h * 0.18)
+        circle.strokeColor = .white; circle.lineWidth = 3; circle.fillColor = .clear; node.addChild(circle)
+        for sx in [-w / 2, w / 2] {
+            let goal = SKShapeNode(rectOf: CGSize(width: 12, height: h * 0.3), cornerRadius: 2)
+            goal.strokeColor = .white; goal.lineWidth = 3
+            goal.fillColor = SKColor(white: 1, alpha: 0.12)
+            goal.position = CGPoint(x: sx, y: 0); node.addChild(goal)
+        }
+        let ball = SKShapeNode(circleOfRadius: 8)
+        ball.fillColor = .white; ball.strokeColor = SKColor(white: 0, alpha: 0.4); ball.lineWidth = 1
+        ball.position = CGPoint(x: w * 0.16, y: -h * 0.12); node.addChild(ball)
+        worldNode.addChild(node)
     }
 
     private func addPond(at v: Vec2, size: CGSize) {
@@ -528,6 +640,7 @@ final class TownScene: SKScene {
         updateLightRender()
         syncNodes()
         updateCamera()
+        updatePerspectiveBuilding()
     }
 
     /// Hold the wide establishing shot, then smoothly ease in to follow the bus.
@@ -617,6 +730,10 @@ final class TownScene: SKScene {
                 return true
             }
         }
+        if abs(p.x - perspCenter.x) < Double(perspSize.width / 2),
+           abs(p.z - perspCenter.z) < Double(perspSize.height / 2) {
+            return true
+        }
         return false
     }
 
@@ -691,5 +808,81 @@ final class TownScene: SKScene {
         lampRed.alpha = light.state == .red ? 1.0 : 0.16
         lampYellow.alpha = light.state == .yellow ? 1.0 : 0.16
         lampGreen.alpha = light.state == .green ? 1.0 : 0.16
+    }
+
+    // MARK: - Perspective landmark building
+
+    private func buildPerspectiveBuilding() {
+        perspNode.position = pt(perspCenter)
+        perspNode.zPosition = 5
+        let w = perspSize.width * scale, d = perspSize.height * scale
+        let foot = SKShapeNode(rectOf: CGSize(width: w, height: d), cornerRadius: 4)
+        foot.fillColor = SKColor(red: 0.52, green: 0.55, blue: 0.64, alpha: 1)
+        foot.strokeColor = SKColor(white: 0, alpha: 0.25); foot.lineWidth = 2
+        perspNode.addChild(foot)
+        perspWall.fillColor = SKColor(red: 0.60, green: 0.63, blue: 0.72, alpha: 1)
+        perspWall.strokeColor = SKColor(white: 0, alpha: 0.18); perspWall.lineWidth = 1
+        perspNode.addChild(perspWall)
+        perspRoof.fillColor = SKColor(red: 0.80, green: 0.83, blue: 0.90, alpha: 1)
+        perspRoof.strokeColor = SKColor(white: 0, alpha: 0.2); perspRoof.lineWidth = 2
+        perspNode.addChild(perspRoof)
+        worldNode.addChild(perspNode)
+        updatePerspectiveBuilding()
+    }
+
+    /// Re-project the box from the camera each frame: the roof leans in the
+    /// direction away from the camera, revealing the near walls — so the building
+    /// looks like it turns as the bus circles it.
+    private func updatePerspectiveBuilding() {
+        let foot = pt(perspCenter)
+        var dx = foot.x - cam.position.x, dy = foot.y - cam.position.y
+        let len = (dx * dx + dy * dy).squareRoot()
+        if len > 1 { dx /= len; dy /= len } else { dx = 0; dy = 1 }
+        let off = CGPoint(x: dx * perspLean, y: dy * perspLean)
+        let hw = perspSize.width * scale / 2, hh = perspSize.height * scale / 2
+        let f = [CGPoint(x: -hw, y: -hh), CGPoint(x: hw, y: -hh),
+                 CGPoint(x: hw, y: hh), CGPoint(x: -hw, y: hh)]
+        let r = f.map { CGPoint(x: $0.x + off.x, y: $0.y + off.y) }
+        let body = CGMutablePath()
+        for i in 0..<4 {
+            let j = (i + 1) % 4
+            body.move(to: f[i]); body.addLine(to: f[j])
+            body.addLine(to: r[j]); body.addLine(to: r[i]); body.closeSubpath()
+        }
+        perspWall.path = body
+        let roof = CGMutablePath()
+        roof.addRoundedRect(in: CGRect(x: -hw + off.x, y: -hh + off.y, width: hw * 2, height: hh * 2),
+                            cornerWidth: 4, cornerHeight: 4)
+        perspRoof.path = roof
+    }
+
+    // MARK: - Quick-stop pose (placeholder for the CH-01 challenge)
+
+    /// A posed still: a ball mid-crossing on the interior cross street with a kid
+    /// at the curb about to chase it. The live brake-in-time challenge comes in M3
+    /// (see PLAN_2D.md CH-01); for now it's just a photo. Placed on a cross street
+    /// the demo bus doesn't drive, so nothing runs it over.
+    private func buildQuickStopPose() {
+        let ball = SKShapeNode(circleOfRadius: 12)
+        ball.fillColor = .white; ball.strokeColor = SKColor(white: 0, alpha: 0.4); ball.lineWidth = 2
+        ball.position = pt(Vec2(0, -150)); ball.zPosition = 9
+        for a in stride(from: 0.0, to: Double.pi * 2, by: Double.pi / 2.5) {
+            let spot = SKShapeNode(circleOfRadius: 3)
+            spot.fillColor = SKColor(white: 0.1, alpha: 0.8); spot.strokeColor = .clear
+            spot.position = CGPoint(x: CGFloat(cos(a) * 5), y: CGFloat(sin(a) * 5)); ball.addChild(spot)
+        }
+        worldNode.addChild(ball)
+
+        let kid = SKNode(); kid.position = pt(Vec2(70, -150)); kid.zPosition = 8
+        let sh = SKShapeNode(circleOfRadius: 10)
+        sh.fillColor = SKColor(white: 0, alpha: 0.14); sh.strokeColor = .clear
+        sh.position = CGPoint(x: 3, y: -5); kid.addChild(sh)
+        let body = SKShapeNode(circleOfRadius: 11)
+        body.fillColor = SKColor(red: 0.95, green: 0.5, blue: 0.3, alpha: 1)
+        body.strokeColor = SKColor(white: 0, alpha: 0.2); body.lineWidth = 1; kid.addChild(body)
+        let head = SKShapeNode(circleOfRadius: 6)
+        head.fillColor = SKColor(red: 0.95, green: 0.80, blue: 0.66, alpha: 1); head.strokeColor = .clear
+        head.position = CGPoint(x: -4, y: 4); kid.addChild(head)   // leaning toward the ball
+        worldNode.addChild(kid)
     }
 }
