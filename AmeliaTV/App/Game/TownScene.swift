@@ -99,6 +99,7 @@ final class TownScene: SKScene {
     private let ballNode = SKShapeNode(circleOfRadius: 13)
     private let meterBG = SKShapeNode()
     private let meterFill = SKShapeNode()
+    private var challengeResumeAt: TimeInterval = -1   // demo waits at the stop until here
 
     // MARK: - Setup
 
@@ -706,6 +707,7 @@ final class TownScene: SKScene {
         var throttle = dist < 180 ? 0.35 : 1.0
         if shouldStop(bus.position) { throttle = -1.0 }
         if quickStop.state == .running { throttle = -0.5 }   // demo brakes (gently) for the ball
+        if challengeDone, elapsed < challengeResumeAt { throttle = -1.0 }   // dwell at the stop
         applyMove(&bus, throttle: throttle, steer: bus.steer(toward: target), dt: dt)
     }
 
@@ -941,6 +943,7 @@ final class TownScene: SKScene {
 
     private func onChallengeSuccess() {
         challengeDone = true
+        challengeResumeAt = elapsed + 4.0          // wait for the kid (and let CI catch it)
         meterBG.isHidden = true; meterFill.isHidden = true
         sparkleBurst(at: busNode.position)
         showScore(quickStop.score, at: busNode.position)
@@ -978,8 +981,8 @@ final class TownScene: SKScene {
         label.position = CGPoint(x: p.x, y: p.y + 44); label.zPosition = 27
         worldNode.addChild(label)
         label.run(.sequence([
-            .group([.moveBy(x: 0, y: 64, duration: 1.0),
-                    .sequence([.wait(forDuration: 0.6), .fadeOut(withDuration: 0.4)])]),
+            .group([.moveBy(x: 0, y: 50, duration: 3.2),
+                    .sequence([.wait(forDuration: 2.8), .fadeOut(withDuration: 0.4)])]),
             .removeFromParent(),
         ]))
     }
