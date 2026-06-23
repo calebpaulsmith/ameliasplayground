@@ -47,6 +47,14 @@ final class TownScene: SKScene {
     private var lastUpdate: TimeInterval = 0
     private var inputActive = false
 
+    // Camera opens on a wide establishing shot of the whole town (so a CI capture
+    // can verify scenery anywhere on the map), then eases in to follow the bus.
+    private var elapsed: TimeInterval = 0
+    private let wideZoom: CGFloat = 2.6
+    private let closeZoom: CGFloat = 0.9
+    private let establishHold: TimeInterval = 6.0
+    private let establishEase: TimeInterval = 2.0
+
     // MARK: - Setup
 
     override func didMove(to view: SKView) {
@@ -70,7 +78,8 @@ final class TownScene: SKScene {
 
         addChild(cam)
         camera = cam
-        cam.setScale(0.9)   // a touch closer in for a cozier frame
+        cam.position = pt(Vec2(0, 0))   // start on the wide establishing shot
+        cam.setScale(wideZoom)
         syncNodes()
     }
 
@@ -355,10 +364,27 @@ final class TownScene: SKScene {
         lastUpdate = currentTime
         guard dt > 0 else { return }
 
+        elapsed += dt
         driveBus(dt: dt)
         driveCar(dt: dt)
         syncNodes()
-        cam.position = busNode.position   // follow camera
+        updateCamera()
+    }
+
+    /// Hold the wide establishing shot, then smoothly ease in to follow the bus.
+    private func updateCamera() {
+        let center = pt(Vec2(0, 0))
+        if elapsed < establishHold {
+            cam.position = center
+            cam.setScale(wideZoom)
+            return
+        }
+        let t = min(1.0, (elapsed - establishHold) / establishEase)
+        let e = CGFloat(t * t * (3 - 2 * t))   // smoothstep
+        cam.setScale(wideZoom + (closeZoom - wideZoom) * e)
+        let bp = busNode.position
+        cam.position = CGPoint(x: center.x + (bp.x - center.x) * e,
+                               y: center.y + (bp.y - center.y) * e)
     }
 
     private func driveBus(dt: Double) {
