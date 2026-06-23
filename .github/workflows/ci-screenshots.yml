@@ -120,6 +120,7 @@ jobs:
       # and viewed directly (artifacts aren't fetchable via the API).
       - name: Publish to the ci-video branch
         if: always()
+        continue-on-error: true   # the artifact is the source of truth; the mirror is a convenience
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -130,7 +131,14 @@ jobs:
           git add .
           git -c user.email=actions@github.com -c user.name=ci \
             commit -q -m "tvOS gameplay for ${GITHUB_SHA:0:7} on ${GITHUB_REF_NAME}"
-          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-video
+          # The push event and the pull_request event run this in parallel and both
+          # force-push ci-video, so the ref can move under us — retry a few times.
+          url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          for i in 1 2 3 4 5; do
+            git push -f "$url" ci-video && { echo "published"; exit 0; }
+            echo "ci-video push raced (attempt $i), retrying…"; sleep $((RANDOM % 4 + 2))
+          done
+          echo "ci-video mirror lost the race; the artifact still has the frames"
 
   iphone-screenshots:
     name: iPhone Simulator screenshots
@@ -197,3 +205,25 @@ jobs:
           name: simulator-screenshots
           path: screenshots/
           if-no-files-found: warn
+
+      # Mirror to a force-updated `ci-screenshots` branch so the iPhone shots
+      # (e.g. the touch-control overlay) can be pulled and reviewed directly.
+      - name: Publish to the ci-screenshots branch
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd screenshots 2>/dev/null || { echo "no screenshots — nothing to publish"; exit 0; }
+          [ -n "$(ls -A . 2>/dev/null)" ] || { echo "nothing to publish"; exit 0; }
+          git init -q
+          git checkout -q -b ci-screenshots
+          git add .
+          git -c user.email=actions@github.com -c user.name=ci \
+            commit -q -m "iPhone screenshots for ${GITHUB_SHA:0:7} on ${GITHUB_REF_NAME}"
+          url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          for i in 1 2 3 4 5; do
+            git push -f "$url" ci-screenshots && { echo "published"; exit 0; }
+            echo "ci-screenshots push raced (attempt $i), retrying…"; sleep $((RANDOM % 4 + 2))
+          done
+          echo "ci-screenshots mirror lost the race; the artifact still has the shots"
