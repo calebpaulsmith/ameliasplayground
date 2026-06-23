@@ -92,6 +92,14 @@ final class TownScene: SKScene {
     private var lampYellow: SKShapeNode!
     private var lampGreen: SKShapeNode!
 
+    // "Quick Stop!" challenge (CH-01): a ball crosses the right road; brake in time.
+    private var quickStop = QuickStopChallenge()
+    private var challengeDone = false
+    private let challengePoint = Vec2(600, -150)
+    private let ballNode = SKShapeNode(circleOfRadius: 13)
+    private let meterBG = SKShapeNode()
+    private let meterFill = SKShapeNode()
+
     // MARK: - Setup
 
     override func didMove(to view: SKView) {
@@ -105,7 +113,7 @@ final class TownScene: SKScene {
         buildPeds()
         buildTrafficLight()
         buildPerspectiveBuilding()
-        buildQuickStopPose()
+        buildChallenge()
 
         busNode = makeBus()
         busNode.zPosition = 10
@@ -628,6 +636,7 @@ final class TownScene: SKScene {
 
         elapsed += dt
         light.update(dt: dt)
+        updateChallenge(dt: dt)
         driveBus(dt: dt)
         driveCar(dt: dt)
         updatePeds(dt: dt)
@@ -696,6 +705,7 @@ final class TownScene: SKScene {
         if dist < 70 { busTarget = (busTarget + 1) % busLoop.count }
         var throttle = dist < 180 ? 0.35 : 1.0
         if shouldStop(bus.position) { throttle = -1.0 }
+        if quickStop.state == .running { throttle = -0.5 }   // demo brakes (gently) for the ball
         applyMove(&bus, throttle: throttle, steer: bus.steer(toward: target), dt: dt)
     }
 
@@ -858,31 +868,119 @@ final class TownScene: SKScene {
 
     // MARK: - Quick-stop pose (placeholder for the CH-01 challenge)
 
-    /// A posed still: a ball mid-crossing on the interior cross street with a kid
-    /// at the curb about to chase it. The live brake-in-time challenge comes in M3
-    /// (see PLAN_2D.md CH-01); for now it's just a photo. Placed on a cross street
-    /// the demo bus doesn't drive, so nothing runs it over.
-    private func buildQuickStopPose() {
-        let ball = SKShapeNode(circleOfRadius: 12)
-        ball.fillColor = .white; ball.strokeColor = SKColor(white: 0, alpha: 0.4); ball.lineWidth = 2
-        ball.position = pt(Vec2(0, -150)); ball.zPosition = 9
-        for a in stride(from: 0.0, to: Double.pi * 2, by: Double.pi / 2.5) {
-            let spot = SKShapeNode(circleOfRadius: 3)
-            spot.fillColor = SKColor(white: 0.1, alpha: 0.8); spot.strokeColor = .clear
-            spot.position = CGPoint(x: CGFloat(cos(a) * 5), y: CGFloat(sin(a) * 5)); ball.addChild(spot)
-        }
-        worldNode.addChild(ball)
+    // MARK: - "Quick Stop!" challenge (CH-01)
 
-        let kid = SKNode(); kid.position = pt(Vec2(70, -150)); kid.zPosition = 8
+    private func buildChallenge() {
+        // a kid at the west curb of the right road, about to chase the ball
+        let kid = SKNode(); kid.position = pt(Vec2(515, -150)); kid.zPosition = 8
         let sh = SKShapeNode(circleOfRadius: 10)
         sh.fillColor = SKColor(white: 0, alpha: 0.14); sh.strokeColor = .clear
-        sh.position = CGPoint(x: 3, y: -5); kid.addChild(sh)
+        sh.position = CGPoint(x: 3, y: -4); kid.addChild(sh)
         let body = SKShapeNode(circleOfRadius: 11)
         body.fillColor = SKColor(red: 0.95, green: 0.5, blue: 0.3, alpha: 1)
         body.strokeColor = SKColor(white: 0, alpha: 0.2); body.lineWidth = 1; kid.addChild(body)
         let head = SKShapeNode(circleOfRadius: 6)
         head.fillColor = SKColor(red: 0.95, green: 0.80, blue: 0.66, alpha: 1); head.strokeColor = .clear
-        head.position = CGPoint(x: -4, y: 4); kid.addChild(head)   // leaning toward the ball
+        head.position = CGPoint(x: 4, y: 4); kid.addChild(head)
         worldNode.addChild(kid)
+
+        // the ball, resting by the curb until the challenge arms
+        ballNode.fillColor = .white; ballNode.strokeColor = SKColor(white: 0, alpha: 0.4); ballNode.lineWidth = 2
+        ballNode.position = pt(Vec2(548, -150)); ballNode.zPosition = 9
+        for a in stride(from: 0.0, to: Double.pi * 2, by: Double.pi / 2.5) {
+            let spot = SKShapeNode(circleOfRadius: 3)
+            spot.fillColor = SKColor(white: 0.1, alpha: 0.8); spot.strokeColor = .clear
+            spot.position = CGPoint(x: CGFloat(cos(a) * 5), y: CGFloat(sin(a) * 5)); ballNode.addChild(spot)
+        }
+        worldNode.addChild(ballNode)
+
+        // the reaction meter, floating above the bus while the challenge runs
+        meterBG.path = CGPath(roundedRect: CGRect(x: -60, y: -9, width: 120, height: 18),
+                              cornerWidth: 9, cornerHeight: 9, transform: nil)
+        meterBG.fillColor = SKColor(white: 0, alpha: 0.45)
+        meterBG.strokeColor = SKColor(white: 1, alpha: 0.55); meterBG.lineWidth = 2
+        meterBG.zPosition = 25; meterBG.isHidden = true; worldNode.addChild(meterBG)
+        meterFill.strokeColor = .clear; meterFill.zPosition = 26; meterFill.isHidden = true
+        worldNode.addChild(meterFill)
+    }
+
+    private func updateChallenge(dt: Double) {
+        if quickStop.state == .idle, !challengeDone {
+            let b = bus.position
+            if abs(b.x - challengePoint.x) < 120, b.z > -320, b.z < challengePoint.z {
+                quickStop.arm()
+                startBallRoll()
+                meterBG.isHidden = false; meterFill.isHidden = false
+            }
+        }
+        guard quickStop.state == .running else { return }
+        quickStop.update(dt: dt, busSpeed: bus.speed)
+        layoutMeter()
+        if quickStop.state == .success { onChallengeSuccess() }
+        else if quickStop.state == .missed { onChallengeMissed() }
+    }
+
+    private func startBallRoll() {
+        ballNode.removeAllActions()
+        ballNode.position = pt(Vec2(548, -150))
+        ballNode.run(.group([
+            .move(to: pt(Vec2(664, -150)), duration: quickStop.duration + 0.6),
+            .repeatForever(.rotate(byAngle: .pi * 2, duration: 0.5)),
+        ]))
+    }
+
+    private func layoutMeter() {
+        let p = busNode.position
+        meterBG.position = CGPoint(x: p.x, y: p.y + 72)
+        let m = CGFloat(quickStop.meter)
+        meterFill.path = CGPath(roundedRect: CGRect(x: -58, y: -7, width: max(0.1, 116 * m), height: 14),
+                                cornerWidth: 7, cornerHeight: 7, transform: nil)
+        meterFill.position = CGPoint(x: p.x, y: p.y + 72)
+        meterFill.fillColor = SKColor(red: 0.92 - 0.55 * m, green: 0.30 + 0.55 * m, blue: 0.32, alpha: 1)
+    }
+
+    private func onChallengeSuccess() {
+        challengeDone = true
+        meterBG.isHidden = true; meterFill.isHidden = true
+        sparkleBurst(at: busNode.position)
+        showScore(quickStop.score, at: busNode.position)
+    }
+
+    private func onChallengeMissed() {
+        // No harsh failure: tuck the meter away and let it re-arm on a later pass.
+        meterBG.isHidden = true; meterFill.isHidden = true
+        quickStop.reset()
+    }
+
+    private func sparkleBurst(at p: CGPoint) {
+        let colors: [SKColor] = [
+            SKColor(red: 1.0, green: 0.85, blue: 0.25, alpha: 1),
+            SKColor(red: 0.95, green: 0.45, blue: 0.55, alpha: 1),
+            .white,
+        ]
+        for _ in 0..<12 {
+            let s = SKShapeNode(circleOfRadius: CGFloat.random(in: 3...6))
+            s.fillColor = colors[Int.random(in: 0..<colors.count)]; s.strokeColor = .clear
+            s.position = p; s.zPosition = 24; worldNode.addChild(s)
+            let ang = CGFloat.random(in: 0...(.pi * 2)), dist = CGFloat.random(in: 40...95)
+            s.run(.sequence([
+                .group([.move(by: CGVector(dx: cos(ang) * dist, dy: sin(ang) * dist), duration: 0.6),
+                        .fadeOut(withDuration: 0.6)]),
+                .removeFromParent(),
+            ]))
+        }
+    }
+
+    private func showScore(_ score: Int, at p: CGPoint) {
+        let label = SKLabelNode(text: "+\(score)")
+        label.fontName = "AvenirNext-Bold"; label.fontSize = 42
+        label.fontColor = SKColor(red: 1, green: 0.85, blue: 0.2, alpha: 1)
+        label.position = CGPoint(x: p.x, y: p.y + 44); label.zPosition = 27
+        worldNode.addChild(label)
+        label.run(.sequence([
+            .group([.moveBy(x: 0, y: 64, duration: 1.0),
+                    .sequence([.wait(forDuration: 0.6), .fadeOut(withDuration: 0.4)])]),
+            .removeFromParent(),
+        ]))
     }
 }
