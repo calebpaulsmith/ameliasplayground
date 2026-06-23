@@ -55,6 +55,22 @@ final class TownScene: SKScene {
     private let establishHold: TimeInterval = 6.0
     private let establishEase: TimeInterval = 2.0
 
+    // Pedestrians + "honk → the world reacts" (M2).
+    private final class Ped {
+        let node = SKNode()
+        var pos: Vec2
+        var target: Vec2
+        let home: Vec2
+        let reactorIndex: Int
+        init(home: Vec2, reactorIndex: Int) {
+            self.pos = home; self.target = home; self.home = home; self.reactorIndex = reactorIndex
+        }
+    }
+    private var peds: [Ped] = []
+    private let reactions = ReactionSystem()
+    private var honkTimer: TimeInterval = 0
+    private var honkCount = 0
+
     // MARK: - Setup
 
     override func didMove(to view: SKView) {
@@ -65,6 +81,7 @@ final class TownScene: SKScene {
         buildTrees()
         buildBuildings()
         buildScenery()
+        buildPeds()
 
         busNode = makeBus()
         busNode.zPosition = 10
@@ -357,6 +374,116 @@ final class TownScene: SKScene {
         worldNode.addChild(node)
     }
 
+    // MARK: - Pedestrians & honk reactions
+
+    private func buildPeds() {
+        // Onlookers ringing the loop + clustered at the park and bus stop, so the
+        // bus is always near a few and honk reactions land on camera.
+        let homes: [Vec2] = [
+            Vec2(-300, -340), Vec2(300, -340), Vec2(-300, 340), Vec2(300, 340),
+            Vec2(-540, -150), Vec2(-540, 150), Vec2(540, -150), Vec2(540, 150),
+            Vec2(80, 560), Vec2(-80, 560), Vec2(-160, -300),
+        ]
+        let shirts: [SKColor] = [
+            SKColor(red: 0.90, green: 0.35, blue: 0.40, alpha: 1),
+            SKColor(red: 0.30, green: 0.55, blue: 0.85, alpha: 1),
+            SKColor(red: 0.40, green: 0.70, blue: 0.45, alpha: 1),
+            SKColor(red: 0.95, green: 0.60, blue: 0.25, alpha: 1),
+            SKColor(red: 0.62, green: 0.45, blue: 0.80, alpha: 1),
+        ]
+        for (i, h) in homes.enumerated() {
+            let ped = Ped(home: h, reactorIndex: i)
+            addPerson(to: ped.node, shirt: shirts[i % shirts.count])
+            ped.node.position = pt(h)
+            ped.node.zPosition = 8
+            worldNode.addChild(ped.node)
+            peds.append(ped)
+        }
+    }
+
+    private func addPerson(to node: SKNode, shirt: SKColor) {
+        let shadow = SKShapeNode(circleOfRadius: 14)
+        shadow.fillColor = SKColor(white: 0, alpha: 0.15); shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 4, y: -6); node.addChild(shadow)
+        let body = SKShapeNode(circleOfRadius: 14)
+        body.fillColor = shirt; body.strokeColor = SKColor(white: 0, alpha: 0.2); body.lineWidth = 1
+        node.addChild(body)
+        let head = SKShapeNode(circleOfRadius: 8)
+        head.fillColor = SKColor(red: 0.95, green: 0.80, blue: 0.66, alpha: 1); head.strokeColor = .clear
+        head.position = CGPoint(x: 0, y: 4); node.addChild(head)
+    }
+
+    private func updatePeds(dt: Double) {
+        for ped in peds {
+            let to = ped.target - ped.pos
+            let d = to.length
+            if d < 6 {
+                ped.target = ped.home + Vec2(Double.random(in: -70...70), Double.random(in: -70...70))
+            } else {
+                ped.pos = ped.pos + to * min(1.0, (40 * dt) / d)
+                ped.node.position = pt(ped.pos)
+            }
+        }
+    }
+
+    private func honk() {
+        honkCount += 1
+        busNode.run(.sequence([.scale(to: 1.12, duration: 0.08), .scale(to: 1.0, duration: 0.16)]))
+        let ring = SKShapeNode(circleOfRadius: 24)
+        ring.strokeColor = SKColor(white: 1, alpha: 0.85); ring.lineWidth = 5; ring.fillColor = .clear
+        ring.position = busNode.position; ring.zPosition = 15
+        worldNode.addChild(ring)
+        ring.run(.sequence([.group([.scale(to: 6, duration: 0.6), .fadeOut(withDuration: 0.6)]), .removeFromParent()]))
+        for ped in peds where reactions.reacts(atDistance: ped.pos.distance(to: bus.position)) {
+            playReaction(ped)
+        }
+    }
+
+    private func playReaction(_ ped: Ped) {
+        switch reactions.reaction(forReactor: ped.reactorIndex, honkCount: honkCount) {
+        case .hop:
+            ped.node.run(.sequence([.moveBy(x: 0, y: 20, duration: 0.14), .moveBy(x: 0, y: -20, duration: 0.16)]))
+        case .wave:
+            ped.node.run(.sequence([.rotate(toAngle: 0.35, duration: 0.1),
+                                    .rotate(toAngle: -0.35, duration: 0.2),
+                                    .rotate(toAngle: 0, duration: 0.1)]))
+        case .spin:
+            ped.node.run(.rotate(byAngle: .pi * 2, duration: 0.5))
+        case .cheer:
+            ped.node.run(.sequence([.scale(to: 1.3, duration: 0.12), .scale(to: 1.0, duration: 0.18)]))
+            spawnHeart(at: ped.node.position)
+        case .heart:
+            spawnHeart(at: ped.node.position)
+        }
+    }
+
+    private func spawnHeart(at p: CGPoint) {
+        let heart = heartNode()
+        heart.position = CGPoint(x: p.x, y: p.y + 18); heart.zPosition = 20; heart.setScale(0.1)
+        worldNode.addChild(heart)
+        heart.run(.sequence([
+            .group([.scale(to: 1.0, duration: 0.2),
+                    .moveBy(x: 0, y: 70, duration: 1.2),
+                    .sequence([.wait(forDuration: 0.7), .fadeOut(withDuration: 0.5)])]),
+            .removeFromParent(),
+        ]))
+    }
+
+    private func heartNode() -> SKNode {
+        let n = SKNode()
+        let pink = SKColor(red: 0.95, green: 0.40, blue: 0.55, alpha: 1)
+        for dx in [-6.0, 6.0] {
+            let c = SKShapeNode(circleOfRadius: 8)
+            c.fillColor = pink; c.strokeColor = .clear
+            c.position = CGPoint(x: CGFloat(dx), y: 4); n.addChild(c)
+        }
+        let tri = CGMutablePath()
+        tri.move(to: CGPoint(x: -13, y: 5)); tri.addLine(to: CGPoint(x: 13, y: 5))
+        tri.addLine(to: CGPoint(x: 0, y: -14)); tri.closeSubpath()
+        let t = SKShapeNode(path: tri); t.fillColor = pink; t.strokeColor = .clear; n.addChild(t)
+        return n
+    }
+
     // MARK: - Update loop
 
     override func update(_ currentTime: TimeInterval) {
@@ -367,6 +494,9 @@ final class TownScene: SKScene {
         elapsed += dt
         driveBus(dt: dt)
         driveCar(dt: dt)
+        updatePeds(dt: dt)
+        honkTimer += dt
+        if honkTimer >= 3.0 { honkTimer = 0; honk() }
         syncNodes()
         updateCamera()
     }
