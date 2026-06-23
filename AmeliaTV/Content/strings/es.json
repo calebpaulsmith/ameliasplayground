@@ -55,6 +55,12 @@
   "m.market": "¡Mira el mercado tan animado!",
   "m.beach": "¡Y mira, el mar brillante!",
 
+  "m.allAboard": "¡Sube, Pip! Próxima parada: la escuela.",
+  "m.dropSchool": "¡Aquí está la escuela! ¡Que tengas un buen día, Pip!",
+  "hud.pickUpPip": "Recoge a Pip en la parada",
+  "hud.takeToSchool": "Lleva a Pip a la escuela",
+  "hud.allDone": "¡Lo lograste! ¡Bien conducido!",
+
   "nav.tryOtherWay": "¡Probemos por aquí!",
   "find.tryAgain": "¡Casi! ¡Dirígete a otro y toca la bocina!",
   "find.spotRedBalloon": "¡Toca la bocina en el globo ROJO!",
