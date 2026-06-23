@@ -128,6 +128,9 @@ final class TownScene: SKScene, EpisodeWorld {
     private let ballNode = SKShapeNode(circleOfRadius: 13)
     private let meterBG = SKShapeNode()
     private let meterFill = SKShapeNode()
+    private let brakeCue = SKNode()                    // pulsing "Brake!" prompt above the meter
+    private let brakeCueLabel = SKLabelNode(fontNamed: "AvenirNext-Heavy")
+    private let kidChaser = SKNode()                   // the kid who chases the ball
     private var challengeResumeAt: TimeInterval = -1   // demo waits at the stop until here
 
     // MARK: - Setup
@@ -1096,17 +1099,17 @@ final class TownScene: SKScene, EpisodeWorld {
 
     private func buildChallenge() {
         // a kid at the north curb of Montrose, about to chase the ball
-        let kid = SKNode(); kid.position = pt(Vec2(40, -805)); kid.zPosition = 8
+        kidChaser.position = pt(Vec2(40, -805)); kidChaser.zPosition = 8
         let sh = SKShapeNode(circleOfRadius: 10)
         sh.fillColor = SKColor(white: 0, alpha: 0.14); sh.strokeColor = .clear
-        sh.position = CGPoint(x: 3, y: -4); kid.addChild(sh)
+        sh.position = CGPoint(x: 3, y: -4); kidChaser.addChild(sh)
         let body = SKShapeNode(circleOfRadius: 11)
         body.fillColor = SKColor(red: 0.95, green: 0.5, blue: 0.3, alpha: 1)
-        body.strokeColor = SKColor(white: 0, alpha: 0.2); body.lineWidth = 1; kid.addChild(body)
+        body.strokeColor = SKColor(white: 0, alpha: 0.2); body.lineWidth = 1; kidChaser.addChild(body)
         let head = SKShapeNode(circleOfRadius: 6)
         head.fillColor = SKColor(red: 0.95, green: 0.80, blue: 0.66, alpha: 1); head.strokeColor = .clear
-        head.position = CGPoint(x: 4, y: 4); kid.addChild(head)
-        worldNode.addChild(kid)
+        head.position = CGPoint(x: 4, y: 4); kidChaser.addChild(head)
+        worldNode.addChild(kidChaser)
 
         // the ball, resting by the curb until the challenge arms
         ballNode.fillColor = .white; ballNode.strokeColor = SKColor(white: 0, alpha: 0.4); ballNode.lineWidth = 2
@@ -1126,15 +1129,30 @@ final class TownScene: SKScene, EpisodeWorld {
         meterBG.zPosition = 25; meterBG.isHidden = true; worldNode.addChild(meterBG)
         meterFill.strokeColor = .clear; meterFill.zPosition = 26; meterFill.isHidden = true
         worldNode.addChild(meterFill)
+
+        // the "Brake!" cue: a bright pill that pulses above the meter while the
+        // window is open, so the child knows to act right now.
+        let cueBG = SKShapeNode(rectOf: CGSize(width: 110, height: 34), cornerRadius: 17)
+        cueBG.fillColor = SKColor(red: 0.92, green: 0.26, blue: 0.28, alpha: 1)
+        cueBG.strokeColor = .white; cueBG.lineWidth = 2.5; brakeCue.addChild(cueBG)
+        brakeCueLabel.fontSize = 21; brakeCueLabel.fontColor = .white
+        brakeCueLabel.verticalAlignmentMode = .center; brakeCueLabel.horizontalAlignmentMode = .center
+        brakeCue.addChild(brakeCueLabel)
+        brakeCue.zPosition = 27; brakeCue.isHidden = true; worldNode.addChild(brakeCue)
     }
 
     private func updateChallenge(dt: Double) {
         if quickStop.state == .idle, !challengeDone {
             let b = bus.position
-            if abs(b.z - challengePoint.z) < 130, b.x > -250, b.x < challengePoint.x {
+            // Arm only as the bus *approaches the ball*, east of the bus-stop pickup
+            // (else it would trigger while stopped boarding Pip and "succeed" for
+            // free). The ~160u run-up leaves time to react before the crossing.
+            if abs(b.z - challengePoint.z) < 130, b.x > challengePoint.x - 160, b.x < challengePoint.x {
                 quickStop.arm()
                 startBallRoll()
                 meterBG.isHidden = false; meterFill.isHidden = false
+                showBrakeCue()
+                sayChallenge("qs.lookOut")   // spoken + subtitled prompt: brake now!
             }
         }
         guard quickStop.state == .running else { return }
@@ -1142,6 +1160,31 @@ final class TownScene: SKScene, EpisodeWorld {
         layoutMeter()
         if quickStop.state == .success { onChallengeSuccess() }
         else if quickStop.state == .missed { onChallengeMissed() }
+    }
+
+    /// Speak (TTS) + subtitle a challenge line in the current language, voiced by
+    /// Mom — mirrors how episode lines are presented so it feels of a piece.
+    private func sayChallenge(_ lineId: String) {
+        let text = dialogue.play(lineId, force: true)
+        hud?.subtitle = text
+        hud?.speakerName = localizer.string("mom.name", language)
+        hud?.speakerColorHex = "#2ea59e"
+        subtitleClearAt = elapsed + 3.5
+    }
+
+    private func showBrakeCue() {
+        brakeCueLabel.text = localizer.string("hud.brake", language)
+        brakeCue.isHidden = false
+        brakeCue.removeAllActions()
+        brakeCue.setScale(1)
+        brakeCue.run(.repeatForever(.sequence([
+            .scale(to: 1.14, duration: 0.32), .scale(to: 1.0, duration: 0.32),
+        ])), withKey: "pulse")
+    }
+
+    private func hideBrakeCue() {
+        brakeCue.removeAction(forKey: "pulse")
+        brakeCue.isHidden = true
     }
 
     private func startBallRoll() {
@@ -1161,20 +1204,43 @@ final class TownScene: SKScene, EpisodeWorld {
                                 cornerWidth: 7, cornerHeight: 7, transform: nil)
         meterFill.position = CGPoint(x: p.x, y: p.y + 72)
         meterFill.fillColor = SKColor(red: 0.92 - 0.55 * m, green: 0.30 + 0.55 * m, blue: 0.32, alpha: 1)
+        brakeCue.position = CGPoint(x: p.x, y: p.y + 104)
     }
 
     private func onChallengeSuccess() {
         challengeDone = true
         challengeResumeAt = elapsed + 4.0          // wait for the kid (and let CI catch it)
         meterBG.isHidden = true; meterFill.isHidden = true
+        hideBrakeCue()
         sparkleBurst(at: busNode.position)
         showScore(quickStop.score, at: busNode.position)
+        sayChallenge("qs.greatStop")              // praise the safe stop
+        kidFetchesBall()                          // the kid happily collects the ball
     }
 
     private func onChallengeMissed() {
-        // No harsh failure: tuck the meter away and let it re-arm on a later pass.
+        // No harsh failure: the ball safely rolls clear, the kid waits, and we offer
+        // gentle encouragement. The challenge stays un-`done`, so it re-arms when the
+        // bus comes back around for another try.
         meterBG.isHidden = true; meterFill.isHidden = true
+        hideBrakeCue()
+        ballNode.removeAllActions()
+        sayChallenge("qs.tryBrake")
         quickStop.reset()
+    }
+
+    /// On a clean stop, the waiting kid trots out, scoops up the ball, and hops
+    /// happily back to the curb — a warm, harm-free payoff for braking in time.
+    private func kidFetchesBall() {
+        ballNode.removeAllActions()
+        let curb = pt(Vec2(40, -805))
+        let ballHome = pt(Vec2(60, -800))
+        kidChaser.run(.sequence([
+            .move(to: ballNode.position, duration: 0.5),
+            .run { [weak self] in self?.ballNode.run(.move(to: ballHome, duration: 0.45)) },
+            .move(to: curb, duration: 0.5),
+            .repeat(.sequence([.moveBy(x: 0, y: 10, duration: 0.18), .moveBy(x: 0, y: -10, duration: 0.16)]), count: 2),
+        ]))
     }
 
     private func sparkleBurst(at p: CGPoint) {
@@ -1289,6 +1355,8 @@ final class TownScene: SKScene, EpisodeWorld {
     }
 
     private func updateBeacon() {
+        // Keep the eyes on the brake while the Quick Stop window is open.
+        if quickStop.state == .running { beaconNode.isHidden = true; return }
         guard let goal = episodeTarget else { beaconNode.isHidden = true; return }
         beaconNode.isHidden = false
         let from = busNode.position
