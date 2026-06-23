@@ -24,14 +24,23 @@ final class TownScene: SKScene, EpisodeWorld {
     // Surrounding buildings (outside the park roads): apartments on Western (west),
     // restaurants/shops on Sunnyside (south). Church + library + school get their
     // own builders below.
-    private enum BuildingKind { case apartments, restaurant, shop, school }
+    private enum BuildingKind { case apartments, restaurant, shop, school, salon, barber }
     private struct Building { var center: Vec2; var size: CGSize; var height: CGFloat; var kind: BuildingKind }
     private let buildings: [Building] = [
-        Building(center: Vec2(-1010, -320), size: CGSize(width: 220, height: 300), height: 150, kind: .apartments),  // apartments W
-        Building(center: Vec2(-1010, 160), size: CGSize(width: 220, height: 280), height: 120, kind: .apartments),   // apartments W
-        Building(center: Vec2(160, 920), size: CGSize(width: 240, height: 190), height: 90, kind: .restaurant),       // restaurant S
-        Building(center: Vec2(560, 940), size: CGSize(width: 220, height: 180), height: 80, kind: .shop),             // shop S
-        Building(center: Vec2(-200, 920), size: CGSize(width: 280, height: 210), height: 100, kind: .school),         // the school (S, off Sunnyside)
+        // West of Western Ave: a row of apartments.
+        Building(center: Vec2(-1010, -360), size: CGSize(width: 220, height: 300), height: 150, kind: .apartments),
+        Building(center: Vec2(-1010, 40), size: CGSize(width: 220, height: 260), height: 120, kind: .apartments),
+        Building(center: Vec2(-1010, 430), size: CGSize(width: 220, height: 260), height: 130, kind: .apartments),
+        // South of Sunnyside Ave: shops, a restaurant, and the school.
+        Building(center: Vec2(180, 940), size: CGSize(width: 240, height: 200), height: 90, kind: .restaurant),
+        Building(center: Vec2(560, 950), size: CGSize(width: 220, height: 190), height: 80, kind: .shop),
+        Building(center: Vec2(-200, 940), size: CGSize(width: 280, height: 220), height: 100, kind: .school),
+        // North of Montrose Ave, left→right: barber, salon, then the church
+        // (its own builder), then a shop and a café. Faces face the road (south).
+        Building(center: Vec2(-740, -900), size: CGSize(width: 150, height: 150), height: 80, kind: .barber),
+        Building(center: Vec2(-560, -900), size: CGSize(width: 150, height: 150), height: 80, kind: .salon),
+        Building(center: Vec2(70, -900), size: CGSize(width: 160, height: 150), height: 80, kind: .shop),
+        Building(center: Vec2(280, -905), size: CGSize(width: 170, height: 150), height: 80, kind: .restaurant),
     ]
 
     // A landmark building whose faked height re-projects from the camera each
@@ -66,7 +75,7 @@ final class TownScene: SKScene, EpisodeWorld {
     // Camera opens on a wide establishing shot of the whole town (so a CI capture
     // can verify scenery anywhere on the map), then eases in to follow the bus.
     private var elapsed: TimeInterval = 0
-    private let wideZoom: CGFloat = 3.0    // bigger Welles map needs a wider establishing shot
+    private let wideZoom: CGFloat = 3.7    // wide enough to take in the whole neighborhood block
     private let closeZoom: CGFloat = 1.0
     // A brief wide shot of the town, then ease in to follow the bus as the ride
     // begins. Kept short so the whole first ride fits a CI capture window.
@@ -145,6 +154,7 @@ final class TownScene: SKScene, EpisodeWorld {
         buildBuildings()
         buildScenery()
         buildPeds()
+        buildParkLife()
         buildTrafficLight()
         buildPerspectiveBuilding()
         buildChallenge()
@@ -196,6 +206,25 @@ final class TownScene: SKScene, EpisodeWorld {
         addCrosswalk(at: Vec2(-200, -700), along: Vec2(1, 0), roadWidth: 110)   // bus stop (Montrose)
         addCrosswalk(at: Vec2(-200, 700), along: Vec2(1, 0), roadWidth: 110)    // school (Sunnyside)
         addCrosswalk(at: Vec2(300, 700), along: Vec2(1, 0), roadWidth: 110)     // traffic light (Sunnyside)
+
+        // Every junction is a four-way stop now that the avenues continue past the
+        // block — a little stop sign on the interior curb of each corner.
+        for c in net.intersections() { addFourWayStop(at: c) }
+    }
+
+    /// A small stop sign on a post, nudged onto the interior curb of a corner.
+    private func addFourWayStop(at v: Vec2) {
+        let inset = Vec2(v.x > 0 ? -78 : 78, v.z > 0 ? -78 : 78)
+        let node = SKNode(); node.position = pt(v + inset); node.zPosition = 7
+        let post = SKShapeNode(rectOf: CGSize(width: 4, height: 26))
+        post.fillColor = SKColor(white: 0.5, alpha: 1); post.strokeColor = .clear
+        post.position = CGPoint(x: 0, y: -14); node.addChild(post)
+        let sign = SKShapeNode(path: polygonPath(sides: 8, radius: 16))
+        sign.fillColor = SKColor(red: 0.82, green: 0.16, blue: 0.18, alpha: 1)
+        sign.strokeColor = .white; sign.lineWidth = 2.5; node.addChild(sign)
+        let bar = SKShapeNode(rectOf: CGSize(width: 18, height: 3))
+        bar.fillColor = .white; bar.strokeColor = .clear; node.addChild(bar)
+        worldNode.addChild(node)
     }
 
     /// A square of asphalt under a road junction, so crossing streets meet in a
@@ -371,7 +400,48 @@ final class TownScene: SKScene, EpisodeWorld {
                 rail.fillColor = SKColor(white: 0.25, alpha: 0.5); rail.strokeColor = .clear
                 rail.position = CGPoint(x: 0, y: street + 36 + CGFloat(ry) * 52); node.addChild(rail)
             }
+        case .salon:
+            addAwning(to: node, width: w * 0.8, y: street + 26,
+                      base: SKColor(red: 0.85, green: 0.45, blue: 0.62, alpha: 1))
+            addDoor(to: node, w: w, street: street, color: SKColor(red: 0.45, green: 0.30, blue: 0.34, alpha: 1))
+            addSign(to: node, at: CGPoint(x: w * 0.32, y: h * 0.5)) { self.scissorsIcon() }
+        case .barber:
+            addDoor(to: node, w: w, street: street, color: SKColor(red: 0.30, green: 0.32, blue: 0.40, alpha: 1))
+            addBarberPole(to: node, at: CGPoint(x: w * 0.30, y: street + 30))
+            addSign(to: node, at: CGPoint(x: -w * 0.30, y: h * 0.5)) { self.scissorsIcon() }
         }
+    }
+
+    /// A spinning-stripe barber pole beside the door.
+    private func addBarberPole(to node: SKNode, at p: CGPoint) {
+        let pole = SKShapeNode(rectOf: CGSize(width: 12, height: 40), cornerRadius: 6)
+        pole.fillColor = .white; pole.strokeColor = SKColor(white: 0, alpha: 0.25); pole.lineWidth = 1.5
+        pole.position = p; pole.zPosition = 1.5; node.addChild(pole)
+        let stripes = SKNode(); stripes.position = p; stripes.zPosition = 1.6
+        let crop = SKCropNode(); let mask = SKShapeNode(rectOf: CGSize(width: 12, height: 40), cornerRadius: 6)
+        mask.fillColor = .white; crop.maskNode = mask
+        for i in -3...3 {
+            let s = SKShapeNode(rectOf: CGSize(width: 20, height: 5))
+            s.fillColor = i % 2 == 0 ? SKColor(red: 0.85, green: 0.2, blue: 0.2, alpha: 1)
+                                     : SKColor(red: 0.2, green: 0.35, blue: 0.8, alpha: 1)
+            s.strokeColor = .clear; s.zRotation = 0.7; s.position = CGPoint(x: 0, y: CGFloat(i) * 8)
+            crop.addChild(s)
+        }
+        crop.run(.repeatForever(.sequence([.moveBy(x: 0, y: 16, duration: 0.8), .moveBy(x: 0, y: -16, duration: 0)])))
+        stripes.addChild(crop); node.addChild(stripes)
+    }
+
+    private func scissorsIcon() -> SKNode {
+        let n = SKNode()
+        for s in [-1.0, 1.0] {       // two blades crossing
+            let blade = SKShapeNode(rectOf: CGSize(width: 4, height: 18), cornerRadius: 2)
+            blade.fillColor = SKColor(white: 0.75, alpha: 1); blade.strokeColor = .clear
+            blade.zRotation = CGFloat(s) * 0.32; blade.position = CGPoint(x: CGFloat(s) * 3, y: 2); n.addChild(blade)
+            let ring = SKShapeNode(circleOfRadius: 4)
+            ring.fillColor = .clear; ring.strokeColor = SKColor(red: 0.3, green: 0.45, blue: 0.8, alpha: 1); ring.lineWidth = 2
+            ring.position = CGPoint(x: CGFloat(s) * 5, y: -10); n.addChild(ring)
+        }
+        return n
     }
 
     /// A scalloped, striped shop awning over the storefront.
@@ -581,14 +651,47 @@ final class TownScene: SKScene, EpisodeWorld {
     /// Roadside trees — mostly ringing the map to fill the empty grass the follow
     /// camera shows at the edges, plus a few inside the blocks for life.
     private func buildTrees() {
-        let spots: [Vec2] = [
-            Vec2(-460, -870), Vec2(330, -860),          // N, beyond Montrose (flanking the church)
-            Vec2(-960, -350), Vec2(-960, 300),          // W, beyond Western
-            Vec2(1010, -150), Vec2(1090, 480),          // E, beyond Lincoln
-            Vec2(-520, 880), Vec2(420, 880),            // S, beyond Sunnyside
-            Vec2(210, 240), Vec2(300, 330), Vec2(170, 380), Vec2(290, 200),  // adventure grove (inside)
-        ]
-        for s in spots { worldNode.addChild(tree(at: s)) }
+        // Parkway trees lining both sides of every avenue (the "sidewalk + grass +
+        // trees" look), skipping any that would land on a road or a building.
+        for s in net.segments { lineWithTrees(s.a, s.b, width: s.width) }
+        // A few specimen trees in open interior spots.
+        for v in [Vec2(-150, 250), Vec2(120, 150), Vec2(-600, 200)] { worldNode.addChild(tree(at: v)) }
+    }
+
+    /// Plant trees at intervals along both sides of a road segment, just beyond the
+    /// curb, skipping spots that overlap another road or a building footprint.
+    private func lineWithTrees(_ a: Vec2, _ b: Vec2, width: Double) {
+        let d = b - a; let len = d.length
+        guard len > 1 else { return }
+        let dir = Vec2(d.x / len, d.z / len)
+        let perp = Vec2(-dir.z, dir.x)
+        let off = width / 2 + 58
+        let step = 240.0
+        // keep trees clear of the bus stop and the Quick-Stop crossing
+        let reserved = [Vec2(-200, -600), challengePoint, Vec2(40, -805), Vec2(100, -800)]
+        var t = step / 2
+        while t < len {
+            let base = a + dir * t
+            for side in [-1.0, 1.0] {
+                let v = base + perp * (off * side)
+                if net.distanceToRoad(v) > 42, !nearBuilding(v),
+                   reserved.allSatisfy({ $0.distance(to: v) > 120 }) {
+                    worldNode.addChild(tree(at: v))
+                }
+            }
+            t += step
+        }
+    }
+
+    /// True if `v` lands on (or right next to) a building footprint or the library.
+    private func nearBuilding(_ v: Vec2) -> Bool {
+        for b in buildings {
+            if abs(v.x - b.center.x) < Double(b.size.width) / 2 + 36,
+               abs(v.z - b.center.z) < Double(b.size.height) / 2 + 36 { return true }
+        }
+        if abs(v.x - perspCenter.x) < Double(perspSize.width) / 2 + 40,
+           abs(v.z - perspCenter.z) < Double(perspSize.height) / 2 + 40 { return true }
+        return false
     }
 
     private func tree(at v: Vec2) -> SKNode {
@@ -604,65 +707,222 @@ final class TownScene: SKScene, EpisodeWorld {
     /// below the loop, a bus stop beside the road, and flower clusters scattered
     /// about. All off the roads so nothing blocks driving.
     private func buildScenery() {
+        addParkSidewalk()                  // the paved walk up the middle of the park
         buildPark()
-        addChurch(at: Vec2(40, -900))      // across Montrose, on the north
+        addChurch(at: Vec2(-260, -900))    // north of Montrose, left of its middle
         addBusStop(at: Vec2(-200, -600))   // on the Montrose curb, inside the park
-        let flowers: [Vec2] = [
-            Vec2(-500, -400), Vec2(-300, 250), Vec2(120, -300), Vec2(-150, 450),
-            Vec2(380, -350), Vec2(-650, 0), Vec2(60, 520),
-        ]
-        for f in flowers { addFlowers(at: f) }
-    }
-
-    /// Welles Park's interior, laid out like the real place: a baseball diamond on
-    /// the north, the gym + indoor-pool fieldhouse in the middle, tennis and
-    /// pickleball courts, a playground, a pond with a fountain, and an adventure
-    /// grove of trees full of children. Everything sits off the perimeter roads.
-    private func buildPark() {
-        addBaseballField(home: Vec2(-470, -250))                 // NW diamond
-        addTennisCourts(center: Vec2(150, -360))                 // N, west of Lincoln
-        addFieldhouse(center: Vec2(-300, 10))                    // gym + indoor pool
-        addPond(at: Vec2(290, -40), size: CGSize(width: 220, height: 140))
-        addStatue(at: Vec2(290, -40))                            // fountain statue in the pond
-        addPlayground(center: Vec2(-430, 300))                   // SW
-        addPickleball(center: Vec2(40, 320))                     // S-centre
-        addBench(at: Vec2(150, -40)); addBench(at: Vec2(430, -40))
-        for p in [Vec2(-640, -560), Vec2(-640, 560), Vec2(450, -560), Vec2(450, 540)] { addShadeTree(at: p) }
-        for p in [Vec2(200, -10), Vec2(380, 0), Vec2(240, -120)] { addPigeon(at: p) }
-        // adventure grove (SE interior): kids playing among the trees.
-        for p in [Vec2(300, 240), Vec2(380, 300), Vec2(250, 320), Vec2(360, 200)] { addKid(at: p) }
-    }
-
-    /// A baseball diamond: a green outfield, a tan infield "pie", white base lines
-    /// out to first/third, and little bases + a pitcher's mound.
-    private func addBaseballField(home: Vec2) {
-        let node = SKNode(); node.position = pt(home); node.zPosition = 4
-        // outfield arc (a big rounded wedge of grass, mowed lighter than the park)
-        let outfield = SKShapeNode(circleOfRadius: 175)
-        outfield.fillColor = SKColor(red: 0.40, green: 0.68, blue: 0.40, alpha: 1)
-        outfield.strokeColor = SKColor(white: 1, alpha: 0.25); outfield.lineWidth = 2
-        outfield.position = CGPoint(x: 90, y: -90); node.addChild(outfield)
-        // infield dirt: a diamond (rotated square) anchored at home plate.
-        let infield = SKShapeNode(rectOf: CGSize(width: 150, height: 150), cornerRadius: 8)
-        infield.fillColor = SKColor(red: 0.80, green: 0.62, blue: 0.42, alpha: 1)
-        infield.strokeColor = .clear
-        infield.zRotation = .pi / 4
-        infield.position = CGPoint(x: 60, y: -60); node.addChild(infield)
-        // base lines: home → first (along +x) and home → third (downward)
-        for end in [CGPoint(x: 150, y: 0), CGPoint(x: 0, y: -150)] {
-            let line = SKShapeNode()
-            let path = CGMutablePath()
-            path.move(to: .zero); path.addLine(to: end)
-            line.path = path; line.strokeColor = SKColor(white: 1, alpha: 0.8); line.lineWidth = 3
-            node.addChild(line)
+        for f in [Vec2(-560, -430), Vec2(-150, 470), Vec2(330, 470), Vec2(-300, 130), Vec2(120, -250)] {
+            addFlowers(at: f)
         }
-        for b in [CGPoint(x: 0, y: 0), CGPoint(x: 106, y: 0), CGPoint(x: 0, y: -106), CGPoint(x: 106, y: -106)] {
-            let base = SKShapeNode(rectOf: CGSize(width: 12, height: 12), cornerRadius: 2)
+    }
+
+    /// Welles Park, laid out to spec: a central walk with a gazebo to its left; the
+    /// indoor pool + gymnasium just inside the north road; two big ball fields on the
+    /// east; courts at the south-middle; a wooded southwest with a winding path; and
+    /// a large playground (two swing sets, a play structure, a splash pad). The park
+    /// life — runners, dogs, families — is filled in by `buildPeds`.
+    private func buildPark() {
+        addGazebo(at: Vec2(-250, -30))
+        addPool(center: Vec2(150, -500))                         // right of the walk, by the N road
+        addGym(center: Vec2(440, -500))
+        addBaseballField(center: Vec2(430, -150), radius: 200)   // NE corner
+        addBaseballField(center: Vec2(400, 380), radius: 200)    // SE corner
+        addCourts(center: Vec2(-80, 500))                        // south-middle
+        addPlayground(center: Vec2(-400, -300))                  // big, NW
+        addWoods(center: Vec2(-440, 380))                        // SW trees + path
+        for p in [Vec2(-150, 250), Vec2(80, 380), Vec2(-580, -120), Vec2(160, 150)] { addShadeTree(at: p) }
+    }
+
+    /// The light paved walk up the middle of the park (N↔S), with a couple of benches.
+    private func addParkSidewalk() {
+        let path = CGMutablePath()
+        path.move(to: pt(Vec2(-40, -645))); path.addLine(to: pt(Vec2(-40, 645)))
+        let walk = SKShapeNode(path: path)
+        walk.strokeColor = SKColor(red: 0.85, green: 0.83, blue: 0.77, alpha: 1)
+        walk.lineWidth = 30; walk.lineCap = .round; walk.zPosition = 1.4; worldNode.addChild(walk)
+        let seam = SKShapeNode(path: path.copy(dashingWithPhase: 0, lengths: [14, 16]))
+        seam.strokeColor = SKColor(white: 0.7, alpha: 0.4); seam.lineWidth = 1.5; seam.zPosition = 1.45
+        worldNode.addChild(seam)
+        addBench(at: Vec2(-90, -200)); addBench(at: Vec2(10, 180))
+    }
+
+    private func polygonPath(sides: Int, radius: CGFloat) -> CGPath {
+        let p = CGMutablePath()
+        for i in 0..<sides {
+            let a = CGFloat(i) / CGFloat(sides) * .pi * 2 + .pi / CGFloat(sides)
+            let v = CGPoint(x: cos(a) * radius, y: sin(a) * radius)
+            if i == 0 { p.move(to: v) } else { p.addLine(to: v) }
+        }
+        p.closeSubpath(); return p
+    }
+
+    /// A park gazebo: a round deck under an eight-sided roof with a finial.
+    private func addGazebo(at v: Vec2) {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 5
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: 130, height: 70))
+        shadow.fillColor = SKColor(white: 0, alpha: 0.16); shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 6, y: -28); node.addChild(shadow)
+        let deck = SKShapeNode(circleOfRadius: 52)
+        deck.fillColor = SKColor(red: 0.82, green: 0.72, blue: 0.55, alpha: 1)
+        deck.strokeColor = SKColor(white: 0, alpha: 0.2); deck.lineWidth = 2; node.addChild(deck)
+        for i in 0..<8 {
+            let a = CGFloat(i) / 8 * .pi * 2
+            let post = SKShapeNode(circleOfRadius: 4)
+            post.fillColor = SKColor(white: 0.95, alpha: 1); post.strokeColor = .clear
+            post.position = CGPoint(x: cos(a) * 48, y: sin(a) * 48); node.addChild(post)
+        }
+        let roof = SKShapeNode(path: polygonPath(sides: 8, radius: 62))
+        roof.fillColor = SKColor(red: 0.50, green: 0.36, blue: 0.30, alpha: 1)
+        roof.strokeColor = SKColor(white: 0, alpha: 0.25); roof.lineWidth = 2
+        roof.position = CGPoint(x: 0, y: 26); node.addChild(roof)
+        let finial = SKShapeNode(circleOfRadius: 6)
+        finial.fillColor = SKColor(red: 0.92, green: 0.80, blue: 0.42, alpha: 1); finial.strokeColor = .clear
+        finial.position = CGPoint(x: 0, y: 58); node.addChild(finial)
+        worldNode.addChild(node)
+    }
+
+    /// A faked-height park building (pool / gym share this): brick body + roof + a
+    /// warm-lit window band; `front` draws the kind-specific detail on the roof face.
+    private func addParkBuilding(center: Vec2, wWorld: CGFloat, dWorld: CGFloat, h: CGFloat,
+                                 wall: SKColor, roof rc: SKColor,
+                                 front: (SKNode, CGFloat, CGFloat, CGFloat) -> Void) {
+        let node = SKNode(); node.position = pt(center); node.zPosition = 5
+        let w = wWorld * scale, d = dWorld * scale
+        let shadow = SKShapeNode(rectOf: CGSize(width: w + 12, height: d + h + 12), cornerRadius: 8)
+        shadow.fillColor = SKColor(white: 0, alpha: 0.16); shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 10, y: h / 2 - 10); node.addChild(shadow)
+        let body = SKShapeNode(rectOf: CGSize(width: w, height: d + h), cornerRadius: 7)
+        body.fillColor = wall; body.strokeColor = SKColor(white: 0, alpha: 0.2); body.lineWidth = 2
+        body.position = CGPoint(x: 0, y: h / 2); node.addChild(body)
+        let cols = max(3, Int(w / 80))
+        for c in 0..<cols {
+            let win = SKShapeNode(rectOf: CGSize(width: w / CGFloat(cols) * 0.5, height: 22), cornerRadius: 3)
+            win.fillColor = c % 3 == 0 ? SKColor(red: 1, green: 0.86, blue: 0.46, alpha: 1)
+                                       : SKColor(red: 0.66, green: 0.82, blue: 0.95, alpha: 1)
+            win.strokeColor = SKColor(white: 0.2, alpha: 0.3); win.lineWidth = 1
+            win.position = CGPoint(x: -w / 2 + (CGFloat(c) + 0.5) * (w / CGFloat(cols)), y: -d / 2 + h * 0.5)
+            node.addChild(win)
+        }
+        let roof = SKShapeNode(rectOf: CGSize(width: w, height: d), cornerRadius: 7)
+        roof.fillColor = rc; roof.strokeColor = SKColor(white: 0, alpha: 0.18); roof.lineWidth = 2
+        roof.position = CGPoint(x: 0, y: h); node.addChild(roof)
+        front(node, w, d, h)
+        worldNode.addChild(node)
+    }
+
+    /// The indoor pool: a glass-roofed hall revealing a big lane pool, plus a side
+    /// wing standing in for the "rooms you can't see".
+    private func addPool(center: Vec2) {
+        addParkBuilding(center: center, wWorld: 220, dWorld: 150, h: 64,
+                        wall: SKColor(red: 0.62, green: 0.72, blue: 0.80, alpha: 1),
+                        roof: SKColor(red: 0.74, green: 0.82, blue: 0.88, alpha: 1)) { node, w, d, h in
+            let pool = SKShapeNode(rectOf: CGSize(width: w * 0.6, height: d * 0.58), cornerRadius: 8)
+            pool.fillColor = SKColor(red: 0.30, green: 0.66, blue: 0.92, alpha: 1)
+            pool.strokeColor = SKColor(white: 1, alpha: 0.6); pool.lineWidth = 3
+            pool.position = CGPoint(x: -w * 0.12, y: h); node.addChild(pool)
+            for k in -1...1 {
+                let lane = SKShapeNode(rectOf: CGSize(width: w * 0.58, height: 2))
+                lane.fillColor = SKColor(white: 1, alpha: 0.6); lane.strokeColor = .clear
+                lane.position = CGPoint(x: -w * 0.12, y: h + CGFloat(k) * d * 0.16); node.addChild(lane)
+            }
+            let wing = SKShapeNode(rectOf: CGSize(width: w * 0.24, height: d * 0.72), cornerRadius: 6)
+            wing.fillColor = SKColor(red: 0.56, green: 0.66, blue: 0.74, alpha: 1)
+            wing.strokeColor = SKColor(white: 0, alpha: 0.15); wing.lineWidth = 1
+            wing.position = CGPoint(x: w * 0.34, y: h); node.addChild(wing)
+            self.addSign(to: node, at: CGPoint(x: -w * 0.34, y: 30)) { self.waterDropIcon() }
+        }
+    }
+
+    /// The gymnasium: a brick hall with a wood-toned indoor court on the roof face.
+    private func addGym(center: Vec2) {
+        addParkBuilding(center: center, wWorld: 240, dWorld: 150, h: 70,
+                        wall: SKColor(red: 0.72, green: 0.52, blue: 0.40, alpha: 1),
+                        roof: SKColor(red: 0.85, green: 0.68, blue: 0.46, alpha: 1)) { node, w, d, h in
+            let court = SKShapeNode(rectOf: CGSize(width: w * 0.62, height: d * 0.5), cornerRadius: 4)
+            court.fillColor = SKColor(red: 0.80, green: 0.60, blue: 0.38, alpha: 1)
+            court.strokeColor = SKColor(white: 1, alpha: 0.7); court.lineWidth = 2
+            court.position = CGPoint(x: 0, y: h); node.addChild(court)
+            let circ = SKShapeNode(circleOfRadius: d * 0.12)
+            circ.fillColor = .clear; circ.strokeColor = SKColor(white: 1, alpha: 0.7); circ.lineWidth = 2
+            circ.position = CGPoint(x: 0, y: h); node.addChild(circ)
+            self.addSign(to: node, at: CGPoint(x: w * 0.34, y: 30)) { self.bballIcon() }
+        }
+    }
+
+    private func waterDropIcon() -> SKNode {
+        let n = SKNode()
+        let drop = SKShapeNode(circleOfRadius: 9)
+        drop.fillColor = SKColor(red: 0.30, green: 0.66, blue: 0.92, alpha: 1); drop.strokeColor = .clear
+        drop.position = CGPoint(x: 0, y: -3); n.addChild(drop)
+        let tip = SKShapeNode(path: { let p = CGMutablePath()
+            p.move(to: CGPoint(x: -6, y: 2)); p.addLine(to: CGPoint(x: 6, y: 2))
+            p.addLine(to: CGPoint(x: 0, y: 13)); p.closeSubpath(); return p }())
+        tip.fillColor = drop.fillColor; tip.strokeColor = .clear; n.addChild(tip)
+        return n
+    }
+    private func bballIcon() -> SKNode {
+        let n = SKNode()
+        let ball = SKShapeNode(circleOfRadius: 9)
+        ball.fillColor = SKColor(red: 0.90, green: 0.50, blue: 0.25, alpha: 1)
+        ball.strokeColor = SKColor(white: 0.2, alpha: 0.6); ball.lineWidth = 1.5; n.addChild(ball)
+        let s1 = SKShapeNode(rectOf: CGSize(width: 18, height: 1.5))
+        s1.fillColor = SKColor(white: 0.2, alpha: 0.6); s1.strokeColor = .clear; n.addChild(s1)
+        let s2 = SKShapeNode(rectOf: CGSize(width: 1.5, height: 18))
+        s2.fillColor = SKColor(white: 0.2, alpha: 0.6); s2.strokeColor = .clear; n.addChild(s2)
+        return n
+    }
+
+    /// A big ball field: a mowed green circle, a dirt infield fan at the bottom with
+    /// bases + a pitcher's mound, and an outfield FENCE arcing along the top (behind
+    /// the mound). Sized in world units so it reads properly large.
+    private func addBaseballField(center: Vec2, radius: Double) {
+        let node = SKNode(); node.position = pt(center); node.zPosition = 4
+        let R = CGFloat(radius) * scale
+        let grass = SKShapeNode(circleOfRadius: R)
+        grass.fillColor = SKColor(red: 0.42, green: 0.70, blue: 0.42, alpha: 1)
+        grass.strokeColor = SKColor(white: 1, alpha: 0.15); grass.lineWidth = 2; node.addChild(grass)
+        let home = CGPoint(x: 0, y: -R * 0.5)
+        let dirt = SKShapeNode(path: { () -> CGPath in
+            let p = CGMutablePath(); p.move(to: home)
+            p.addArc(center: home, radius: R * 0.78, startAngle: .pi * 0.16, endAngle: .pi * 0.84, clockwise: false)
+            p.closeSubpath(); return p
+        }())
+        dirt.fillColor = SKColor(red: 0.80, green: 0.62, blue: 0.42, alpha: 1); dirt.strokeColor = .clear
+        node.addChild(dirt)
+        // diamond: home, first (right), second (top), third (left)
+        let first = CGPoint(x: R * 0.34, y: home.y + R * 0.34)
+        let third = CGPoint(x: -R * 0.34, y: home.y + R * 0.34)
+        let second = CGPoint(x: 0, y: home.y + R * 0.68)
+        let diamond = CGMutablePath()
+        diamond.move(to: home); diamond.addLine(to: first)
+        diamond.addLine(to: second); diamond.addLine(to: third); diamond.closeSubpath()
+        let lines = SKShapeNode(path: diamond)
+        lines.strokeColor = SKColor(white: 1, alpha: 0.85); lines.lineWidth = 3
+        lines.fillColor = SKColor(red: 0.46, green: 0.74, blue: 0.46, alpha: 1); node.addChild(lines)
+        for b in [home, first, second, third] {
+            let base = SKShapeNode(rectOf: CGSize(width: 11, height: 11), cornerRadius: 2)
             base.fillColor = .white; base.strokeColor = .clear; base.position = b; node.addChild(base)
         }
-        let mound = SKShapeNode(circleOfRadius: 9)
+        let mound = SKShapeNode(circleOfRadius: R * 0.05)
         mound.fillColor = SKColor(red: 0.74, green: 0.56, blue: 0.38, alpha: 1); mound.strokeColor = .clear
-        mound.position = CGPoint(x: 53, y: -53); node.addChild(mound)
+        mound.position = CGPoint(x: 0, y: home.y + R * 0.34); node.addChild(mound)
+        // outfield fence arc along the top (behind the mound) — posts + a rail
+        let fenceR = R * 0.92
+        let rail = SKShapeNode(path: { () -> CGPath in
+            let p = CGMutablePath()
+            p.addArc(center: .zero, radius: fenceR, startAngle: .pi * 0.12, endAngle: .pi * 0.88, clockwise: false)
+            return p
+        }())
+        rail.strokeColor = SKColor(white: 0.95, alpha: 0.85); rail.lineWidth = 3; rail.fillColor = .clear
+        node.addChild(rail)
+        var deg = 22.0
+        while deg <= 158.0 {
+            let a = CGFloat(deg) * .pi / 180
+            let post = SKShapeNode(circleOfRadius: 3.5)
+            post.fillColor = SKColor(white: 0.95, alpha: 0.95); post.strokeColor = .clear
+            post.position = CGPoint(x: cos(a) * fenceR, y: sin(a) * fenceR); node.addChild(post)
+            deg += 9.0
+        }
         worldNode.addChild(node)
     }
 
@@ -682,79 +942,109 @@ final class TownScene: SKScene, EpisodeWorld {
         worldNode.addChild(node)
     }
 
-    private func addTennisCourts(center: Vec2) {
-        let surface = SKColor(red: 0.30, green: 0.52, blue: 0.66, alpha: 1)   // blue hard-court
-        addCourt(at: center + Vec2(0, -52), size: CGSize(width: 150, height: 78), surface: surface)
-        addCourt(at: center + Vec2(0, 52), size: CGSize(width: 150, height: 78), surface: surface)
+    /// The courts cluster at the south-middle of the park: two blue tennis courts
+    /// over two clay pickleball courts.
+    private func addCourts(center: Vec2) {
+        let blue = SKColor(red: 0.30, green: 0.52, blue: 0.66, alpha: 1)
+        let clay = SKColor(red: 0.62, green: 0.40, blue: 0.34, alpha: 1)
+        addCourt(at: center + Vec2(-100, -70), size: CGSize(width: 170, height: 88), surface: blue)
+        addCourt(at: center + Vec2(100, -70), size: CGSize(width: 170, height: 88), surface: blue)
+        addCourt(at: center + Vec2(-75, 80), size: CGSize(width: 130, height: 70), surface: clay)
+        addCourt(at: center + Vec2(75, 80), size: CGSize(width: 130, height: 70), surface: clay)
     }
 
-    private func addPickleball(center: Vec2) {
-        let surface = SKColor(red: 0.62, green: 0.40, blue: 0.34, alpha: 1)   // clay/green pickleball
-        addCourt(at: center + Vec2(-78, 0), size: CGSize(width: 120, height: 64), surface: surface)
-        addCourt(at: center + Vec2(78, 0), size: CGSize(width: 120, height: 64), surface: surface)
-    }
-
-    /// The Welles Park fieldhouse: one faked-height building that holds the
-    /// gymnasium and the indoor pool. A flat top-down footprint with a tall face,
-    /// big windows, and a small "POOL / GYM" door marker.
-    private func addFieldhouse(center: Vec2) {
-        let node = SKNode(); node.position = pt(center); node.zPosition = 5
-        let w = 260 * scale, d = 180 * scale, h: CGFloat = 90
-        let shadow = SKShapeNode(rectOf: CGSize(width: w + 10, height: d + 10), cornerRadius: 8)
-        shadow.fillColor = SKColor(white: 0, alpha: 0.16); shadow.strokeColor = .clear
-        shadow.position = CGPoint(x: 8, y: -10); node.addChild(shadow)
-        let face = SKShapeNode(rectOf: CGSize(width: w, height: d), cornerRadius: 8)
-        face.fillColor = SKColor(red: 0.72, green: 0.40, blue: 0.34, alpha: 1)   // brick
-        face.strokeColor = SKColor(white: 0, alpha: 0.2); face.lineWidth = 1; node.addChild(face)
-        let roof = SKShapeNode(rectOf: CGSize(width: w, height: d), cornerRadius: 8)
-        roof.fillColor = SKColor(red: 0.86, green: 0.55, blue: 0.48, alpha: 1)
-        roof.strokeColor = .clear; roof.position = CGPoint(x: 0, y: h); node.addChild(roof)
-        // window band
-        for i in 0..<5 {
-            let win = SKShapeNode(rectOf: CGSize(width: w * 0.13, height: d * 0.22), cornerRadius: 3)
-            win.fillColor = SKColor(red: 0.62, green: 0.82, blue: 0.95, alpha: 1); win.strokeColor = .clear
-            win.position = CGPoint(x: (CGFloat(i) - 2) * w * 0.17, y: h + d * 0.05); node.addChild(win)
-        }
-        // pool entrance hint: a small blue rectangle of water at the south face
-        let pool = SKShapeNode(rectOf: CGSize(width: w * 0.4, height: d * 0.22), cornerRadius: 4)
-        pool.fillColor = SKColor(red: 0.35, green: 0.70, blue: 0.92, alpha: 1); pool.strokeColor = .clear
-        pool.position = CGPoint(x: -w * 0.2, y: -d * 0.5 - 14); node.addChild(pool)
-        worldNode.addChild(node)
-    }
-
-    /// A children's playground: a soft tan play surface, a slide, two swings, and
-    /// a sandbox — the cozy heart of the park.
+    /// A large playground: a soft pad with a play structure (tower + slide), TWO
+    /// swing sets, a sandbox, and a fountain splash pad — the heart of the park.
     private func addPlayground(center: Vec2) {
         let node = SKNode(); node.position = pt(center); node.zPosition = 4
-        let pad = SKShapeNode(rectOf: CGSize(width: 230, height: 200), cornerRadius: 14)
-        pad.fillColor = SKColor(red: 0.85, green: 0.72, blue: 0.52, alpha: 1)
-        pad.strokeColor = SKColor(white: 1, alpha: 0.25); pad.lineWidth = 2; node.addChild(pad)
-        // slide: a ladder + a sloped chute
-        let chute = SKShapeNode(rectOf: CGSize(width: 16, height: 70), cornerRadius: 6)
-        chute.fillColor = SKColor(red: 0.95, green: 0.70, blue: 0.30, alpha: 1); chute.strokeColor = .clear
-        chute.zRotation = 0.5; chute.position = CGPoint(x: -50, y: 0); node.addChild(chute)
-        let top = SKShapeNode(rectOf: CGSize(width: 26, height: 12), cornerRadius: 3)
-        top.fillColor = SKColor(red: 0.90, green: 0.40, blue: 0.40, alpha: 1); top.strokeColor = .clear
-        top.position = CGPoint(x: -70, y: 26); node.addChild(top)
-        // swing set: a frame with two swings
-        let frame = SKShapeNode(rectOf: CGSize(width: 90, height: 8), cornerRadius: 3)
-        frame.fillColor = SKColor(red: 0.40, green: 0.55, blue: 0.70, alpha: 1); frame.strokeColor = .clear
-        frame.position = CGPoint(x: 55, y: 34); node.addChild(frame)
-        for dx in [-22.0, 22.0] {
-            let rope = SKShapeNode(rectOf: CGSize(width: 3, height: 44))
-            rope.fillColor = SKColor(white: 0.3, alpha: 0.8); rope.strokeColor = .clear
-            rope.position = CGPoint(x: 55 + CGFloat(dx), y: 12); node.addChild(rope)
-            let seat = SKShapeNode(rectOf: CGSize(width: 18, height: 6), cornerRadius: 2)
-            seat.fillColor = SKColor(red: 0.30, green: 0.55, blue: 0.40, alpha: 1); seat.strokeColor = .clear
-            seat.position = CGPoint(x: 55 + CGFloat(dx), y: -10); node.addChild(seat)
-        }
+        let w = 360 * scale, d = 280 * scale
+        let pad = SKShapeNode(rectOf: CGSize(width: w, height: d), cornerRadius: 26)
+        pad.fillColor = SKColor(red: 0.88, green: 0.74, blue: 0.52, alpha: 1)
+        pad.strokeColor = SKColor(white: 1, alpha: 0.22); pad.lineWidth = 2; node.addChild(pad)
+        // play structure: a platform tower with a peaked roof + a slide chute
+        let tower = SKShapeNode(rectOf: CGSize(width: 72, height: 62), cornerRadius: 6)
+        tower.fillColor = SKColor(red: 0.40, green: 0.62, blue: 0.55, alpha: 1); tower.strokeColor = .clear
+        tower.position = CGPoint(x: -w * 0.30, y: d * 0.12); node.addChild(tower)
+        let towerRoof = SKShapeNode(path: polygonPath(sides: 3, radius: 48))
+        towerRoof.fillColor = SKColor(red: 0.90, green: 0.40, blue: 0.40, alpha: 1); towerRoof.strokeColor = .clear
+        towerRoof.zRotation = .pi / 2; towerRoof.position = CGPoint(x: -w * 0.30, y: d * 0.12 + 46); node.addChild(towerRoof)
+        let chute = SKShapeNode(rectOf: CGSize(width: 20, height: 92), cornerRadius: 8)
+        chute.fillColor = SKColor(red: 0.95, green: 0.72, blue: 0.30, alpha: 1); chute.strokeColor = .clear
+        chute.zRotation = 0.6; chute.position = CGPoint(x: -w * 0.30 + 64, y: d * 0.02); node.addChild(chute)
+        // two swing sets => "swings ... and more swings"
+        addSwingSet(to: node, at: CGPoint(x: w * 0.16, y: d * 0.26))
+        addSwingSet(to: node, at: CGPoint(x: w * 0.16, y: -d * 0.18))
         // sandbox
-        let sand = SKShapeNode(rectOf: CGSize(width: 60, height: 44), cornerRadius: 6)
+        let sand = SKShapeNode(rectOf: CGSize(width: 84, height: 60), cornerRadius: 8)
         sand.fillColor = SKColor(red: 0.93, green: 0.84, blue: 0.58, alpha: 1)
         sand.strokeColor = SKColor(red: 0.70, green: 0.50, blue: 0.30, alpha: 1); sand.lineWidth = 3
-        sand.position = CGPoint(x: 5, y: -64); node.addChild(sand)
+        sand.position = CGPoint(x: -w * 0.32, y: -d * 0.28); node.addChild(sand)
         worldNode.addChild(node)
-        for p in [center + Vec2(-50, -20), center + Vec2(55, -30), center + Vec2(0, 60)] { addKid(at: p) }
+        addSplashpad(at: center + Vec2(120, 10))
+        for off in [Vec2(-150, 40), Vec2(110, 90), Vec2(60, -60), Vec2(-60, 110), Vec2(170, -40)] {
+            addKid(at: center + off)
+        }
+    }
+
+    private func addSwingSet(to node: SKNode, at p: CGPoint) {
+        let beam = SKShapeNode(rectOf: CGSize(width: 86, height: 7), cornerRadius: 3)
+        beam.fillColor = SKColor(red: 0.40, green: 0.55, blue: 0.70, alpha: 1); beam.strokeColor = .clear
+        beam.position = CGPoint(x: p.x, y: p.y + 30); node.addChild(beam)
+        for dx in [-28.0, 0.0, 28.0] {
+            let rope = SKShapeNode(rectOf: CGSize(width: 2.5, height: 40))
+            rope.fillColor = SKColor(white: 0.3, alpha: 0.8); rope.strokeColor = .clear
+            rope.position = CGPoint(x: p.x + CGFloat(dx), y: p.y + 8); node.addChild(rope)
+            let seat = SKShapeNode(rectOf: CGSize(width: 16, height: 5), cornerRadius: 2)
+            seat.fillColor = SKColor(red: 0.30, green: 0.55, blue: 0.40, alpha: 1); seat.strokeColor = .clear
+            seat.position = CGPoint(x: p.x + CGFloat(dx), y: p.y - 12); node.addChild(seat)
+        }
+    }
+
+    /// A fountain splash pad: a wet circular pad with little water jets that pulse.
+    private func addSplashpad(at v: Vec2) {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 3.6
+        let pad = SKShapeNode(circleOfRadius: 72)
+        pad.fillColor = SKColor(red: 0.58, green: 0.78, blue: 0.86, alpha: 1)
+        pad.strokeColor = SKColor(white: 1, alpha: 0.4); pad.lineWidth = 2; node.addChild(pad)
+        let wet = SKShapeNode(circleOfRadius: 46)
+        wet.fillColor = SKColor(red: 0.42, green: 0.70, blue: 0.90, alpha: 0.5); wet.strokeColor = .clear
+        node.addChild(wet)
+        for i in 0..<6 {
+            let a = CGFloat(i) / 6 * .pi * 2
+            let jet = SKShapeNode(rectOf: CGSize(width: 5, height: 26), cornerRadius: 2.5)
+            jet.fillColor = SKColor(white: 1, alpha: 0.8); jet.strokeColor = .clear
+            jet.position = CGPoint(x: cos(a) * 32, y: sin(a) * 32); jet.yScale = 0.3
+            jet.run(.repeatForever(.sequence([
+                .scaleY(to: 1.0, duration: 0.4 + Double(i) * 0.05),
+                .scaleY(to: 0.3, duration: 0.4), .wait(forDuration: 0.2),
+            ])))
+            node.addChild(jet)
+        }
+        let jetC = SKShapeNode(rectOf: CGSize(width: 6, height: 34), cornerRadius: 3)
+        jetC.fillColor = SKColor(white: 1, alpha: 0.85); jetC.strokeColor = .clear
+        jetC.run(.repeatForever(.sequence([.scaleY(to: 1.3, duration: 0.5), .scaleY(to: 0.7, duration: 0.5)])))
+        node.addChild(jetC)
+        worldNode.addChild(node)
+    }
+
+    /// The wooded southwest corner: a grove of shade trees with a winding dirt path
+    /// and flower clumps — a calm contrast to the busy playground.
+    private func addWoods(center: Vec2) {
+        let path = CGMutablePath()
+        path.move(to: pt(center + Vec2(-180, 200)))
+        path.addQuadCurve(to: pt(center + Vec2(40, 40)), control: pt(center + Vec2(-160, 60)))
+        path.addQuadCurve(to: pt(center + Vec2(200, -180)), control: pt(center + Vec2(160, -10)))
+        let walk = SKShapeNode(path: path)
+        walk.strokeColor = SKColor(red: 0.78, green: 0.70, blue: 0.55, alpha: 1)
+        walk.lineWidth = 18; walk.lineCap = .round; walk.fillColor = .clear; walk.zPosition = 1.3
+        worldNode.addChild(walk)
+        let spots: [Vec2] = [
+            Vec2(-200, 120), Vec2(-120, 220), Vec2(-40, 130), Vec2(-220, 0), Vec2(-100, 40),
+            Vec2(60, 170), Vec2(-180, -120), Vec2(40, -60), Vec2(170, 70), Vec2(120, -150),
+            Vec2(-60, -170), Vec2(210, -40),
+        ]
+        for s in spots { addShadeTree(at: center + s) }
+        for s in [Vec2(-90, 90), Vec2(30, -20), Vec2(120, -70)] { addFlowers(at: center + s) }
     }
 
     private func addStatue(at v: Vec2) {
@@ -947,6 +1237,71 @@ final class TownScene: SKScene, EpisodeWorld {
         shadow.fillColor = SKColor(white: 0, alpha: 0.15); shadow.strokeColor = .clear
         shadow.position = CGPoint(x: 4, y: -6); node.addChild(shadow)
         node.addChild(kenneySprite(kenneyCharacters.randomElement()!, height: 34))
+    }
+
+    private func makePersonNode(height: CGFloat) -> SKNode {
+        let node = SKNode()
+        let shadow = SKShapeNode(circleOfRadius: height * 0.36)
+        shadow.fillColor = SKColor(white: 0, alpha: 0.15); shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 3, y: -height * 0.18); node.addChild(shadow)
+        node.addChild(kenneySprite(kenneyCharacters.randomElement()!, height: height))
+        return node
+    }
+
+    /// Animated park life that isn't part of the honk-reactor crowd: joggers looping
+    /// the central walk, dogs trotting little circuits, and parents strolling with a
+    /// child. All move via SKActions (no per-frame code) and keep off the roads.
+    private func buildParkLife() {
+        // joggers up and down the central sidewalk
+        for (i, x) in [-70.0, 10.0].enumerated() {
+            let r = makePersonNode(height: 32); r.position = pt(Vec2(x, -560)); r.zPosition = 8
+            worldNode.addChild(r)
+            let dur = 9.0 + Double(i) * 2
+            let bob = SKAction.repeatForever(.sequence([.moveBy(x: 0, y: 5, duration: 0.18),
+                                                        .moveBy(x: 0, y: -5, duration: 0.16)]))
+            r.run(.repeatForever(.sequence([.move(to: pt(Vec2(x, 560)), duration: dur),
+                                            .move(to: pt(Vec2(x, -560)), duration: dur)])))
+            r.run(bob)
+        }
+        for c in [Vec2(-250, 240), Vec2(210, -260), Vec2(-120, 470)] { addDog(at: c) }
+        for c in [Vec2(-120, -120), Vec2(150, 280), Vec2(-330, 120)] { addFamily(at: c) }
+    }
+
+    /// A small dog that trots a little loop, tail wagging.
+    private func addDog(at v: Vec2) {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 8
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: 26, height: 12))
+        shadow.fillColor = SKColor(white: 0, alpha: 0.14); shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 2, y: -8); node.addChild(shadow)
+        let coat = SKColor(red: 0.55, green: 0.40, blue: 0.26, alpha: 1)
+        let body = SKShapeNode(ellipseOf: CGSize(width: 26, height: 14))
+        body.fillColor = coat; body.strokeColor = .clear; node.addChild(body)
+        let head = SKShapeNode(circleOfRadius: 7)
+        head.fillColor = coat; head.strokeColor = .clear; head.position = CGPoint(x: 13, y: 4); node.addChild(head)
+        let ear = SKShapeNode(ellipseOf: CGSize(width: 5, height: 9))
+        ear.fillColor = SKColor(red: 0.42, green: 0.30, blue: 0.20, alpha: 1); ear.strokeColor = .clear
+        ear.position = CGPoint(x: 13, y: 9); node.addChild(ear)
+        let tail = SKShapeNode(rectOf: CGSize(width: 10, height: 3), cornerRadius: 1.5)
+        tail.fillColor = coat; tail.strokeColor = .clear; tail.position = CGPoint(x: -14, y: 4)
+        tail.run(.repeatForever(.sequence([.rotate(toAngle: 0.5, duration: 0.18),
+                                           .rotate(toAngle: -0.2, duration: 0.18)])))
+        node.addChild(tail)
+        worldNode.addChild(node)
+        node.run(.repeatForever(.sequence([
+            .move(to: pt(v + Vec2(90, 0)), duration: 3), .move(to: pt(v + Vec2(90, 90)), duration: 3),
+            .move(to: pt(v + Vec2(0, 90)), duration: 3), .move(to: pt(v), duration: 3),
+        ])))
+    }
+
+    /// A parent and child walking together, ambling slowly back and forth.
+    private func addFamily(at v: Vec2) {
+        let group = SKNode(); group.position = pt(v); group.zPosition = 8
+        let adult = makePersonNode(height: 36); adult.position = CGPoint(x: -10, y: 0); group.addChild(adult)
+        let child = makePersonNode(height: 24); child.position = CGPoint(x: 16, y: -4); group.addChild(child)
+        worldNode.addChild(group)
+        group.run(.repeatForever(.sequence([
+            .move(to: pt(v + Vec2(120, 20)), duration: 8), .move(to: pt(v), duration: 8),
+        ])))
     }
 
     private func updatePeds(dt: Double) {

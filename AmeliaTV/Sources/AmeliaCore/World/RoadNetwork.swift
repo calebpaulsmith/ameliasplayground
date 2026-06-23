@@ -110,6 +110,17 @@ public extension RoadNetwork {
             seg(-800, -700, 550, -700),   // Montrose (north)
             seg(550, -700, 820, 700),     // Lincoln (diagonal NE→SW, east)
             seg(-800, 700, 820, 700),     // Sunnyside (south)
+            // The avenues keep going past each corner — short stubs out of every
+            // junction so the park reads as one block in a bigger grid (each corner
+            // becomes a four-way stop). The bus still tours the perimeter loop.
+            seg(-800, -700, -800, -980),  // Western continues north (NW)
+            seg(-800, -700, -1080, -700), // Montrose continues west (NW)
+            seg(550, -700, 550, -980),    // cross street north (NE)
+            seg(550, -700, 830, -700),    // Montrose continues east (NE)
+            seg(820, 700, 820, 980),      // cross street south (SE)
+            seg(820, 700, 1100, 700),     // Sunnyside continues east (SE)
+            seg(-800, 700, -800, 980),    // Western continues south (SW)
+            seg(-800, 700, -1080, 700),   // Sunnyside continues west (SW)
         ])
     }
 
