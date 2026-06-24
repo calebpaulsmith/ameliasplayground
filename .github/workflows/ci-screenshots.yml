@@ -87,8 +87,10 @@ jobs:
           xcrun simctl boot "$DEVICE_ID" || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
           xcrun simctl install "$DEVICE_ID" "$APP"
-          xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
-          sleep 2   # let the scene present (kept short so the first still catches the wide overview)
+          # Ask the app to hold the wide establishing shot (AMELIA_OVERVIEW) so the
+          # first stills capture the whole-park overview; players still get a short
+          # intro. simctl forwards SIMCTL_CHILD_* vars into the app's environment.
+          SIMCTL_CHILD_AMELIA_OVERVIEW=1 xcrun simctl launch "$DEVICE_ID" "$BUNDLE_ID"
 
           mkdir -p ../media
           # Record the framebuffer (works headlessly) while the demo walk runs.
