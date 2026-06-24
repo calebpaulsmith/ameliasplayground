@@ -67,6 +67,20 @@ final class TrafficLightTests: XCTestCase {
         let light = TrafficLight(id: "t", phase: 9)   // 9 is within red band
         XCTAssertEqual(light.state, .red)
     }
+
+    func testSecondsUntilChangeCountsDownEachColour() {
+        // Defaults: green 6, yellow 2, red 6 (cycle 14).
+        var light = TrafficLight(id: "t")
+        XCTAssertEqual(light.secondsUntilChange, 6, accuracy: 1e-9)   // full green ahead
+        light.update(dt: 4)
+        XCTAssertEqual(light.secondsUntilChange, 2, accuracy: 1e-9)   // 2s of green left
+        light.update(dt: 3)                                          // 7s => yellow
+        XCTAssertEqual(light.state, .yellow)
+        XCTAssertEqual(light.secondsUntilChange, 1, accuracy: 1e-9)   // 1s of yellow left
+        light.update(dt: 4)                                          // 11s => red, 3s in
+        XCTAssertEqual(light.state, .red)
+        XCTAssertEqual(light.secondsUntilChange, 3, accuracy: 1e-9)   // counts down to green
+    }
 }
 
 // MARK: - Dialogue

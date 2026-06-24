@@ -35,6 +35,17 @@ public struct TrafficLight: Equatable, Sendable {
 
     public var cycleLength: Double { greenDur + yellowDur + redDur }
 
+    /// Seconds left in the current colour before it changes. Drives a child-friendly
+    /// "3… 2… 1… go" countdown on the light (the renderer ticks/says the numbers).
+    public var secondsUntilChange: Double {
+        let total = cycleLength
+        var c = (t + phase).truncatingRemainder(dividingBy: total)
+        if c < 0 { c += total }
+        if c < greenDur { return greenDur - c }
+        if c < greenDur + yellowDur { return greenDur + yellowDur - c }
+        return total - c
+    }
+
     public mutating func update(dt: Double) {
         t += dt
         state = TrafficLight.stateFor(
