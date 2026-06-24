@@ -128,12 +128,12 @@ final class TownScene: SKScene, EpisodeWorld {
     private let schoolDoor = Vec2(-200, 830)       // the school building sits south of the road
     private let beaconNode = SKShapeNode()         // floating arrow to the goal
 
-    // A traffic light on Sunnyside (south road) the bus (and car) stop at on red.
-    private var light = TrafficLight(id: "main", position: Vec2(300, 700), phase: 0,
-                                     green: 3, yellow: 1.5, red: 6)
-    private var lampRed: SKShapeNode!
-    private var lampYellow: SKShapeNode!
-    private var lampGreen: SKShapeNode!
+    // Stoplights stand at the four park corners (not in the road). One drives the
+    // bus's stop logic; all four render the same phase. Mostly green so the ride
+    // flows. `light.position` is the NE corner.
+    private var light = TrafficLight(id: "main", position: Vec2(550, -700), phase: 0,
+                                     green: 6, yellow: 1.5, red: 3)
+    private var cornerLamps: [(red: SKShapeNode, yellow: SKShapeNode, green: SKShapeNode)] = []
 
     // "Quick Stop!" challenge (CH-01): a ball crosses the right road; brake in time.
     private var quickStop = QuickStopChallenge()
@@ -208,29 +208,49 @@ final class TownScene: SKScene, EpisodeWorld {
         // the walkways read as attached to the streets (not floating in the grass).
         for s in net.segments { addSidewalkStrip(s.a, s.b, width: s.width) }
 
-        // Painted zebra crosswalks where children cross: at the bus stop, the
-        // school drop-off, and the traffic light. Bars run across the road.
-        addCrosswalk(at: Vec2(-200, -700), along: Vec2(1, 0), roadWidth: 110)   // bus stop (Montrose)
-        addCrosswalk(at: Vec2(-200, 700), along: Vec2(1, 0), roadWidth: 110)    // school (Sunnyside)
-        addCrosswalk(at: Vec2(300, 700), along: Vec2(1, 0), roadWidth: 110)     // traffic light (Sunnyside)
+        // Painted zebra crosswalks: at the bus stop, the school, and across the
+        // avenues by each park corner (pedestrian crossings at the intersections).
+        addCrosswalk(at: Vec2(-200, -700), along: Vec2(1, 0), roadWidth: 110)   // bus stop (north road)
+        addCrosswalk(at: Vec2(-200, 700), along: Vec2(1, 0), roadWidth: 110)    // school (south road)
+        for cx in [-660.0, 410.0] { addCrosswalk(at: Vec2(cx, -700), along: Vec2(1, 0), roadWidth: 110) }
+        for cx in [-660.0, 680.0] { addCrosswalk(at: Vec2(cx, 700), along: Vec2(1, 0), roadWidth: 110) }
+        for cz in [-560.0, 560.0] { addCrosswalk(at: Vec2(-800, cz), along: Vec2(0, 1), roadWidth: 110) }
 
-        // Every junction is a four-way stop now that the avenues continue past the
-        // block — a little stop sign on the interior curb of each corner.
-        for c in net.intersections() { addFourWayStop(at: c) }
+        // The park corners get stoplights (built separately). Every *other* grid
+        // junction is a four-way stop with a little stop sign.
+        for c in net.intersections()
+        where !RoadNetwork.wellesCorners.contains(where: { $0.distance(to: c) < 1 }) {
+            addFourWayStop(at: c)
+        }
     }
 
     /// A continuous concrete sidewalk band just outside both edges of a road.
+    // Street cross-section (per side): road | curb | a grass PARKWAY (with the
+    // lining trees) | a WIDE sidewalk that buildings sit flush against.
+    private let parkwayWidth = 46.0
+    private let sidewalkWidth = 64.0
+
     private func addSidewalkStrip(_ a: Vec2, _ b: Vec2, width: Double) {
         let d = b - a; let len = d.length
         guard len > 1 else { return }
         let perp = Vec2(-d.z / len, d.x / len)
         for side in [-1.0, 1.0] {
-            let off = perp * (width / 2 + 19)
-            let strip = roadLine(a + off, b + off, width: 24,
-                                 color: SKColor(red: 0.81, green: 0.80, blue: 0.78, alpha: 1), z: -0.1)
+            // wide sidewalk set back from the curb by the green parkway
+            let off = perp * (side * (width / 2 + parkwayWidth + sidewalkWidth / 2))
+            let strip = roadLine(a + off, b + off, width: CGFloat(sidewalkWidth) * scale,
+                                 color: SKColor(red: 0.82, green: 0.81, blue: 0.79, alpha: 1), z: -0.1)
             worldNode.addChild(strip)
+            // a thin curb line at the road edge
+            let curbOff = perp * (side * (width / 2 + 3))
+            let curb = roadLine(a + curbOff, b + curbOff, width: 3,
+                                color: SKColor(white: 0.72, alpha: 0.6), z: -0.05)
+            worldNode.addChild(curb)
         }
     }
+
+    /// The street-facing edge distance from a road centerline out to the building
+    /// line (curb + parkway + sidewalk) — where a streetwall building's front sits.
+    private var buildingSetback: Double { 55 + parkwayWidth + sidewalkWidth }
 
     /// A small stop sign on a post, nudged onto the interior curb of a corner.
     private func addFourWayStop(at v: Vec2) {
@@ -685,8 +705,8 @@ final class TownScene: SKScene, EpisodeWorld {
         guard len > 1 else { return }
         let dir = Vec2(d.x / len, d.z / len)
         let perp = Vec2(-dir.z, dir.x)
-        let off = width / 2 + 58
-        let step = 240.0
+        let off = width / 2 + parkwayWidth / 2 + 4   // in the grassy parkway, between curb and sidewalk
+        let step = 200.0
         // keep trees clear of the bus stop and the Quick-Stop crossing
         let reserved = [Vec2(-200, -600), challengePoint, Vec2(40, -805), Vec2(100, -800)]
         var t = step / 2
@@ -1725,29 +1745,37 @@ final class TownScene: SKScene, EpisodeWorld {
     // MARK: - Traffic light
 
     private func buildTrafficLight() {
-        let node = SKNode()
-        node.position = pt(Vec2(680, 70))   // roadside, NE corner of the junction
-        node.zPosition = 7
-        let housing = SKShapeNode(rectOf: CGSize(width: 34, height: 90), cornerRadius: 8)
-        housing.fillColor = SKColor(white: 0.16, alpha: 1)
-        housing.strokeColor = SKColor(white: 0, alpha: 0.25); housing.lineWidth = 2
-        node.addChild(housing)
-        func lamp(_ y: CGFloat, _ color: SKColor) -> SKShapeNode {
-            let l = SKShapeNode(circleOfRadius: 11)
-            l.fillColor = color; l.strokeColor = .clear; l.position = CGPoint(x: 0, y: y)
-            node.addChild(l); return l
+        // A stoplight on the interior curb of each of the four park corners.
+        for c in RoadNetwork.wellesCorners {
+            let inset = Vec2(c.x > 0 ? -64 : 64, c.z > 0 ? -64 : 64)
+            let node = SKNode(); node.position = pt(c + inset); node.zPosition = 7
+            let pole = SKShapeNode(rectOf: CGSize(width: 5, height: 30))
+            pole.fillColor = SKColor(white: 0.45, alpha: 1); pole.strokeColor = .clear
+            pole.position = CGPoint(x: 0, y: -52); node.addChild(pole)
+            let housing = SKShapeNode(rectOf: CGSize(width: 30, height: 78), cornerRadius: 7)
+            housing.fillColor = SKColor(white: 0.16, alpha: 1)
+            housing.strokeColor = SKColor(white: 0, alpha: 0.25); housing.lineWidth = 2
+            node.addChild(housing)
+            func lamp(_ y: CGFloat, _ color: SKColor) -> SKShapeNode {
+                let l = SKShapeNode(circleOfRadius: 9)
+                l.fillColor = color; l.strokeColor = .clear; l.position = CGPoint(x: 0, y: y)
+                node.addChild(l); return l
+            }
+            let r = lamp(24, SKColor(red: 0.92, green: 0.24, blue: 0.22, alpha: 1))
+            let y = lamp(0, SKColor(red: 0.96, green: 0.80, blue: 0.24, alpha: 1))
+            let gr = lamp(-24, SKColor(red: 0.30, green: 0.80, blue: 0.36, alpha: 1))
+            cornerLamps.append((r, y, gr))
+            worldNode.addChild(node)
         }
-        lampRed = lamp(28, SKColor(red: 0.92, green: 0.24, blue: 0.22, alpha: 1))
-        lampYellow = lamp(0, SKColor(red: 0.96, green: 0.80, blue: 0.24, alpha: 1))
-        lampGreen = lamp(-28, SKColor(red: 0.30, green: 0.80, blue: 0.36, alpha: 1))
-        worldNode.addChild(node)
         updateLightRender()
     }
 
     private func updateLightRender() {
-        lampRed.alpha = light.state == .red ? 1.0 : 0.16
-        lampYellow.alpha = light.state == .yellow ? 1.0 : 0.16
-        lampGreen.alpha = light.state == .green ? 1.0 : 0.16
+        for set in cornerLamps {
+            set.red.alpha = light.state == .red ? 1.0 : 0.16
+            set.yellow.alpha = light.state == .yellow ? 1.0 : 0.16
+            set.green.alpha = light.state == .green ? 1.0 : 0.16
+        }
     }
 
     // MARK: - Perspective landmark building

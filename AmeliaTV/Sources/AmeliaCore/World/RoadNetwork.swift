@@ -102,27 +102,38 @@ public extension RoadNetwork {
     /// Ave** diagonal (north-east → south-west, east), and **Sunnyside Ave**
     /// (south). The park sits inside; church/library/apartments sit outside.
     static var welles: RoadNetwork {
-        func seg(_ ax: Double, _ az: Double, _ bx: Double, _ bz: Double) -> RoadSegment {
-            RoadSegment(a: Vec2(ax, az), b: Vec2(bx, bz), width: 110)
+        func seg(_ ax: Double, _ az: Double, _ bx: Double, _ bz: Double, _ w: Double = 110) -> RoadSegment {
+            RoadSegment(a: Vec2(ax, az), b: Vec2(bx, bz), width: w)
         }
+        let g = 100.0   // neighborhood street width (a touch narrower than the park avenues)
         return RoadNetwork(segments: [
+            // --- the park block (the bus tours this perimeter loop) ---
             seg(-800, -700, -800, 700),   // Western (west, N–S)
-            seg(-800, -700, 550, -700),   // Montrose (north)
+            seg(-800, -700, 550, -700),   // Leland/Montrose (north)
             seg(550, -700, 820, 700),     // Lincoln (diagonal NE→SW, east)
             seg(-800, 700, 820, 700),     // Sunnyside (south)
-            // The avenues keep going past each corner — the north (Montrose) and
-            // south (Sunnyside) roads run long, as real avenues do; the side streets
-            // get shorter stubs. Each corner becomes a four-way stop. The bus still
-            // tours the inner perimeter loop.
-            seg(-800, -700, -800, -980),  // Western continues north (NW)
-            seg(-800, -700, -1500, -700), // Montrose continues far west (NW)
-            seg(550, -700, 550, -980),    // cross street north (NE)
-            seg(550, -700, 1400, -700),   // Montrose continues far east (NE)
-            seg(820, 700, 820, 980),      // cross street south (SE)
-            seg(820, 700, 1500, 700),     // Sunnyside continues far east (SE)
-            seg(-800, 700, -800, 980),    // Western continues south (SW)
-            seg(-800, 700, -1500, 700),   // Sunnyside continues far west (SW)
+            // --- the surrounding Lincoln Square grid (blocks around the park) ---
+            // outer ring streets
+            seg(-1300, -1200, 1250, -1200, g),  // north-outer (E–W)
+            seg(-1300, 1200, 1250, 1200, g),    // south-outer (E–W)
+            seg(-1300, -1200, -1300, 1200, g),  // west-outer (N–S)
+            seg(1250, -1200, 1250, 1200, g),    // east-outer (N–S)
+            // the two park avenues run on through the grid
+            seg(-1300, -700, -800, -700, g), seg(550, -700, 1250, -700, g),  // north road W/E
+            seg(-1300, 700, -800, 700, g), seg(820, 700, 1250, 700, g),      // south road W/E
+            // verticals continuing past the park corners up/down to the outer ring
+            seg(-800, -1200, -800, -700, g), seg(-800, 700, -800, 1200, g),  // Western
+            seg(550, -1200, 550, -700, g),                                   // NE cross
+            seg(820, 700, 820, 1200, g),                                     // SE cross
+            // the interrupted middle avenue — comes down to the north road and
+            // resumes south of the south road; the park blocks it in between.
+            seg(-130, -1200, -130, -700, g), seg(-130, 700, -130, 1200, g),
         ])
+    }
+
+    /// The four corners of the park block — where the stoplights stand.
+    static var wellesCorners: [Vec2] {
+        [Vec2(-800, -700), Vec2(550, -700), Vec2(820, 700), Vec2(-800, 700)]
     }
 
     /// Clockwise tour of the Welles perimeter (NW → NE → SE → SW), including the
