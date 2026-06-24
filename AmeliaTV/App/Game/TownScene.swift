@@ -79,7 +79,11 @@ final class TownScene: SKScene, EpisodeWorld {
     private let closeZoom: CGFloat = 1.0
     // A brief wide shot of the town, then ease in to follow the bus as the ride
     // begins. Kept short so the whole first ride fits a CI capture window.
-    private let establishHold: TimeInterval = 8.0
+    // The intro flyover is short for players. CI sets AMELIA_OVERVIEW=1 (via
+    // SIMCTL_CHILD_) to hold the wide shot long enough that the recordVideo capture
+    // window — which only opens several seconds after launch — lands on it.
+    private let establishHold: TimeInterval =
+        ProcessInfo.processInfo.environment["AMELIA_OVERVIEW"] != nil ? 16.0 : 4.0
     private let establishEase: TimeInterval = 2.0
 
     // Pedestrians + "honk → the world reacts" (M2).
