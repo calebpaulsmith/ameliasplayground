@@ -28,6 +28,35 @@ public enum SoundCue: String, CaseIterable, Sendable {
     case reward
     /// An extra sparkle when a brand-new sticker is granted.
     case rewardSticker
+
+    // MARK: - Music & sound pass (a living, calm neighborhood)
+    //
+    // The town should *sound* alive: songbirds, a chittering squirrel, a soft
+    // bunny foot-thump, bees around the flowers, the hush of a passing car, plus
+    // the friendly stop/go cues at the crossing. Like everything above, these are
+    // referenced by id and synthesized procedurally — gentle, never startling.
+
+    /// A short, sweet two-note songbird tweet.
+    case birdChirp
+    /// A second, brighter little warble, so the birdsong never sounds like one bird.
+    case birdSong
+    /// A quick, friendly squirrel chitter.
+    case squirrelChitter
+    /// A soft, low bunny foot-thump on the grass.
+    case rabbitThump
+    /// A brief, cozy bee buzz (a bee passing close by a flower).
+    case beeBuzz
+    /// The pedestrian-crossing "wait" signal — gentle, never the harsh real beep:
+    /// people are crossing, so the bus should wait.
+    case crossingWait
+    /// The crossing "you can go now" signal — a friendly little rising chirp.
+    case crossingWalk
+    /// One soft tick of the traffic-light countdown (3… 2… 1…).
+    case lightCountdown
+    /// The light turns green — a bright, happy "go!" two-note.
+    case lightGo
+    /// A soft whoosh as another car rolls past.
+    case carPass
 }
 
 /// Looping background music beds. Exactly one plays at a time; the audio engine

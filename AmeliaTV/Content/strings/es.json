@@ -71,6 +71,8 @@
   "light.redStop": "Rojo. Alto, espera aquí.",
   "light.greenGo": "¡Verde! Ya podemos ir.",
   "light.goodStop": "¡Muy bien! Te paraste en el rojo. ",
+  "crossing.wait": "¡Espera! Déjalos cruzar.",
+  "crossing.go": "¡Vamos! El cruce está libre.",
 
   "qs.lookOut": "¡Una pelota! ¡Frena!",
   "qs.greatStop": "¡Buen frenado! Cuidaste a todos.",

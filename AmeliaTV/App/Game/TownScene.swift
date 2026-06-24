@@ -117,6 +117,23 @@ final class TownScene: SKScene, EpisodeWorld {
     private var localizer = Localizer(table: [:])
     private var dialogue: DialogueDirector!
     private let speaker = SpeechSpeaker()
+
+    // MARK: - Music & sound pass.
+    // A calm bed + always-on nature ambience, a bee buzz that swells near the
+    // flowers, an engine hum that follows the bus's speed, and discrete cues
+    // (honk, crossing wait/go, the light countdown, a passing car). The world also
+    // gets wildlife — birds, squirrels, rabbits, bees — that chirp/scurry/hop and
+    // react to the horn. All gentle, all mixed below the spoken voice.
+    private let audio = ProceduralAudio()
+    private var birds: [SKNode] = []
+    private var squirrels: [SKNode] = []
+    private var rabbits: [SKNode] = []
+    private var beeClusters: [Vec2] = []
+    private var critterTimer: TimeInterval = 0
+    private var nextCritterDelay: TimeInterval = 3.0
+    private var carWasNear = false
+    private var prevLightState: TrafficLight.State = .green
+    private var lastCountdownSecond = -1
     private var runner: EpisodeRunner?
     private let townMap = TownMap.demo
     private var language: Language = .en
@@ -161,6 +178,7 @@ final class TownScene: SKScene, EpisodeWorld {
         buildScenery()
         buildPeds()
         buildParkLife()
+        buildWildlife()
         buildTrafficLight()
         buildPerspectiveBuilding()
         buildChallenge()
@@ -182,6 +200,10 @@ final class TownScene: SKScene, EpisodeWorld {
         cam.position = pt(Vec2(10, 0))   // start on the wide establishing shot
         cam.setScale(wideZoom)
         syncNodes()
+
+        // Roll the calm driving bed + the living-neighborhood ambience.
+        audio.setMusic(.driving)
+        audio.setAmbience(true)
     }
 
     private func pt(_ v: Vec2) -> CGPoint { CGPoint(x: CGFloat(v.x) * scale, y: -CGFloat(v.z) * scale) }
@@ -1467,6 +1489,157 @@ final class TownScene: SKScene, EpisodeWorld {
         worldNode.addChild(node)
     }
 
+    // MARK: - Wildlife (birds, squirrels, rabbits, bees) + their sounds
+
+    /// Scatter a little wildlife through the park and grass: songbirds pecking,
+    /// squirrels by the trees, rabbits on the lawn, and bees circling the flower
+    /// beds. They idle via SKActions; `updateCritters` makes one chirp/scurry/hop
+    /// every few seconds, and the flock startles up when the bus honks.
+    private func buildWildlife() {
+        for v in [Vec2(-120, 250), Vec2(150, 330), Vec2(-430, 110), Vec2(70, -360), Vec2(-250, -250), Vec2(360, 140)] {
+            let b = makeBird(at: v); birds.append(b); worldNode.addChild(b)
+        }
+        for v in [Vec2(-600, 200), Vec2(120, 150), Vec2(-150, 250)] {
+            let s = makeSquirrel(at: v); squirrels.append(s); worldNode.addChild(s)
+        }
+        for v in [Vec2(-360, 360), Vec2(430, -120), Vec2(-470, -200)] {
+            let r = makeRabbit(at: v); rabbits.append(r); worldNode.addChild(r)
+        }
+        for v in [Vec2(-560, -430), Vec2(-150, 470), Vec2(330, 470), Vec2(-300, 130), Vec2(120, -250)] {
+            addBees(at: v); beeClusters.append(v)
+        }
+    }
+
+    private func makeBird(at v: Vec2) -> SKNode {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 7
+        let palette = [SKColor(red: 0.86, green: 0.32, blue: 0.26, alpha: 1),   // robin red
+                       SKColor(red: 0.32, green: 0.55, blue: 0.85, alpha: 1),   // bluebird
+                       SKColor(red: 0.95, green: 0.78, blue: 0.30, alpha: 1)]   // finch yellow
+        let c = palette.randomElement()!
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: 16, height: 7))
+        shadow.fillColor = SKColor(white: 0, alpha: 0.13); shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 1, y: -7); node.addChild(shadow)
+        let body = SKShapeNode(ellipseOf: CGSize(width: 15, height: 10))
+        body.fillColor = c; body.strokeColor = .clear; node.addChild(body)
+        let wing = SKShapeNode(ellipseOf: CGSize(width: 9, height: 6))
+        wing.fillColor = c.withAlphaComponent(0.7); wing.strokeColor = .clear
+        wing.position = CGPoint(x: -2, y: 1); node.addChild(wing)
+        let head = SKShapeNode(circleOfRadius: 5)
+        head.fillColor = c; head.strokeColor = .clear; head.position = CGPoint(x: 7, y: 4); node.addChild(head)
+        let beak = SKShapeNode(path: { let p = CGMutablePath()
+            p.move(to: CGPoint(x: 11, y: 5)); p.addLine(to: CGPoint(x: 16, y: 4))
+            p.addLine(to: CGPoint(x: 11, y: 3)); p.closeSubpath(); return p }())
+        beak.fillColor = SKColor(red: 0.95, green: 0.6, blue: 0.2, alpha: 1); beak.strokeColor = .clear
+        node.addChild(beak)
+        let eye = SKShapeNode(circleOfRadius: 1.3)
+        eye.fillColor = .black; eye.strokeColor = .clear; eye.position = CGPoint(x: 8, y: 5); node.addChild(eye)
+        node.run(.repeatForever(.sequence([                       // gentle pecking bob
+            .moveBy(x: 0, y: -3, duration: 0.18), .moveBy(x: 0, y: 3, duration: 0.18),
+            .wait(forDuration: Double.random(in: 0.5...1.6)),
+        ])), withKey: "idle")
+        return node
+    }
+
+    private func makeSquirrel(at v: Vec2) -> SKNode {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 7
+        let fur = SKColor(red: 0.55, green: 0.38, blue: 0.26, alpha: 1)
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: 22, height: 9))
+        shadow.fillColor = SKColor(white: 0, alpha: 0.13); shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 2, y: -7); node.addChild(shadow)
+        let tail = SKShapeNode(ellipseOf: CGSize(width: 10, height: 20))
+        tail.fillColor = fur.withAlphaComponent(0.85); tail.strokeColor = .clear
+        tail.position = CGPoint(x: -11, y: 4)
+        tail.run(.repeatForever(.sequence([.rotate(toAngle: 0.3, duration: 0.5), .rotate(toAngle: -0.1, duration: 0.5)])))
+        node.addChild(tail)
+        let body = SKShapeNode(ellipseOf: CGSize(width: 18, height: 11))
+        body.fillColor = fur; body.strokeColor = .clear; node.addChild(body)
+        let head = SKShapeNode(circleOfRadius: 6)
+        head.fillColor = fur; head.strokeColor = .clear; head.position = CGPoint(x: 9, y: 4); node.addChild(head)
+        for dx in [7.0, 11.0] {
+            let ear = SKShapeNode(circleOfRadius: 2.2)
+            ear.fillColor = fur; ear.strokeColor = .clear; ear.position = CGPoint(x: dx, y: 9); node.addChild(ear)
+        }
+        return node
+    }
+
+    private func makeRabbit(at v: Vec2) -> SKNode {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 7
+        let fur = SKColor(white: 0.85, alpha: 1)
+        let outline = SKColor(white: 0.6, alpha: 0.4)
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: 20, height: 8))
+        shadow.fillColor = SKColor(white: 0, alpha: 0.13); shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: 1, y: -7); node.addChild(shadow)
+        let body = SKShapeNode(ellipseOf: CGSize(width: 18, height: 12))
+        body.fillColor = fur; body.strokeColor = outline; body.lineWidth = 1; node.addChild(body)
+        let head = SKShapeNode(circleOfRadius: 6)
+        head.fillColor = fur; head.strokeColor = .clear; head.position = CGPoint(x: 8, y: 4); node.addChild(head)
+        let ears = SKNode(); ears.position = CGPoint(x: 9, y: 9)
+        for dx in [-2.5, 2.5] {
+            let ear = SKShapeNode(ellipseOf: CGSize(width: 3.5, height: 12))
+            ear.fillColor = fur; ear.strokeColor = outline; ear.lineWidth = 1
+            ear.position = CGPoint(x: dx, y: 4); ears.addChild(ear)
+        }
+        ears.run(.repeatForever(.sequence([.rotate(toAngle: 0.12, duration: 0.6), .rotate(toAngle: -0.12, duration: 0.6),
+                                           .wait(forDuration: Double.random(in: 0.4...1.2))])))
+        node.addChild(ears)
+        let tail = SKShapeNode(circleOfRadius: 3.5)
+        tail.fillColor = .white; tail.strokeColor = .clear; tail.position = CGPoint(x: -10, y: 2); node.addChild(tail)
+        return node
+    }
+
+    /// A few bees lazily circling the flowers at `v` (the continuous buzz comes from
+    /// the audio layer, swelling as the bus nears any flower bed).
+    private func addBees(at v: Vec2) {
+        let c = pt(v)
+        for k in 0..<3 {
+            let bee = SKNode(); bee.zPosition = 8
+            let body = SKShapeNode(ellipseOf: CGSize(width: 6, height: 4))
+            body.fillColor = SKColor(red: 0.96, green: 0.80, blue: 0.20, alpha: 1)
+            body.strokeColor = SKColor(white: 0.1, alpha: 0.8); body.lineWidth = 0.8; bee.addChild(body)
+            let wing = SKShapeNode(ellipseOf: CGSize(width: 4, height: 3))
+            wing.fillColor = SKColor(white: 1, alpha: 0.6); wing.strokeColor = .clear
+            wing.position = CGPoint(x: 0, y: 2); bee.addChild(wing)
+            let r = CGFloat(16 + k * 7)
+            bee.position = CGPoint(x: c.x + r, y: c.y)
+            let path = CGMutablePath()
+            path.addEllipse(in: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2))
+            bee.run(.repeatForever(.follow(path, asOffset: false, orientToPath: false,
+                                           duration: 2.2 + Double(k) * 0.5)))
+            worldNode.addChild(bee)
+        }
+    }
+
+    /// The flock startles up and resettles when the bus honks.
+    private func flutterBirds() {
+        for b in birds {
+            let dx = CGFloat.random(in: -22...22)
+            b.run(.sequence([
+                .group([.moveBy(x: dx, y: 46, duration: 0.45), .scaleX(to: 1.1, y: 0.85, duration: 0.2)]),
+                .group([.moveBy(x: -dx, y: -46, duration: 0.55), .scale(to: 1.0, duration: 0.3)]),
+            ]), withKey: "fly")
+        }
+        audio.play(.birdChirp)
+    }
+
+    private func bobBird(_ b: SKNode) {
+        b.run(.sequence([.moveBy(x: 0, y: 10, duration: 0.12), .moveBy(x: 0, y: -10, duration: 0.12),
+                         .moveBy(x: 0, y: 6, duration: 0.1), .moveBy(x: 0, y: -6, duration: 0.1)]), withKey: "fly")
+    }
+
+    private func scurry(_ s: SKNode) {
+        let dx = CGFloat.random(in: 30...60) * CGFloat(Bool.random() ? 1 : -1)
+        s.run(.sequence([.moveBy(x: dx, y: 0, duration: 0.3), .wait(forDuration: 0.4),
+                         .moveBy(x: -dx, y: 0, duration: 0.4)]), withKey: "move")
+    }
+
+    private func hopRabbit(_ r: SKNode) {
+        let dx = CGFloat.random(in: 18...36) * CGFloat(Bool.random() ? 1 : -1)
+        r.run(.sequence([
+            .group([.moveBy(x: dx / 2, y: 22, duration: 0.18), .scaleY(to: 1.1, duration: 0.18)]),
+            .group([.moveBy(x: dx / 2, y: -22, duration: 0.2), .scaleY(to: 1.0, duration: 0.2)]),
+        ]), withKey: "move")
+    }
+
     // MARK: - Pedestrians & honk reactions
 
     private func buildPeds() {
@@ -1651,6 +1824,8 @@ final class TownScene: SKScene, EpisodeWorld {
 
     private func honk() {
         honkCount += 1
+        audio.play(.horn)
+        flutterBirds()           // the flock startles up and resettles
         busNode.run(.sequence([.scale(to: 1.12, duration: 0.08), .scale(to: 1.0, duration: 0.16)]))
         let ring = SKShapeNode(circleOfRadius: 24)
         ring.strokeColor = SKColor(white: 1, alpha: 0.85); ring.lineWidth = 5; ring.fillColor = .clear
@@ -1728,10 +1903,87 @@ final class TownScene: SKScene, EpisodeWorld {
             if honkTimer >= 3.0 { honkTimer = 0; honk() }
         }
         updateLightRender()
+        updateAudio(dt: dt)
         syncNodes()
         updateCamera()
         updatePerspectiveBuilding()
         updateBeacon()
+    }
+
+    // MARK: - Audio drive (per-frame, continuous signals + ambient life)
+
+    private func updateAudio(dt: Double) {
+        // Engine hum tracks speed; bee buzz swells near the flower beds.
+        audio.setEngineIntensity(min(1, bus.speed / max(1, bus.maxSpeed)))
+        let beeDist = beeClusters.map { bus.position.distance(to: $0) }.min() ?? .infinity
+        audio.setBeeIntensity(max(0, 1 - beeDist / 240))
+
+        // A soft whoosh when the oncoming car rolls past (edge-triggered).
+        let carNear = bus.position.distance(to: car.position) < 150
+        if carNear, !carWasNear { audio.play(.carPass) }
+        carWasNear = carNear
+
+        updateLightAudio()
+        updateCritters(dt: dt)
+    }
+
+    /// The pedestrian-crossing + traffic-light countdown audio. When the bus is near
+    /// a corner: the light going red signals "wait, let them cross"; while red it
+    /// ticks down 3… 2… 1…; turning green is a happy "go!".
+    private func updateLightAudio() {
+        let nearCorner = RoadNetwork.wellesCorners.map { bus.position.distance(to: $0) }.min() ?? .infinity
+        let near = nearCorner < 340
+
+        if light.state != prevLightState {
+            if light.state == .red, near {
+                audio.play(.crossingWait)
+                showCrossingPrompt("crossing.wait")
+            } else if light.state == .green, near {
+                audio.play(.lightGo)
+                audio.play(.crossingWalk)
+                showCrossingPrompt("crossing.go")
+            }
+            prevLightState = light.state
+            lastCountdownSecond = -1
+        }
+
+        if near, light.state == .red {
+            let sec = Int(ceil(light.secondsUntilChange))
+            if sec >= 1, sec <= 3, sec != lastCountdownSecond {
+                lastCountdownSecond = sec
+                audio.play(.lightCountdown)
+            }
+        }
+    }
+
+    /// Show a brief crossing prompt — but only if nothing else is being said, so it
+    /// never steps on an episode line.
+    private func showCrossingPrompt(_ lineId: String) {
+        guard (hud?.subtitle ?? "").isEmpty else { return }
+        hud?.subtitle = localizer.string(lineId, language)
+        hud?.speakerName = localizer.string("mom.name", language)
+        hud?.speakerColorHex = "#2ea59e"
+        subtitleClearAt = elapsed + 2.0
+    }
+
+    /// Every few seconds a critter makes itself heard and does a little move — so
+    /// the town always sounds (and looks) alive. Birds are the most frequent.
+    private func updateCritters(dt: Double) {
+        critterTimer += dt
+        guard critterTimer >= nextCritterDelay else { return }
+        critterTimer = 0
+        nextCritterDelay = Double.random(in: 2.5...5.5)
+        switch Int.random(in: 0..<10) {
+        case 0..<5:
+            audio.play(Bool.random() ? .birdChirp : .birdSong)
+            if let b = birds.randomElement() { bobBird(b) }
+        case 5..<8:
+            audio.play(.squirrelChitter)
+            if let s = squirrels.randomElement() { scurry(s) }
+        default:
+            audio.play(.rabbitThump)
+            if let r = rabbits.randomElement() { hopRabbit(r) }
+        }
     }
 
     /// Hold the wide establishing shot, then smoothly ease in to follow the bus.
