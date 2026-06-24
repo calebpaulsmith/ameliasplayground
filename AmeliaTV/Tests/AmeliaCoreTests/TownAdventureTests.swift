@@ -77,13 +77,16 @@ final class TownAdventureTests: XCTestCase {
     }
 
     func testWellesNetworkHasFourCornerIntersections() {
-        // The renderer paints an asphalt pad at each junction; the perimeter loop
-        // has exactly its four corners. Guards the crosswalk/intersection layout.
+        // The renderer paints an asphalt pad + stoplight at each park corner. With
+        // the surrounding grid there are many junctions, but the park's four corners
+        // must still be among them. Guards the crosswalk/intersection layout.
         let corners = RoadNetwork.welles.intersections()
-        XCTAssertEqual(corners.count, 4, "the Welles loop has four corners")
+        XCTAssertGreaterThanOrEqual(corners.count, 4, "the grid has at least the park's corners")
         let expected = [Vec2(-800, -700), Vec2(550, -700), Vec2(820, 700), Vec2(-800, 700)]
         for c in expected {
             XCTAssertTrue(corners.contains { $0.distance(to: c) < 1 }, "missing junction at \(c)")
         }
+        // …and those four are exactly the published park corners.
+        XCTAssertEqual(RoadNetwork.wellesCorners.count, 4)
     }
 }
