@@ -743,10 +743,14 @@ final class TownScene: SKScene, EpisodeWorld {
         addGym(center: Vec2(270, -250))                          // …and gymnasium, side by side
         addGazebo(at: Vec2(-250, 150))
         addCourts(center: Vec2(120, 80))                         // centre, just south of the fieldhouse
-        addBaseballField(center: Vec2(60, 460), radius: 170)     // south-centre
-        addBaseballField(center: Vec2(490, 430), radius: 170)    // south-east
-        addWoods(center: Vec2(-470, 390))                        // SW trees, path joins the central walk
-        for p in [Vec2(-300, -360), Vec2(420, -260), Vec2(330, 120)] { addShadeTree(at: p) }
+        // a cluster of FIVE ball diamonds filling the south of the park (as on the map)
+        addBaseballField(center: Vec2(-150, 340), radius: 95)
+        addBaseballField(center: Vec2(70, 340), radius: 95)
+        addBaseballField(center: Vec2(290, 360), radius: 95)
+        addBaseballField(center: Vec2(-40, 545), radius: 95)
+        addBaseballField(center: Vec2(200, 545), radius: 95)
+        addWoods(center: Vec2(-520, 430))                        // SW trees, path joins the central walk
+        for p in [Vec2(-300, -360), Vec2(420, -260), Vec2(440, 120)] { addShadeTree(at: p) }
     }
 
     /// The paved walk up the middle of the park. It meets the north and south roads
@@ -1082,22 +1086,22 @@ final class TownScene: SKScene, EpisodeWorld {
     /// "adventure" path that winds up to **join the central walk** (so the paths
     /// connect, as on the real map). Flower clumps fill the grass between.
     private func addWoods(center: Vec2) {
-        let join = Vec2(-120, 210)        // where the adventure path meets the central walk
+        let join = Vec2(-280, 90)         // meets the central walk on its western bow
         let path = CGMutablePath()
-        path.move(to: pt(center + Vec2(-170, 170)))
-        path.addQuadCurve(to: pt(center + Vec2(70, 60)), control: pt(center + Vec2(-150, 40)))
-        path.addQuadCurve(to: pt(join), control: pt(center + Vec2(300, -40)))
+        path.move(to: pt(center + Vec2(-120, 180)))
+        path.addQuadCurve(to: pt(center + Vec2(60, 10)), control: pt(center + Vec2(-60, 110)))
+        path.addQuadCurve(to: pt(join), control: pt(center + Vec2(230, -180)))
         let walk = SKShapeNode(path: path)
         walk.strokeColor = SKColor(red: 0.78, green: 0.70, blue: 0.55, alpha: 1)
         walk.lineWidth = 18; walk.lineCap = .round; walk.fillColor = .clear; walk.zPosition = 1.3
         worldNode.addChild(walk)
         let spots: [Vec2] = [
-            Vec2(-190, 150), Vec2(-110, 230), Vec2(-30, 150), Vec2(-210, 30), Vec2(-90, 60),
-            Vec2(40, 190), Vec2(-180, -80), Vec2(60, -40), Vec2(160, 100), Vec2(120, -120),
-            Vec2(-50, -150), Vec2(200, 0),
+            Vec2(-150, 150), Vec2(-70, 220), Vec2(10, 140), Vec2(-180, 20), Vec2(-60, 50),
+            Vec2(70, 180), Vec2(-160, -80), Vec2(80, -30), Vec2(170, 90), Vec2(130, -110),
+            Vec2(-30, -140), Vec2(200, 10),
         ]
         for s in spots { addShadeTree(at: center + s) }
-        for s in [Vec2(-90, 100), Vec2(40, 10), Vec2(130, -60)] { addFlowers(at: center + s) }
+        for s in [Vec2(-70, 100), Vec2(60, 20), Vec2(150, -50)] { addFlowers(at: center + s) }
     }
 
     private func addStatue(at v: Vec2) {
