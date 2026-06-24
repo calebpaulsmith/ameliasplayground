@@ -842,28 +842,31 @@ final class TownScene: SKScene, EpisodeWorld {
         buildPark()
         addChurch(at: Vec2(-260, -945))    // on the north frontage, left of the road's middle
         addBusStop(at: Vec2(-200, -600))   // on the Montrose curb, inside the park
-        for f in [Vec2(-560, -430), Vec2(-150, 470), Vec2(330, 470), Vec2(-300, 130), Vec2(120, -250)] {
+        for f in [Vec2(-560, -430), Vec2(-150, 470), Vec2(60, 560), Vec2(-300, 130), Vec2(120, -250)] {
             addFlowers(at: f)
         }
     }
 
     /// Welles Park, laid out to spec: a central walk with a gazebo to its left; the
-    /// indoor pool + gymnasium just inside the north road; two big ball fields on the
-    /// east; courts at the south-middle; a wooded southwest with a winding path; and
-    /// a large playground (two swing sets, a play structure, a splash pad). The park
-    /// life — runners, dogs, families — is filled in by `buildPeds`.
+    /// indoor pool + gymnasium just inside the north road (centre-west); the tennis
+    /// courts in the centre; TWO big ball fields tucked into the east corners (NE +
+    /// SE), each turned to face the park centre; a wooded southwest with a winding
+    /// path; and a large playground (two swing sets, a play structure, a splash pad).
+    /// The park life — runners, dogs, families — is filled in by `buildPeds`.
     private func buildPark() {
         addPlayground(center: Vec2(-540, -90))                   // fenced, on the west by Western
-        addPool(center: Vec2(10, -250))                          // the central fieldhouse: pool…
-        addGym(center: Vec2(270, -250))                          // …and gymnasium, side by side
+        addPool(center: Vec2(-80, -330))                         // the fieldhouse pool, north-centre
+        addGym(center: Vec2(-80, -90))                           // the gym, stacked just south of it
         addGazebo(at: Vec2(-250, 150))
-        addCourts(center: Vec2(120, 80))                         // centre, just south of the fieldhouse
-        // FIVE ball diamonds laid out as a neat quincunx (four corners + centre) in
-        // the south-east, east of the central walk so none overlaps a path.
-        for c in [Vec2(120, 300), Vec2(380, 300), Vec2(250, 420), Vec2(120, 540), Vec2(380, 540)] {
-            addBaseballField(center: c, radius: 70)
-        }
-        addWoods(center: Vec2(-520, 430))                        // SW trees, path joins the central walk
+        addCourts(center: Vec2(120, 80))                         // the tennis/sport courts, centre
+        // TWO big ball diamonds, one tucked in each east corner (NE + SE), each
+        // turned so the pitcher throws toward the park centre — home plate on the
+        // inside, the outfield fanning out into the corner. Sized large, and kept
+        // clear of the roads, the courts, and the fieldhouse.
+        let parkCenter = Vec2(-30, 0)
+        addBaseballField(center: Vec2(300, -350), radius: 175, facing: parkCenter)   // NE corner
+        addBaseballField(center: Vec2(370, 355), radius: 175, facing: parkCenter)    // SE corner
+        addWoods(center: Vec2(-540, 430))                        // SW trees, path joins the central walk
         addYieldSign(at: Vec2(-260, 120))                        // where the adventure path meets the walk
         for p in [Vec2(-340, -360), Vec2(-360, 320), Vec2(60, 470)] { addShadeTree(at: p) }
     }
@@ -1003,6 +1006,12 @@ final class TownScene: SKScene, EpisodeWorld {
             wing.fillColor = SKColor(red: 0.56, green: 0.66, blue: 0.74, alpha: 1)
             wing.strokeColor = SKColor(white: 0, alpha: 0.15); wing.lineWidth = 1
             wing.position = CGPoint(x: w * 0.34, y: h); node.addChild(wing)
+            // Swimmers do laps ALONG the lanes (the lanes run left–right, so they
+            // swim left–right too), one per lane, staggered so they don't line up.
+            for k in -1...1 {
+                self.addSwimmer(to: node, at: CGPoint(x: -w * 0.12, y: h + CGFloat(k) * d * 0.16),
+                                span: w * 0.46, phase: Double(k + 1) * 0.8)
+            }
             self.addSign(to: node, at: CGPoint(x: -w * 0.34, y: 30)) { self.waterDropIcon() }
         }
     }
@@ -1048,9 +1057,20 @@ final class TownScene: SKScene, EpisodeWorld {
 
     /// A big ball field: a mowed green circle, a dirt infield fan at the bottom with
     /// bases + a pitcher's mound, and an outfield FENCE arcing along the top (behind
-    /// the mound). Sized in world units so it reads properly large.
-    private func addBaseballField(center: Vec2, radius: Double) {
+    /// the mound). Sized in world units so it reads properly large. The whole field
+    /// is turned so home→pitcher points at `facing` (the park centre) — the pitcher
+    /// faces the centre, the outfield fans into the corner — and it's filled with a
+    /// full team actually playing ball (a pitch loops from the mound to the plate).
+    private func addBaseballField(center: Vec2, radius: Double, facing target: Vec2) {
         let node = SKNode(); node.position = pt(center); node.zPosition = 4
+        // Screen-space direction from the field toward the park centre. The field is
+        // authored with home plate at the bottom (local -y); rotate so that local -y
+        // lands on this direction, i.e. the pitcher throws toward the centre.
+        let toC = CGVector(dx: CGFloat(target.x - center.x), dy: -CGFloat(target.z - center.z))
+        let clen = max(0.0001, (toC.dx * toC.dx + toC.dy * toC.dy).squareRoot())
+        let f = CGVector(dx: toC.dx / clen, dy: toC.dy / clen)
+        let theta = atan2(f.dx, -f.dy)            // rotation mapping local (0,-1) → f
+        node.zRotation = theta
         let R = CGFloat(radius) * scale
         let grass = SKShapeNode(circleOfRadius: R)
         grass.fillColor = SKColor(red: 0.42, green: 0.70, blue: 0.42, alpha: 1)
@@ -1097,7 +1117,43 @@ final class TownScene: SKScene, EpisodeWorld {
             post.position = CGPoint(x: cos(a) * fenceR, y: sin(a) * fenceR); node.addChild(post)
             deg += 9.0
         }
+        addBaseballPlayers(to: node, R: R, home: home, theta: theta)
         worldNode.addChild(node)
+    }
+
+    /// Fill a (rotated) ball field with a full team actually playing: a batter and
+    /// catcher at the plate, the pitcher on the mound, infielders on the bases, and
+    /// three outfielders — plus a ball that loops mound → plate → a hit to the
+    /// outfield. Players are children of the rotated field but counter-rotated by
+    /// `-theta` so they stay upright.
+    private func addBaseballPlayers(to node: SKNode, R: CGFloat, home: CGPoint, theta: CGFloat) {
+        func player(_ x: CGFloat, _ y: CGFloat, _ h: CGFloat = 24) {
+            let p = makePersonNode(height: h)
+            p.position = CGPoint(x: x, y: y); p.zRotation = -theta; p.zPosition = 5
+            p.run(.repeatForever(.sequence([.moveBy(x: 0, y: 2, duration: 0.5),
+                                            .moveBy(x: 0, y: -2, duration: 0.5)])))
+            node.addChild(p)
+        }
+        player(R * 0.10, home.y)                 // batter, at the plate
+        player(0, home.y - R * 0.12, 21)         // catcher, behind the plate
+        player(0, home.y + R * 0.34)             // pitcher, on the mound
+        player(R * 0.34, home.y + R * 0.34)      // first base
+        player(-R * 0.34, home.y + R * 0.34)     // third base
+        player(0, home.y + R * 0.68)             // second base
+        player(-R * 0.20, home.y + R * 0.52)     // shortstop
+        player(R * 0.5, R * 0.46)                // right field
+        player(-R * 0.5, R * 0.46)               // left field
+        player(0, R * 0.64)                      // center field
+        let mound = CGPoint(x: 0, y: home.y + R * 0.34)
+        let ball = SKShapeNode(circleOfRadius: 4)
+        ball.fillColor = .white; ball.strokeColor = SKColor(white: 0, alpha: 0.4); ball.lineWidth = 1
+        ball.position = mound; ball.zPosition = 6; node.addChild(ball)
+        ball.run(.repeatForever(.sequence([
+            .move(to: home, duration: 0.55),                                 // the pitch
+            .move(to: CGPoint(x: R * 0.4, y: R * 0.5), duration: 0.5),       // crack — a hit to right
+            .move(to: mound, duration: 0.5),                                 // thrown back in
+            .wait(forDuration: 0.4),
+        ])))
     }
 
     /// A pair of tennis/sport courts: colored hard-courts with a white boundary,
@@ -1420,7 +1476,7 @@ final class TownScene: SKScene, EpisodeWorld {
             Vec2(-400, -600), Vec2(300, -600),       // along Montrose (inside)
             Vec2(-400, 600), Vec2(300, 600),         // along Sunnyside (inside)
             Vec2(-690, -300), Vec2(-690, 300),       // along Western (inside)
-            Vec2(450, -400), Vec2(560, 300),         // toward Lincoln (inside)
+            Vec2(520, -560), Vec2(560, 300),         // toward Lincoln (inside)
             Vec2(120, 60), Vec2(-260, 80), Vec2(-200, -600),
         ]
         for (i, h) in homes.enumerated() {
@@ -1463,10 +1519,9 @@ final class TownScene: SKScene, EpisodeWorld {
             r.run(.repeatForever(.sequence([.moveBy(x: 0, y: 5, duration: 0.18),
                                             .moveBy(x: 0, y: -5, duration: 0.16)])))
         }
-        // swimmers doing laps in the pool
-        for k in -1...1 { addSwimmer(at: Vec2(-16 + Double(k) * 48, -282)) }
-        // kids playing catch out on the diamonds
-        addBallplayers(at: Vec2(250, 420)); addBallplayers(at: Vec2(380, 300))
+        // (swimmers are built into the pool; the ball fields field their own teams.)
+        // a tennis match on the east hard-court — racket sport stays ON the courts
+        addTennisPlayers(at: Vec2(220, 10))
         // people lounging on the grass (towels)
         for c in [Vec2(-360, -380), Vec2(-180, 360), Vec2(450, -40)] { addLounger(at: c) }
         // people resting on the benches by the walk
@@ -1476,32 +1531,37 @@ final class TownScene: SKScene, EpisodeWorld {
         for c in [Vec2(-300, -180), Vec2(-430, 40), Vec2(60, -440)] { addFamily(at: c) }
     }
 
-    /// A swimmer's head + arms doing slow laps across the pool, with a little splash.
-    private func addSwimmer(at v: Vec2) {
-        let node = SKNode(); node.position = pt(v); node.zPosition = 6
-        let splash = SKShapeNode(ellipseOf: CGSize(width: 24, height: 12))
-        splash.fillColor = SKColor(white: 1, alpha: 0.6); splash.strokeColor = .clear; node.addChild(splash)
-        let head = SKShapeNode(circleOfRadius: 6)
+    /// A swimmer doing laps ALONG a pool lane: head + cap with a little bow-wave,
+    /// added as a child of the (un-rotated) pool node at a lane's local point, so it
+    /// rides the painted lane and swims left–right (the way the lanes run).
+    private func addSwimmer(to parent: SKNode, at p: CGPoint, span: CGFloat, phase: Double) {
+        let node = SKNode(); node.position = CGPoint(x: p.x - span / 2, y: p.y); node.zPosition = 6
+        let splash = SKShapeNode(ellipseOf: CGSize(width: 16, height: 9))
+        splash.fillColor = SKColor(white: 1, alpha: 0.6); splash.strokeColor = .clear
+        splash.position = CGPoint(x: -7, y: 0); node.addChild(splash)
+        let head = SKShapeNode(circleOfRadius: 5)
         head.fillColor = SKColor(red: 0.95, green: 0.80, blue: 0.66, alpha: 1); head.strokeColor = .clear
         node.addChild(head)
-        let cap = SKShapeNode(circleOfRadius: 6)
+        let cap = SKShapeNode(circleOfRadius: 5)
         cap.fillColor = SKColor(red: 0.30, green: 0.55, blue: 0.85, alpha: 0.5); cap.strokeColor = .clear
-        cap.position = CGPoint(x: 0, y: 2); node.addChild(cap)
-        node.run(.repeatForever(.sequence([.moveBy(x: 0, y: 36, duration: 2.2),
-                                           .moveBy(x: 0, y: -36, duration: 2.2)])))
+        cap.position = CGPoint(x: 0, y: 1); node.addChild(cap)
+        node.run(.sequence([.wait(forDuration: phase), .repeatForever(.sequence([
+            .moveBy(x: span, y: 0, duration: 2.4), .moveBy(x: -span, y: 0, duration: 2.4)]))]))
         splash.run(.repeatForever(.sequence([.scale(to: 1.3, duration: 0.3), .scale(to: 0.9, duration: 0.3)])))
-        worldNode.addChild(node)
+        parent.addChild(node)
     }
 
-    /// Two kids playing catch: a ball lobs back and forth between them.
-    private func addBallplayers(at v: Vec2) {
-        for dx in [-46.0, 46.0] { addKid(at: v + Vec2(dx, 0)) }
-        let ball = SKShapeNode(circleOfRadius: 6)
-        ball.fillColor = .white; ball.strokeColor = SKColor(white: 0, alpha: 0.4); ball.lineWidth = 1
-        ball.position = pt(v + Vec2(-46, 0)); ball.zPosition = 9; worldNode.addChild(ball)
+    /// A tennis rally on a court: two kids either side of the net with a ball that
+    /// lobs back and forth — so the racket sport reads as happening ON the courts.
+    private func addTennisPlayers(at v: Vec2) {
+        for dx in [-58.0, 58.0] { addKid(at: v + Vec2(dx, 0)) }
+        let ball = SKShapeNode(circleOfRadius: 5)
+        ball.fillColor = SKColor(red: 0.85, green: 0.95, blue: 0.35, alpha: 1)
+        ball.strokeColor = SKColor(white: 0, alpha: 0.3); ball.lineWidth = 1
+        ball.position = pt(v + Vec2(-58, 0)); ball.zPosition = 9; worldNode.addChild(ball)
         ball.run(.repeatForever(.sequence([
-            .move(to: pt(v + Vec2(46, 30)), duration: 0.7), .move(to: pt(v + Vec2(46, 0)), duration: 0.1),
-            .move(to: pt(v + Vec2(-46, 30)), duration: 0.7), .move(to: pt(v + Vec2(-46, 0)), duration: 0.1),
+            .move(to: pt(v + Vec2(58, 24)), duration: 0.6), .move(to: pt(v + Vec2(58, 0)), duration: 0.1),
+            .move(to: pt(v + Vec2(-58, 24)), duration: 0.6), .move(to: pt(v + Vec2(-58, 0)), duration: 0.1),
         ])))
     }
 
@@ -1836,29 +1896,100 @@ final class TownScene: SKScene, EpisodeWorld {
     // MARK: - Traffic light
 
     private func buildTrafficLight() {
-        // A stoplight on the interior curb of each of the four park corners.
-        for c in RoadNetwork.wellesCorners {
-            let inset = Vec2(c.x > 0 ? -64 : 64, c.z > 0 ? -64 : 64)
+        // An overhead mast-arm signal at each park corner. The arm reaches OUT over
+        // the road the bus approaches on; the head HANGS over that lane facing the
+        // oncoming bus (its visors/hoods point right at the driver); and a bold
+        // arrow on the deck points the way that flow travels. Together those make it
+        // obvious which light governs which direction. A soft drop-shadow lifts the
+        // overhead gear off the road for a little faked perspective. All four heads
+        // share one phase (cornerLamps drives the render).
+        //
+        // Per corner (NW, NE, SE, SW) in screen space (y is up; north is +y):
+        //   reach  — pole → out over the road the bus is on
+        //   face   — the lit side, pointing back at the oncoming bus
+        //   travel — the way that flow drives (the arrow)
+        let reach:  [CGVector] = [CGVector(dx: -1, dy: 0), CGVector(dx: 0, dy: 1),
+                                  CGVector(dx: 0.98, dy: 0.20), CGVector(dx: 0, dy: -1)]
+        let face:   [CGVector] = [CGVector(dx: 0, dy: -1), CGVector(dx: -1, dy: 0),
+                                  CGVector(dx: -0.20, dy: 0.98), CGVector(dx: 1, dy: 0)]
+        let travel: [CGVector] = [CGVector(dx: 0, dy: 1), CGVector(dx: 1, dy: 0),
+                                  CGVector(dx: 0.20, dy: -0.98), CGVector(dx: -1, dy: 0)]
+        for (i, c) in RoadNetwork.wellesCorners.enumerated() {
+            let inset = Vec2(c.x > 0 ? -56 : 56, c.z > 0 ? -56 : 56)
             let node = SKNode(); node.position = pt(c + inset); node.zPosition = 7
-            let pole = SKShapeNode(rectOf: CGSize(width: 5, height: 30))
-            pole.fillColor = SKColor(white: 0.45, alpha: 1); pole.strokeColor = .clear
-            pole.position = CGPoint(x: 0, y: -52); node.addChild(pole)
-            let housing = SKShapeNode(rectOf: CGSize(width: 30, height: 78), cornerRadius: 7)
-            housing.fillColor = SKColor(white: 0.16, alpha: 1)
-            housing.strokeColor = SKColor(white: 0, alpha: 0.25); housing.lineWidth = 2
-            node.addChild(housing)
-            func lamp(_ y: CGFloat, _ color: SKColor) -> SKShapeNode {
-                let l = SKShapeNode(circleOfRadius: 9)
-                l.fillColor = color; l.strokeColor = .clear; l.position = CGPoint(x: 0, y: y)
-                node.addChild(l); return l
+            let rch = reach[i], fac = face[i], trv = travel[i]
+            let armLen: CGFloat = 72
+            let armEnd = CGPoint(x: rch.dx * armLen, y: rch.dy * armLen)
+
+            // the curb post (a small footprint, seen from above)
+            let post = SKShapeNode(circleOfRadius: 8)
+            post.fillColor = SKColor(white: 0.34, alpha: 1); post.strokeColor = SKColor(white: 0, alpha: 0.3)
+            post.lineWidth = 1.5; node.addChild(post)
+
+            // a soft shadow of the arm + head, offset down-right so the gear reads as
+            // hanging over the road
+            let shadowOff = CGPoint(x: 5, y: -5)
+            let armShadow = SKShapeNode(); let sp = CGMutablePath()
+            sp.move(to: shadowOff); sp.addLine(to: CGPoint(x: armEnd.x + shadowOff.x, y: armEnd.y + shadowOff.y))
+            armShadow.path = sp; armShadow.strokeColor = SKColor(white: 0, alpha: 0.16); armShadow.lineWidth = 7
+            armShadow.lineCap = .round; node.addChild(armShadow)
+            let headShadow = SKShapeNode(rectOf: CGSize(width: 70, height: 30), cornerRadius: 8)
+            headShadow.fillColor = SKColor(white: 0, alpha: 0.16); headShadow.strokeColor = .clear
+            headShadow.position = CGPoint(x: armEnd.x + shadowOff.x, y: armEnd.y + shadowOff.y); node.addChild(headShadow)
+
+            // the mast arm reaching over the road
+            let arm = SKShapeNode(); let ap = CGMutablePath()
+            ap.move(to: .zero); ap.addLine(to: armEnd)
+            arm.path = ap; arm.strokeColor = SKColor(white: 0.42, alpha: 1); arm.lineWidth = 5
+            arm.lineCap = .round; node.addChild(arm)
+
+            // the signal head, hung from the arm end, turned to face the oncoming bus
+            let head = SKNode(); head.position = armEnd
+            head.zRotation = atan2(-fac.dx, fac.dy)          // local +y → fac
+            let housing = SKShapeNode(rectOf: CGSize(width: 66, height: 26), cornerRadius: 7)
+            housing.fillColor = SKColor(white: 0.14, alpha: 1)
+            housing.strokeColor = SKColor(white: 0, alpha: 0.35); housing.lineWidth = 2
+            head.addChild(housing)
+            func lamp(_ x: CGFloat, _ color: SKColor) -> SKShapeNode {
+                let visor = SKShapeNode(rectOf: CGSize(width: 19, height: 7), cornerRadius: 3)
+                visor.fillColor = SKColor(white: 0.05, alpha: 1); visor.strokeColor = .clear
+                visor.position = CGPoint(x: x, y: 9); head.addChild(visor)   // hood on the facing side
+                let l = SKShapeNode(circleOfRadius: 8.5)
+                l.fillColor = color; l.strokeColor = .clear; l.position = CGPoint(x: x, y: 0)
+                head.addChild(l); return l
             }
-            let r = lamp(24, SKColor(red: 0.92, green: 0.24, blue: 0.22, alpha: 1))
-            let y = lamp(0, SKColor(red: 0.96, green: 0.80, blue: 0.24, alpha: 1))
-            let gr = lamp(-24, SKColor(red: 0.30, green: 0.80, blue: 0.36, alpha: 1))
+            let r  = lamp(-20, SKColor(red: 0.92, green: 0.24, blue: 0.22, alpha: 1))
+            let y  = lamp(0,   SKColor(red: 0.96, green: 0.80, blue: 0.24, alpha: 1))
+            let gr = lamp(20,  SKColor(red: 0.30, green: 0.80, blue: 0.36, alpha: 1))
+            node.addChild(head)
             cornerLamps.append((r, y, gr))
+
+            // a bold arrow painted on the deck under the head, pointing the way this
+            // flow travels — the at-a-glance "this signal is for traffic going THAT
+            // way" cue.
+            let arrow = directionArrow(dir: trv)
+            arrow.position = CGPoint(x: armEnd.x - trv.dx * 30, y: armEnd.y - trv.dy * 30)
+            arrow.zPosition = -0.5; node.addChild(arrow)
+
             worldNode.addChild(node)
         }
         updateLightRender()
+    }
+
+    /// A bold lane chevron pointing in screen-direction `dir` (the art points +y).
+    private func directionArrow(dir: CGVector) -> SKNode {
+        let n = SKNode()
+        n.zRotation = atan2(dir.dy, dir.dx) - .pi / 2
+        let p = CGMutablePath()
+        p.move(to: CGPoint(x: 0, y: 13)); p.addLine(to: CGPoint(x: -10, y: -1))
+        p.addLine(to: CGPoint(x: -4, y: -1)); p.addLine(to: CGPoint(x: -4, y: -13))
+        p.addLine(to: CGPoint(x: 4, y: -13)); p.addLine(to: CGPoint(x: 4, y: -1))
+        p.addLine(to: CGPoint(x: 10, y: -1)); p.closeSubpath()
+        let a = SKShapeNode(path: p)
+        a.fillColor = SKColor(red: 0.98, green: 0.92, blue: 0.42, alpha: 0.95)
+        a.strokeColor = SKColor(white: 0.1, alpha: 0.55); a.lineWidth = 1
+        n.addChild(a)
+        return n
     }
 
     private func updateLightRender() {
