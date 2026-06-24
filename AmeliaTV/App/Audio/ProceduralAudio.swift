@@ -167,9 +167,9 @@ final class ProceduralAudio: SoundPlayer {
     private func prerender() {
         for cue in SoundCue.allCases { sfxBuffers[cue] = renderSFX(cue) }
         for theme in MusicTheme.allCases where theme != .none { musicBuffers[theme] = renderMusic(theme) }
-        ambienceBuffer = renderAmbience()
-        beeBuffer = renderBeeBuzz()
-        engineBuffer = renderEngineHum()
+        ambienceBuffer = buffer(from: renderAmbience())
+        beeBuffer = buffer(from: renderBeeBuzz())
+        engineBuffer = buffer(from: renderEngineHum())
     }
 
     // MARK: - Low-level synthesis helpers
