@@ -913,8 +913,10 @@ final class TownScene: SKScene, EpisodeWorld {
         }
     }
 
-    /// A proper top-down school bus: long yellow body, black trim stripes, a row
-    /// of side windows, windshield + dark bumper at the front (+x).
+    /// Amelia, the cute top-down hero bus: a plump rounded yellow body with a
+    /// soft top highlight, a windshield + nose bumper and warm headlights at the
+    /// front (+x), and a friendly face — big bright eyes with catchlights, a happy
+    /// smile, and rosy cheeks. Original design (D-IP-1).
     private func makeBus() -> SKNode {
         let node = SKNode()
         let length: CGFloat = 150, width: CGFloat = 64
@@ -928,30 +930,72 @@ final class TownScene: SKScene, EpisodeWorld {
                 wheel.position = CGPoint(x: sx, y: sy); node.addChild(wheel)
             }
         }
-        // rounder, friendlier body
-        let body = SKShapeNode(rectOf: CGSize(width: length, height: width), cornerRadius: 28)
+        // rounder, friendlier body with a soft top highlight + bottom shade so it
+        // reads as a plump 3D pill from above.
+        let body = SKShapeNode(rectOf: CGSize(width: length, height: width), cornerRadius: 30)
         body.fillColor = SKColor(red: 1.0, green: 0.82, blue: 0.20, alpha: 1)
-        body.strokeColor = SKColor(red: 0.85, green: 0.55, blue: 0.10, alpha: 1); body.lineWidth = 3
+        body.strokeColor = SKColor(red: 0.82, green: 0.52, blue: 0.08, alpha: 1); body.lineWidth = 3
         node.addChild(body)
-        // a couple of side windows toward the back
-        for i in 0..<2 {
-            let win = SKShapeNode(rectOf: CGSize(width: length * 0.13, height: width * 0.46), cornerRadius: 4)
-            win.fillColor = SKColor(red: 0.66, green: 0.85, blue: 0.96, alpha: 1); win.strokeColor = .clear
-            win.position = CGPoint(x: -length * 0.32 + CGFloat(i) * length * 0.17, y: 0); node.addChild(win)
+        let topHi = SKShapeNode(rectOf: CGSize(width: length * 0.9, height: width * 0.46), cornerRadius: 22)
+        topHi.fillColor = SKColor(white: 1, alpha: 0.12); topHi.strokeColor = .clear
+        topHi.position = CGPoint(x: 0, y: width * 0.22); node.addChild(topHi)
+        let botSh = SKShapeNode(rectOf: CGSize(width: length * 0.92, height: width * 0.34), cornerRadius: 16)
+        botSh.fillColor = SKColor(white: 0, alpha: 0.10); botSh.strokeColor = .clear
+        botSh.position = CGPoint(x: 0, y: -width * 0.27); node.addChild(botSh)
+
+        // rear roof window + a little roof hatch, so the back half isn't bare
+        let rearWin = SKShapeNode(rectOf: CGSize(width: length * 0.16, height: width * 0.52), cornerRadius: 6)
+        rearWin.fillColor = SKColor(red: 0.62, green: 0.82, blue: 0.95, alpha: 1)
+        rearWin.strokeColor = SKColor(white: 0, alpha: 0.18); rearWin.lineWidth = 1.5
+        rearWin.position = CGPoint(x: -length * 0.30, y: 0); node.addChild(rearWin)
+        let hatch = SKShapeNode(rectOf: CGSize(width: length * 0.12, height: width * 0.34), cornerRadius: 4)
+        hatch.fillColor = SKColor(red: 0.96, green: 0.74, blue: 0.16, alpha: 1)
+        hatch.strokeColor = SKColor(white: 0, alpha: 0.18); hatch.lineWidth = 1
+        hatch.position = CGPoint(x: -length * 0.08, y: 0); node.addChild(hatch)
+
+        // big curved windshield at the front (+x) — the face lives on it
+        let windshield = SKShapeNode(rectOf: CGSize(width: length * 0.26, height: width * 0.64), cornerRadius: 14)
+        windshield.fillColor = SKColor(red: 0.74, green: 0.89, blue: 0.99, alpha: 1)
+        windshield.strokeColor = SKColor(white: 0, alpha: 0.18); windshield.lineWidth = 1.5
+        windshield.position = CGPoint(x: length * 0.22, y: 0); node.addChild(windshield)
+
+        // a dark front bumper + two warm headlights at the nose
+        let bumper = SKShapeNode(rectOf: CGSize(width: length * 0.05, height: width * 0.82), cornerRadius: 4)
+        bumper.fillColor = SKColor(white: 0.18, alpha: 1); bumper.strokeColor = .clear
+        bumper.position = CGPoint(x: length * 0.49, y: 0); node.addChild(bumper)
+        for sy in [-width * 0.30, width * 0.30] {
+            let lamp = SKShapeNode(rectOf: CGSize(width: length * 0.05, height: width * 0.16), cornerRadius: 3)
+            lamp.fillColor = SKColor(red: 1.0, green: 0.96, blue: 0.74, alpha: 1)
+            lamp.strokeColor = SKColor(white: 0, alpha: 0.2); lamp.lineWidth = 1
+            lamp.position = CGPoint(x: length * 0.45, y: sy); node.addChild(lamp)
         }
-        // a cute face at the front (+x): big eyes looking ahead + rosy cheeks
-        for sy in [-width * 0.22, width * 0.22] {
-            let eyeWhite = SKShapeNode(circleOfRadius: width * 0.17)
-            eyeWhite.fillColor = .white; eyeWhite.strokeColor = SKColor(white: 0, alpha: 0.12); eyeWhite.lineWidth = 1
-            eyeWhite.position = CGPoint(x: length * 0.28, y: sy); node.addChild(eyeWhite)
-            let pupil = SKShapeNode(circleOfRadius: width * 0.075)
-            pupil.fillColor = .black; pupil.strokeColor = .clear
-            pupil.position = CGPoint(x: length * 0.33, y: sy); node.addChild(pupil)
+
+        // big bright eyes (with catchlights) looking ahead + a happy smile + cheeks
+        for sy in [-width * 0.20, width * 0.20] {
+            let eyeWhite = SKShapeNode(circleOfRadius: width * 0.19)
+            eyeWhite.fillColor = .white; eyeWhite.strokeColor = SKColor(white: 0, alpha: 0.14); eyeWhite.lineWidth = 1
+            eyeWhite.position = CGPoint(x: length * 0.24, y: sy); node.addChild(eyeWhite)
+            let pupil = SKShapeNode(circleOfRadius: width * 0.10)
+            pupil.fillColor = SKColor(white: 0.08, alpha: 1); pupil.strokeColor = .clear
+            pupil.position = CGPoint(x: length * 0.28, y: sy); node.addChild(pupil)
+            let glint = SKShapeNode(circleOfRadius: width * 0.035)
+            glint.fillColor = .white; glint.strokeColor = .clear
+            glint.position = CGPoint(x: length * 0.30, y: sy + width * 0.05); node.addChild(glint)
         }
+        let smile = SKShapeNode(path: { () -> CGPath in
+            let p = CGMutablePath()
+            p.move(to: CGPoint(x: length * 0.40, y: -width * 0.12))
+            p.addQuadCurve(to: CGPoint(x: length * 0.40, y: width * 0.12),
+                           control: CGPoint(x: length * 0.47, y: 0))
+            return p
+        }())
+        smile.strokeColor = SKColor(red: 0.45, green: 0.26, blue: 0.16, alpha: 0.9)
+        smile.lineWidth = 3; smile.lineCap = .round; smile.fillColor = .clear
+        node.addChild(smile)
         for sy in [-width * 0.36, width * 0.36] {
             let cheek = SKShapeNode(circleOfRadius: width * 0.085)
             cheek.fillColor = SKColor(red: 1.0, green: 0.56, blue: 0.56, alpha: 0.85); cheek.strokeColor = .clear
-            cheek.position = CGPoint(x: length * 0.40, y: sy); node.addChild(cheek)
+            cheek.position = CGPoint(x: length * 0.36, y: sy); node.addChild(cheek)
         }
         return node
     }
