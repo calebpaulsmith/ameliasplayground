@@ -446,6 +446,8 @@ final class TownScene: SKScene, EpisodeWorld {
             body.position = CGPoint(x: 0, y: h / 2)
             node.addChild(body)
 
+            addWallShading(to: node, w: w, d: d, h: h)
+
             // windows across the exposed front face (the lower `h` band). Some are
             // warm-lit (a cozy golden glow), the rest cool glass — each gets a frame
             // + mullion so the buildings feel lived-in rather than flat.
@@ -474,15 +476,88 @@ final class TownScene: SKScene, EpisodeWorld {
                 }
             }
 
-            // roof cap on top
-            let roof = SKShapeNode(rectOf: CGSize(width: w, height: d), cornerRadius: 6)
-            roof.fillColor = pal.roof
-            roof.strokeColor = SKColor(white: 0, alpha: 0.18); roof.lineWidth = 2
-            roof.position = CGPoint(x: 0, y: h)
-            node.addChild(roof)
+            // roof cap on top — parapet, lighter inset deck, and rooftop props
+            addRoofDetail(to: node, w: w, d: d, h: h, roof: pal.roof,
+                          seed: UInt64(bitPattern: Int64(b.center.x * 131 + b.center.z * 977)))
 
             decorateBuilding(node, kind: b.kind, w: w, d: d, h: h)
             worldNode.addChild(node)
+        }
+    }
+
+    /// Facade depth without changing the footprint: a grounding shadow stacked at
+    /// the base (sits the building on the sidewalk) and a crisp highlight along the
+    /// roofline (the top edge of the visible wall).
+    private func addWallShading(to node: SKNode, w: CGFloat, d: CGFloat, h: CGFloat) {
+        let top = h - d / 2, bottom = -d / 2
+        for i in 0..<3 {
+            let bandH: CGFloat = 13
+            let a = [0.16, 0.09, 0.04][i]
+            let band = SKShapeNode(rectOf: CGSize(width: w, height: bandH), cornerRadius: 2)
+            band.fillColor = SKColor(white: 0, alpha: CGFloat(a)); band.strokeColor = .clear
+            band.position = CGPoint(x: 0, y: bottom + bandH * (CGFloat(i) + 0.5) * 0.85)
+            band.zPosition = 0.05; node.addChild(band)
+        }
+        let hl = SKShapeNode(rectOf: CGSize(width: w - 4, height: 2.5))
+        hl.fillColor = SKColor(white: 1, alpha: 0.16); hl.strokeColor = .clear
+        hl.position = CGPoint(x: 0, y: top - 2); hl.zPosition = 0.05; node.addChild(hl)
+    }
+
+    /// A richer rooftop — the surface most visible from top-down. A dark-edged
+    /// parapet lip, a slightly lighter inset deck with a soft sheen + directional
+    /// shadow, and a few deterministic props (AC units, vents, an occasional water
+    /// tank). The seed is derived from the footprint so CI captures stay stable.
+    private func addRoofDetail(to node: SKNode, w: CGFloat, d: CGFloat, h: CGFloat,
+                               roof: SKColor, seed: UInt64) {
+        var s = seed == 0 ? 0x9E37_79B9_7F4A_7C15 : seed
+        func rnd() -> CGFloat {
+            s = s &* 6364136223846793005 &+ 1442695040888963407
+            return CGFloat(Int((s >> 40) & 0xFFFF)) / 65535.0
+        }
+        let cy = h
+
+        let base = SKShapeNode(rectOf: CGSize(width: w, height: d), cornerRadius: 6)
+        base.fillColor = roof; base.strokeColor = SKColor(white: 0, alpha: 0.28); base.lineWidth = 2.5
+        base.position = CGPoint(x: 0, y: cy); node.addChild(base)
+        let deck = SKShapeNode(rectOf: CGSize(width: w - 16, height: d - 16), cornerRadius: 4)
+        deck.fillColor = roof; deck.strokeColor = SKColor(white: 0, alpha: 0.14); deck.lineWidth = 1.5
+        deck.position = CGPoint(x: 0, y: cy); node.addChild(deck)
+        let sheen = SKShapeNode(rectOf: CGSize(width: w - 16, height: d - 16), cornerRadius: 4)
+        sheen.fillColor = SKColor(white: 1, alpha: 0.06); sheen.strokeColor = .clear
+        sheen.position = CGPoint(x: 0, y: cy); node.addChild(sheen)
+        let shade = SKShapeNode(rectOf: CGSize(width: (w - 16) * 0.5, height: d - 16))
+        shade.fillColor = SKColor(white: 0, alpha: 0.06); shade.strokeColor = .clear
+        shade.position = CGPoint(x: (w - 16) * 0.25, y: cy); node.addChild(shade)
+
+        let innerW = max(10, w - 34), innerD = max(10, d - 34)
+        func spot() -> CGPoint { CGPoint(x: (rnd() - 0.5) * innerW, y: cy + (rnd() - 0.5) * innerD) }
+
+        for _ in 0..<(1 + Int(rnd() * 2.99)) {       // 1–3 AC units
+            let uw = 16 + rnd() * 10, ud = 13 + rnd() * 7
+            let p = spot()
+            let box = SKShapeNode(rectOf: CGSize(width: uw, height: ud), cornerRadius: 2)
+            box.fillColor = SKColor(white: 0.63, alpha: 1)
+            box.strokeColor = SKColor(white: 0, alpha: 0.3); box.lineWidth = 1
+            box.position = p; box.zPosition = 0.2; node.addChild(box)
+            let fan = SKShapeNode(circleOfRadius: min(uw, ud) * 0.28)
+            fan.fillColor = SKColor(white: 0.5, alpha: 1)
+            fan.strokeColor = SKColor(white: 0.25, alpha: 0.5); fan.lineWidth = 1
+            fan.position = p; fan.zPosition = 0.21; node.addChild(fan)
+        }
+        for _ in 0..<2 {                              // vent pipes
+            let vent = SKShapeNode(circleOfRadius: 3.5)
+            vent.fillColor = SKColor(white: 0.4, alpha: 1); vent.strokeColor = .clear
+            vent.position = spot(); vent.zPosition = 0.2; node.addChild(vent)
+        }
+        if rnd() > 0.55 {                             // occasional water tank
+            let p = spot()
+            let legs = SKShapeNode(rectOf: CGSize(width: 22, height: 22))
+            legs.fillColor = SKColor(white: 0, alpha: 0.12); legs.strokeColor = .clear
+            legs.position = p; legs.zPosition = 0.2; node.addChild(legs)
+            let tank = SKShapeNode(circleOfRadius: 13)
+            tank.fillColor = SKColor(red: 0.55, green: 0.43, blue: 0.34, alpha: 1)
+            tank.strokeColor = SKColor(white: 0, alpha: 0.3); tank.lineWidth = 1.5
+            tank.position = CGPoint(x: p.x, y: p.y + 3); tank.zPosition = 0.25; node.addChild(tank)
         }
     }
 
