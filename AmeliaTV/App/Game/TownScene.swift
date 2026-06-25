@@ -174,7 +174,9 @@ final class TownScene: SKScene, EpisodeWorld {
         scaleMode = .aspectFit
         backgroundColor = SKColor(red: 0.46, green: 0.73, blue: 0.42, alpha: 1) // grass
         addChild(worldNode)
+        buildGroundTexture()
         buildRoads()
+        buildRoadWear()
         buildBuildings()   // before trees, so the lining trees can avoid building footprints
         buildTrees()
         buildScenery()
@@ -384,6 +386,81 @@ final class TownScene: SKScene, EpisodeWorld {
         n.lineCap = .round
         n.zPosition = z
         return n
+    }
+
+    /// Break up the flat grass: soft organic tonal blobs scattered over the whole
+    /// map, plus gentle mowing stripes across the park lawn. All deterministic (a
+    /// seeded RNG) so CI captures stay comparable, and drawn below the roads so the
+    /// streets/sidewalks sit on top. Decorative only.
+    private func buildGroundTexture() {
+        var s: UInt64 = 0x00C0_FFEE
+        func rnd() -> Double { s = s &* 6364136223846793005 &+ 1442695040888963407
+                               return Double((s >> 40) & 0xFFFF) / 65535.0 }
+        let minX = -1500.0, maxX = 1500.0, minZ = -1450.0, maxZ = 1450.0
+        // organic mottling
+        for _ in 0..<80 {
+            let x = minX + rnd() * (maxX - minX)
+            let z = minZ + rnd() * (maxZ - minZ)
+            let r = 90 + rnd() * 200
+            let blob = SKShapeNode(ellipseOf: CGSize(width: CGFloat(r) * scale, height: CGFloat(r * 0.7) * scale))
+            blob.fillColor = rnd() > 0.5
+                ? SKColor(red: 0.52, green: 0.78, blue: 0.46, alpha: 0.28)
+                : SKColor(red: 0.39, green: 0.65, blue: 0.36, alpha: 0.24)
+            blob.strokeColor = .clear
+            blob.position = pt(Vec2(x, z)); blob.zPosition = -0.7
+            worldNode.addChild(blob)
+        }
+        // park mowing stripes (only visible on the exposed lawn — roads/buildings
+        // draw over them). Confined to the park block.
+        let pMinX = -800.0, pMaxX = 820.0
+        var z = -660.0
+        var band = 0
+        while z < 680 {
+            if band % 2 == 0 {
+                let stripe = SKShapeNode(rectOf: CGSize(width: CGFloat(pMaxX - pMinX) * scale, height: 46 * scale))
+                stripe.fillColor = SKColor(red: 1, green: 1, blue: 0.9, alpha: 0.06)
+                stripe.strokeColor = .clear
+                stripe.position = pt(Vec2((pMinX + pMaxX) / 2, z)); stripe.zPosition = -0.6
+                worldNode.addChild(stripe)
+            }
+            z += 46; band += 1
+        }
+    }
+
+    /// Subtle asphalt texture on the streets near the park (where the camera lives):
+    /// two faint tire-wear tracks down the lanes plus a few mottled patches, under
+    /// the lane markings. Deterministic; decorative only.
+    private func buildRoadWear() {
+        var s: UInt64 = 0x0000_5EED
+        func rnd() -> Double { s = s &* 6364136223846793005 &+ 1442695040888963407
+                               return Double((s >> 40) & 0xFFFF) / 65535.0 }
+        for seg in net.segments {
+            let mid = (seg.a + seg.b) * 0.5
+            guard abs(mid.x) < 1200, abs(mid.z) < 1200 else { continue }
+            let d = seg.b - seg.a; let len = d.length
+            guard len > 60 else { continue }
+            let dir = Vec2(d.x / len, d.z / len)
+            let perp = Vec2(-dir.z, dir.x)
+            // tire-wear tracks (darken the asphalt where wheels run)
+            for lane in [seg.width * 0.22, -seg.width * 0.22] {
+                let wear = roadLine(seg.a + perp * lane, seg.b + perp * lane,
+                                    width: CGFloat(seg.width) * 0.26 * scale,
+                                    color: SKColor(white: 0, alpha: 0.05), z: 0.45)
+                worldNode.addChild(wear)
+            }
+            // a few mottled patches / faint stains
+            for _ in 0..<(2 + Int(rnd() * 3)) {
+                let p = seg.a + dir * (rnd() * len) + perp * ((rnd() - 0.5) * seg.width * 0.7)
+                let patch = SKShapeNode(ellipseOf: CGSize(width: CGFloat(24 + rnd() * 44) * scale,
+                                                          height: CGFloat(16 + rnd() * 22) * scale))
+                patch.fillColor = SKColor(white: rnd() > 0.5 ? 0 : 1, alpha: 0.045)
+                patch.strokeColor = .clear
+                patch.position = pt(p)
+                patch.zRotation = CGFloat(atan2(-dir.z, dir.x))
+                patch.zPosition = 0.4
+                worldNode.addChild(patch)
+            }
+        }
     }
 
     private func centerDashes(_ a: Vec2, _ b: Vec2) -> SKShapeNode {
