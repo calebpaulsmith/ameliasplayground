@@ -78,7 +78,9 @@ final class TownScene: SKScene, EpisodeWorld {
     // can verify scenery anywhere on the map), then eases in to follow the bus.
     private var elapsed: TimeInterval = 0
     private let wideZoom: CGFloat = 3.7    // wide enough to take in the whole neighborhood block
-    private let closeZoom: CGFloat = 1.0
+    // Closer follow zoom: the camera sits right above the bus so it reads big on
+    // screen (especially on iPhone, where the 16:9 canvas is letterboxed small).
+    private let closeZoom: CGFloat = 0.62
     // A brief wide shot of the town, then ease in to follow the bus as the ride
     // begins. Kept short so the whole first ride fits a CI capture window.
     // The intro flyover is short for players. CI sets AMELIA_OVERVIEW=1 (via
@@ -2000,6 +2002,24 @@ final class TownScene: SKScene, EpisodeWorld {
         let bp = busNode.position
         cam.position = CGPoint(x: center.x + (bp.x - center.x) * e,
                                y: center.y + (bp.y - center.y) * e)
+        publishMinimap()
+    }
+
+    /// Feed the SwiftUI minimap the bus's world position/heading and the current
+    /// goal. Throttled so it only republishes when something visibly moves, to keep
+    /// SwiftUI from re-laying-out the HUD on every single frame.
+    private var lastMiniPublish = MinimapState()
+    private func publishMinimap() {
+        guard let hud else { return }
+        var st = MinimapState(busX: bus.position.x, busZ: bus.position.z, heading: bus.heading)
+        if let g = episodeTarget { st.goalX = g.position.x; st.goalZ = g.position.z }
+        if abs(st.busX - lastMiniPublish.busX) > 1.5
+            || abs(st.busZ - lastMiniPublish.busZ) > 1.5
+            || abs(st.heading - lastMiniPublish.heading) > 0.03
+            || st.goalX != lastMiniPublish.goalX || st.goalZ != lastMiniPublish.goalZ {
+            lastMiniPublish = st
+            hud.minimap = st
+        }
     }
 
     private func driveBus(dt: Double) {
