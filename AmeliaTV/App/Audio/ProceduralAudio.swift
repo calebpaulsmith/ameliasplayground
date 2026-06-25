@@ -42,7 +42,7 @@ final class ProceduralAudio: SoundPlayer {
 
     // Mix levels — the voice (separate channel) always sits on top of all of these.
     private let sfxVolume: Float = 0.5
-    private let musicVolume: Float = 0.14
+    private let musicVolume: Float = 0.17
     private let ambienceVolume: Float = 0.13
     private let maxBeeVolume: Float = 0.09
     private let maxEngineVolume: Float = 0.085

@@ -1969,17 +1969,18 @@ final class TownScene: SKScene, EpisodeWorld {
     }
 
     /// Every few seconds a critter makes itself heard and does a little move — so
-    /// the town always sounds (and looks) alive. Birds are the most frequent.
+    /// the town always sounds (and looks) alive. Kept gentle so the birds don't
+    /// chatter over the music.
     private func updateCritters(dt: Double) {
         critterTimer += dt
         guard critterTimer >= nextCritterDelay else { return }
         critterTimer = 0
-        nextCritterDelay = Double.random(in: 2.5...5.5)
+        nextCritterDelay = Double.random(in: 3.8...7.5)
         switch Int.random(in: 0..<10) {
-        case 0..<5:
+        case 0..<3:
             audio.play(Bool.random() ? .birdChirp : .birdSong)
             if let b = birds.randomElement() { bobBird(b) }
-        case 5..<8:
+        case 3..<6:
             audio.play(.squirrelChitter)
             if let s = squirrels.randomElement() { scurry(s) }
         default:
