@@ -78,7 +78,9 @@ final class TownScene: SKScene, EpisodeWorld {
     // can verify scenery anywhere on the map), then eases in to follow the bus.
     private var elapsed: TimeInterval = 0
     private let wideZoom: CGFloat = 3.7    // wide enough to take in the whole neighborhood block
-    private let closeZoom: CGFloat = 1.0
+    // Closer follow zoom: the camera sits right above the bus so it reads big on
+    // screen (especially on iPhone, where the 16:9 canvas is letterboxed small).
+    private let closeZoom: CGFloat = 0.62
     // A brief wide shot of the town, then ease in to follow the bus as the ride
     // begins. Kept short so the whole first ride fits a CI capture window.
     // The intro flyover is short for players. CI sets AMELIA_OVERVIEW=1 (via
@@ -1967,17 +1969,18 @@ final class TownScene: SKScene, EpisodeWorld {
     }
 
     /// Every few seconds a critter makes itself heard and does a little move — so
-    /// the town always sounds (and looks) alive. Birds are the most frequent.
+    /// the town always sounds (and looks) alive. Kept gentle so the birds don't
+    /// chatter over the music.
     private func updateCritters(dt: Double) {
         critterTimer += dt
         guard critterTimer >= nextCritterDelay else { return }
         critterTimer = 0
-        nextCritterDelay = Double.random(in: 2.5...5.5)
+        nextCritterDelay = Double.random(in: 3.8...7.5)
         switch Int.random(in: 0..<10) {
-        case 0..<5:
+        case 0..<3:
             audio.play(Bool.random() ? .birdChirp : .birdSong)
             if let b = birds.randomElement() { bobBird(b) }
-        case 5..<8:
+        case 3..<6:
             audio.play(.squirrelChitter)
             if let s = squirrels.randomElement() { scurry(s) }
         default:
@@ -2000,6 +2003,24 @@ final class TownScene: SKScene, EpisodeWorld {
         let bp = busNode.position
         cam.position = CGPoint(x: center.x + (bp.x - center.x) * e,
                                y: center.y + (bp.y - center.y) * e)
+        publishMinimap()
+    }
+
+    /// Feed the SwiftUI minimap the bus's world position/heading and the current
+    /// goal. Throttled so it only republishes when something visibly moves, to keep
+    /// SwiftUI from re-laying-out the HUD on every single frame.
+    private var lastMiniPublish = MinimapState()
+    private func publishMinimap() {
+        guard let hud else { return }
+        var st = MinimapState(busX: bus.position.x, busZ: bus.position.z, heading: bus.heading)
+        if let g = episodeTarget { st.goalX = g.position.x; st.goalZ = g.position.z }
+        if abs(st.busX - lastMiniPublish.busX) > 1.5
+            || abs(st.busZ - lastMiniPublish.busZ) > 1.5
+            || abs(st.heading - lastMiniPublish.heading) > 0.03
+            || st.goalX != lastMiniPublish.goalX || st.goalZ != lastMiniPublish.goalZ {
+            lastMiniPublish = st
+            hud.minimap = st
+        }
     }
 
     private func driveBus(dt: Double) {
