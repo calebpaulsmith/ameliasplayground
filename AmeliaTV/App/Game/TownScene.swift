@@ -178,6 +178,7 @@ final class TownScene: SKScene, EpisodeWorld {
         buildBuildings()   // before trees, so the lining trees can avoid building footprints
         buildTrees()
         buildScenery()
+        buildParkedCars()
         buildPeds()
         buildParkLife()
         buildWildlife()
@@ -764,10 +765,8 @@ final class TownScene: SKScene, EpisodeWorld {
 
     // Kenney art (CC0, Racing Pack) — see AmeliaTV/Assets/Kenney/. The hero bus
     // and the oblique buildings stay hand-drawn; traffic, people, and trees use
-    // these sprites.
-    private let kenneyCharacters = ["character_brown_blue", "character_blonde_red",
-                                    "character_black_green", "character_blonde_white",
-                                    "character_brown_red"]
+    // these sprites. Asset ids live in `ArtCatalog`.
+    private let kenneyCharacters = ArtCatalog.people
 
     /// Load a bundled Kenney PNG as a sprite scaled to `height`, preserving aspect.
     private func kenneySprite(_ name: String, height: CGFloat) -> SKSpriteNode {
@@ -780,17 +779,63 @@ final class TownScene: SKScene, EpisodeWorld {
         return s
     }
 
-    /// A Kenney top-down car. The art faces "up", so the sprite is turned to point
-    /// along +x; the container is what the scene rotates to the heading.
-    private func makeKenneyCar(_ name: String) -> SKNode {
+    /// A Kenney top-down vehicle. The art faces "up", so the sprite is turned to
+    /// point along +x; the container is what the scene rotates to the heading.
+    private func makeKenneyCar(_ name: String, height: CGFloat = 96) -> SKNode {
         let node = SKNode()
-        let shadow = SKShapeNode(ellipseOf: CGSize(width: 100, height: 54))
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: height * 1.04, height: height * 0.56))
         shadow.fillColor = SKColor(white: 0, alpha: 0.16); shadow.strokeColor = .clear
         shadow.position = CGPoint(x: 0, y: -5); node.addChild(shadow)
-        let car = kenneySprite(name, height: 96)
+        let car = kenneySprite(name, height: height)
         car.zRotation = -.pi / 2
         node.addChild(car)
         return node
+    }
+
+    /// Parked cars lining the park-adjacent streets the bus does NOT drive (the
+    /// cross-street stubs + ring approaches that poke up to the loop). The follow
+    /// camera always has a lived-in street, and nothing ever sits in the bus's
+    /// path. Deterministic (no RNG) so CI captures stay comparable. Decorative —
+    /// no collision.
+    private func buildParkedCars() {
+        let corners = RoadNetwork.wellesCorners
+        func isPerimeter(_ s: RoadSegment) -> Bool {
+            corners.contains(where: { $0.distance(to: s.a) < 1 }) &&
+            corners.contains(where: { $0.distance(to: s.b) < 1 })
+        }
+        var n = 0
+        for s in net.segments {
+            if isPerimeter(s) { continue }                       // never park on the bus's loop
+            let mid = (s.a + s.b) * 0.5
+            guard abs(mid.x) < 1150, abs(mid.z) < 1150 else { continue }   // only near the park
+            let d = s.b - s.a; let len = d.length
+            guard len > 280 else { continue }
+            let dir = Vec2(d.x / len, d.z / len)
+            let perp = Vec2(-dir.z, dir.x)
+            let curb = s.width / 2 - 16                           // parking lane just inside the curb
+            let heading = atan2(d.z, d.x)
+            var t = 130.0
+            while t < len - 130 {                                // keep clear of the junctions at each end
+                for side in [-1.0, 1.0] {
+                    let pos = s.a + dir * t + perp * (curb * side)
+                    let name: String
+                    switch n % 7 {
+                    case 6: name = ArtCatalog.motorcycle
+                    case 3: name = ArtCatalog.smallCars[n % ArtCatalog.smallCars.count]
+                    default: name = ArtCatalog.cars[n % ArtCatalog.cars.count]
+                    }
+                    let height: CGFloat = name == ArtCatalog.motorcycle ? 56
+                        : ArtCatalog.smallCars.contains(name) ? 70 : 86
+                    let node = makeKenneyCar(name, height: height)
+                    node.position = pt(pos)
+                    node.zRotation = -CGFloat(heading)
+                    node.zPosition = 8
+                    worldNode.addChild(node)
+                    n += 1
+                }
+                t += 210
+            }
+        }
     }
 
     /// A proper top-down school bus: long yellow body, black trim stripes, a row
@@ -890,7 +935,7 @@ final class TownScene: SKScene, EpisodeWorld {
         let shadow = SKShapeNode(ellipseOf: CGSize(width: 58, height: 30))
         shadow.fillColor = SKColor(white: 0, alpha: 0.15); shadow.strokeColor = .clear
         shadow.position = CGPoint(x: 4, y: -22); node.addChild(shadow)
-        node.addChild(kenneySprite("tree_large", height: 66))
+        node.addChild(kenneySprite(ArtCatalog.treeLarge, height: 66))
         return node
     }
 
