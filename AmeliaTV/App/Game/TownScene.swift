@@ -293,14 +293,16 @@ final class TownScene: SKScene, EpisodeWorld {
         worldNode.addChild(node)
     }
 
-    /// A square of asphalt under a road junction, so crossing streets meet in a
-    /// real intersection instead of two round line-caps overlapping.
+    /// A square of clean asphalt over a road junction. Drawn ABOVE the lane
+    /// markings (edge lines + center dashes) so those don't criss-cross through the
+    /// intersection — real junctions are blank asphalt in the box. Crosswalks and
+    /// stop bars sit above this again, so they still read.
     private func addIntersectionPad(at v: Vec2, width: CGFloat) {
         let pad = SKShapeNode(rectOf: CGSize(width: width * scale + 8, height: width * scale + 8), cornerRadius: 6)
         pad.position = pt(v)
-        pad.fillColor = SKColor(red: 0.42, green: 0.42, blue: 0.45, alpha: 1)
-        pad.strokeColor = SKColor(red: 0.30, green: 0.30, blue: 0.32, alpha: 1); pad.lineWidth = 8
-        pad.zPosition = 0.15
+        pad.fillColor = SKColor(red: 0.42, green: 0.42, blue: 0.45, alpha: 1)   // matches the road surface
+        pad.strokeColor = .clear
+        pad.zPosition = 1.2
         worldNode.addChild(pad)
     }
 
@@ -332,7 +334,7 @@ final class TownScene: SKScene, EpisodeWorld {
             let mid = center + travel * t
             let line = roadLine(mid - across * (roadWidth / 2 - 8),
                                 mid + across * (roadWidth / 2 - 8),
-                                width: 5, color: SKColor(white: 0.95, alpha: 0.85), z: 0.95)
+                                width: 5, color: SKColor(white: 0.95, alpha: 0.85), z: 1.4)
             line.lineCap = .butt
             worldNode.addChild(line)
         }
@@ -367,7 +369,7 @@ final class TownScene: SKScene, EpisodeWorld {
         let across = Vec2(-travel.z, travel.x)
         let bar = roadLine(center - across * (roadWidth / 2 - 6),
                            center + across * (roadWidth / 2 - 6),
-                           width: 9, color: SKColor(white: 0.95, alpha: 0.9), z: 0.96)
+                           width: 9, color: SKColor(white: 0.95, alpha: 0.9), z: 1.45)
         bar.lineCap = .butt
         worldNode.addChild(bar)
     }
