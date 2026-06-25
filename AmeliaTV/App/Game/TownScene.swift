@@ -2268,6 +2268,7 @@ final class TownScene: SKScene, EpisodeWorld {
 
     /// Hold the wide establishing shot, then smoothly ease in to follow the bus.
     private func updateCamera() {
+        publishMinimap()
         let center = pt(Vec2(10, 0))
         if elapsed < establishHold {
             cam.position = center
@@ -2280,15 +2281,25 @@ final class TownScene: SKScene, EpisodeWorld {
         let bp = busNode.position
         cam.position = CGPoint(x: center.x + (bp.x - center.x) * e,
                                y: center.y + (bp.y - center.y) * e)
-        publishMinimap()
     }
 
     /// Feed the SwiftUI minimap the bus's world position/heading and the current
     /// goal. Throttled so it only republishes when something visibly moves, to keep
     /// SwiftUI from re-laying-out the HUD on every single frame.
     private var lastMiniPublish = MinimapState()
+    private var mapBuildingsPublished = false
     private func publishMinimap() {
         guard let hud else { return }
+        // Publish the static building footprints once, as soon as the HUD is wired
+        // up (the world is fully built by the first frame). The full-screen map and
+        // minimap draw these over the roads.
+        if !mapBuildingsPublished {
+            mapBuildingsPublished = true
+            var fps = placedFootprints.map { MapFootprint(x: $0.c.x, z: $0.c.z, hw: $0.hw, hd: $0.hd) }
+            fps.append(MapFootprint(x: perspCenter.x, z: perspCenter.z,
+                                    hw: Double(perspSize.width) / 2, hd: Double(perspSize.height) / 2))
+            hud.buildings = fps
+        }
         var st = MinimapState(busX: bus.position.x, busZ: bus.position.z, heading: bus.heading)
         if let g = episodeTarget { st.goalX = g.position.x; st.goalZ = g.position.z }
         if abs(st.busX - lastMiniPublish.busX) > 1.5
