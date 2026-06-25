@@ -234,13 +234,13 @@ final class TownScene: SKScene, EpisodeWorld {
         // the walkways read as attached to the streets (not floating in the grass).
         for s in net.segments { addSidewalkStrip(s.a, s.b, width: s.width) }
 
-        // Painted zebra crosswalks: at the bus stop, the school, and across the
-        // avenues by each park corner (pedestrian crossings at the intersections).
+        // Mid-block pedestrian crossings at the bus stop and the school.
         addCrosswalk(at: Vec2(-200, -700), along: Vec2(1, 0), roadWidth: 110)   // bus stop (north road)
         addCrosswalk(at: Vec2(-200, 700), along: Vec2(1, 0), roadWidth: 110)    // school (south road)
-        for cx in [-660.0, 410.0] { addCrosswalk(at: Vec2(cx, -700), along: Vec2(1, 0), roadWidth: 110) }
-        for cx in [-660.0, 680.0] { addCrosswalk(at: Vec2(cx, 700), along: Vec2(1, 0), roadWidth: 110) }
-        for cz in [-560.0, 560.0] { addCrosswalk(at: Vec2(-800, cz), along: Vec2(0, 1), roadWidth: 110) }
+        // At each park-corner stoplight: a crosswalk pulled in tight to the
+        // intersection, with a bold stop bar just behind it so it's clear where
+        // the bus is meant to stop for the light.
+        for a in cornerApproaches { addApproachMarkings(corner: a.corner, travel: a.travel, roadWidth: 110) }
 
         // The park corners get stoplights (built separately). Every *other* grid
         // junction is a four-way stop with a little stop sign.
@@ -254,7 +254,7 @@ final class TownScene: SKScene, EpisodeWorld {
     // Street cross-section (per side): road | curb | a grass PARKWAY (with the
     // lining trees) | a WIDE sidewalk that buildings sit flush against.
     private let parkwayWidth = 46.0
-    private let sidewalkWidth = 64.0
+    private let sidewalkWidth = 40.0
 
     private func addSidewalkStrip(_ a: Vec2, _ b: Vec2, width: Double) {
         let d = b - a; let len = d.length
@@ -326,16 +326,50 @@ final class TownScene: SKScene, EpisodeWorld {
         let travel = Vec2(dir.x / len, dir.z / len)
         let across = Vec2(-travel.z, travel.x)     // unit across the road, in world
         let bars = 6
-        let span = 64.0                            // total length painted along travel
+        let span = 38.0                            // total length painted along travel (a thin band)
         for i in 0..<bars {
             let t = (Double(i) / Double(bars - 1) - 0.5) * span
             let mid = center + travel * t
             let line = roadLine(mid - across * (roadWidth / 2 - 8),
                                 mid + across * (roadWidth / 2 - 8),
-                                width: 7, color: SKColor(white: 0.95, alpha: 0.85), z: 0.95)
+                                width: 5, color: SKColor(white: 0.95, alpha: 0.85), z: 0.95)
             line.lineCap = .butt
             worldNode.addChild(line)
         }
+    }
+
+    /// For each park corner: the world direction the bus is TRAVELLING as it
+    /// reaches that corner on its clockwise tour. Drives the approach crosswalk +
+    /// stop-bar placement so they sit on the lane the bus actually drives.
+    private let cornerApproaches: [(corner: Vec2, travel: Vec2)] = [
+        (Vec2(-800, -700), Vec2(0, -1)),          // NW: heading north up Western
+        (Vec2(550, -700), Vec2(1, 0)),            // NE: heading east along Montrose
+        (Vec2(820, 700), Vec2(0.189, 0.982)),     // SE: down the Lincoln diagonal
+        (Vec2(-800, 700), Vec2(-1, 0)),           // SW: heading west along Sunnyside
+    ]
+
+    /// Tight intersection markings on the bus's approach leg: a crosswalk just
+    /// outside the intersection box, and a bold stop bar a short way behind it —
+    /// the clear "stop here" line in front of the crossing.
+    private func addApproachMarkings(corner: Vec2, travel: Vec2, roadWidth: Double) {
+        let padHalf = 55.0
+        let cross = corner - travel * (padHalf + 22)   // crosswalk hugs the intersection
+        addCrosswalk(at: cross, along: travel, roadWidth: roadWidth)
+        let stop = corner - travel * (padHalf + 52)    // stop bar a bit behind the crosswalk
+        addStopLine(at: stop, along: travel, roadWidth: roadWidth)
+    }
+
+    /// A single bold white stop bar across the road, perpendicular to travel.
+    private func addStopLine(at center: Vec2, along dir: Vec2, roadWidth: Double) {
+        let len = dir.length
+        guard len > 1e-6 else { return }
+        let travel = Vec2(dir.x / len, dir.z / len)
+        let across = Vec2(-travel.z, travel.x)
+        let bar = roadLine(center - across * (roadWidth / 2 - 6),
+                           center + across * (roadWidth / 2 - 6),
+                           width: 9, color: SKColor(white: 0.95, alpha: 0.9), z: 0.96)
+        bar.lineCap = .butt
+        worldNode.addChild(bar)
     }
 
     private func roadLine(_ a: Vec2, _ b: Vec2, width: CGFloat, color: SKColor, z: CGFloat) -> SKShapeNode {
@@ -2237,6 +2271,10 @@ final class TownScene: SKScene, EpisodeWorld {
             node.addChild(head)
             cornerLamps.append((r, y, gr))
 
+            // A second, near-side signal on a short curb pole, so each intersection
+            // has TWO stoplights (overhead + curb) like the real corner. Same phase.
+            cornerLamps.append(addNearSignal(to: node, face: fac, reach: rch))
+
             // a bold arrow painted on the deck under the head, pointing the way this
             // flow travels — the at-a-glance "this signal is for traffic going THAT
             // way" cue.
@@ -2247,6 +2285,42 @@ final class TownScene: SKScene, EpisodeWorld {
             worldNode.addChild(node)
         }
         updateLightRender()
+    }
+
+    /// A compact second signal head on a short curb pole, set back from the road on
+    /// the corner and facing the oncoming bus — the near-side mate to the overhead
+    /// mast-arm head. Returns its lamps so `cornerLamps` keeps it in phase.
+    private func addNearSignal(to node: SKNode, face fac: CGVector,
+                               reach rch: CGVector) -> (red: SKShapeNode, yellow: SKShapeNode, green: SKShapeNode) {
+        // a stubby post on the curb, back from the road (opposite the arm's reach)
+        let basePos = CGPoint(x: -rch.dx * 12, y: -rch.dy * 12)
+        let post = SKShapeNode(circleOfRadius: 6)
+        post.fillColor = SKColor(white: 0.34, alpha: 1); post.strokeColor = SKColor(white: 0, alpha: 0.3)
+        post.lineWidth = 1.5; post.position = basePos; node.addChild(post)
+
+        let headShadow = SKShapeNode(rectOf: CGSize(width: 50, height: 20), cornerRadius: 6)
+        headShadow.fillColor = SKColor(white: 0, alpha: 0.16); headShadow.strokeColor = .clear
+        headShadow.position = CGPoint(x: basePos.x + 4, y: basePos.y - 4); node.addChild(headShadow)
+
+        let head = SKNode(); head.position = basePos
+        head.zRotation = atan2(-fac.dx, fac.dy)          // local +y → fac (faces the bus)
+        let housing = SKShapeNode(rectOf: CGSize(width: 50, height: 20), cornerRadius: 6)
+        housing.fillColor = SKColor(white: 0.14, alpha: 1)
+        housing.strokeColor = SKColor(white: 0, alpha: 0.35); housing.lineWidth = 1.5
+        head.addChild(housing)
+        func lamp(_ x: CGFloat, _ color: SKColor) -> SKShapeNode {
+            let visor = SKShapeNode(rectOf: CGSize(width: 14, height: 5), cornerRadius: 2)
+            visor.fillColor = SKColor(white: 0.05, alpha: 1); visor.strokeColor = .clear
+            visor.position = CGPoint(x: x, y: 7); head.addChild(visor)
+            let l = SKShapeNode(circleOfRadius: 6.5)
+            l.fillColor = color; l.strokeColor = .clear; l.position = CGPoint(x: x, y: 0)
+            head.addChild(l); return l
+        }
+        let r  = lamp(-15, SKColor(red: 0.92, green: 0.24, blue: 0.22, alpha: 1))
+        let y  = lamp(0,   SKColor(red: 0.96, green: 0.80, blue: 0.24, alpha: 1))
+        let gr = lamp(15,  SKColor(red: 0.30, green: 0.80, blue: 0.36, alpha: 1))
+        node.addChild(head)
+        return (r, y, gr)
     }
 
     /// A bold lane chevron pointing in screen-direction `dir` (the art points +y).
