@@ -156,6 +156,47 @@ turn the passive ride into a game. Full plan + open decisions live in the doc.
 > listing deferred to ship time). Open: D-IP-1 art/IP, D-ART-1 art sourcing,
 > D-SIGN-1 signing.
 
+### 2D build progress (updated 2026-06-25)
+
+The SpriteKit town (`AmeliaTV/App/Game/TownScene.swift` + `AdventureHUD.swift`,
+`ArtCatalog.swift`) is live and through M1–M3: drivable road network, free-steer
+bus, follow camera, traffic light + dual signals, the `first-day` episode, the
+"Quick Stop!" challenge, park, pedestrians/wildlife, and audio. Recent merged
+work this session (each shipped behind a CI capture a human reviewed):
+
+- **Camera / HUD / minimap (PR #68):** tighter follow zoom (`closeZoom` 0.62) so
+  the camera sits closer above the bus; a north-up **minimap** (top-right, in
+  `MinimapView`) fed throttled bus/goal state; **responsive HUD text** — fonts
+  scale with the 16:9 canvas (1.0 on the 1920×1080 TV, floored 0.42) so they're
+  no longer massive on iPhone.
+- **Audio tuning (part of the run):** fewer/space-out bird calls; music bed up a
+  touch (`ProceduralAudio.musicVolume` 0.14→0.17).
+- **Realistic intersections (PRs #69, #70):** narrower sidewalks
+  (`sidewalkWidth` 40), thinner crosswalks pulled tight to each corner on the
+  bus's approach lane, a **stop bar** marking where to stop, and **two stoplights
+  per intersection** (overhead mast-arm + near-side curb signal). Junctions are
+  clean asphalt — the intersection pad draws **above** the lane markings (z 1.2)
+  and crosswalks/stop bars above that, so dashes no longer criss-cross the box.
+- **Art pass — Kenney CC0 (D-ART-1: "expand Kenney now"), PRs #71–74:**
+  - `ArtCatalog` — every sprite id in one place ("reference art by id with a
+    placeholder fallback"); the hero bus + oblique buildings stay hand-drawn
+    (original IP, D-IP-1).
+  - **Parked cars** lining the park-adjacent streets the bus does NOT drive
+    (deterministic, decorative, no collision).
+  - **Buildings** — richer rooftops (parapet, inset deck, AC units/vents/water
+    tanks) + facade grounding-shadow & roofline highlight.
+  - **Cuter hero bus** — rounded body, windshield, big catchlight eyes, smile,
+    rosy cheeks, headlights.
+  - **Ground & road texturing** — subtle grass mottling + park mowing stripes;
+    faint tire-wear tracks + patches on the asphalt (under the lane markings).
+  - **Determinism rule:** any new render with randomness uses a *seeded* RNG (not
+    `Math.random`/`Int.random`) so CI captures stay comparable.
+- **Remaining art option not yet done:** *moving traffic on the loop* (cars that
+  drive with the bus, with collision so the bus is never blocked).
+- **Next up (unstarted):** **M4 — Free Drive + bigger map**, and/or a
+  **TestFlight build** so the whole loop can be driven on a real device (today
+  it's only verified via CI captures, not human play).
+
 ## Current status (updated 2026-06-21)
 
 Phases 0–1 are merged to `main`; Phase 2 (the vertical slice) is **code-complete** —
