@@ -168,8 +168,8 @@ final class TownScene: SKScene, EpisodeWorld {
     private var awardedStars = 0
     private var subtitleClearAt: TimeInterval = -1
     private var pipNode = SKNode()                 // Pip waiting at the stop
-    private let schoolPlace = Vec2(-200, 700)      // drop-off, on Sunnyside (south)
-    private let schoolDoor = Vec2(-200, 830)       // the school building sits south of the road
+    private let schoolPlace = Vec2(-400, 700)      // drop-off, on Sunnyside (south), in front of the school
+    private let schoolDoor = Vec2(-400, 830)       // the school building sits south of the road
     private let beaconNode = SKShapeNode()         // floating arrow to the goal
 
     // Stoplights stand at the four park corners (not in the road). One drives the
@@ -265,7 +265,7 @@ final class TownScene: SKScene, EpisodeWorld {
 
         // Mid-block pedestrian crossings at the bus stop and the school.
         addCrosswalk(at: Vec2(-200, -700), along: Vec2(1, 0), roadWidth: 110)   // bus stop (north road)
-        addCrosswalk(at: Vec2(-200, 700), along: Vec2(1, 0), roadWidth: 110)    // school (south road)
+        addCrosswalk(at: Vec2(-400, 700), along: Vec2(1, 0), roadWidth: 110)    // school (south road)
         // At each park-corner stoplight: a crosswalk pulled in tight to the
         // intersection, with a bold stop bar just behind it so it's clear where
         // the bus is meant to stop for the light.

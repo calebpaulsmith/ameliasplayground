@@ -106,7 +106,7 @@ final class WorldValidatorTests: XCTestCase {
         XCTAssertEqual(a, b, "streetwall must be reproducible (fixed data)")
         // Deterministic, so the count is exact — gap-fill around the landmark
         // anchors on the three frontages.
-        XCTAssertEqual(a.count, 10, "streetwall building count changed unexpectedly")
+        XCTAssertEqual(a.count, 7, "streetwall building count changed unexpectedly")
         // Ids are unique (the renderer/validator key off them).
         XCTAssertEqual(Set(a.map(\.id)).count, a.count)
     }
@@ -125,24 +125,16 @@ final class WorldValidatorTests: XCTestCase {
                       "streetwall on roads:\n" + wallOnRoad.map(\.message).joined(separator: "\n"))
     }
 
-    // MARK: The authored Welles layout — report (informational, does not fail CI)
+    // MARK: No road runs under any building (CI gate)
 
-    /// The authored map currently has roads running under a couple of landmark
-    /// buildings (the "interrupted middle avenue" at x≈-130 passes under the school
-    /// and clips the church). These are pre-existing authoring choices, not
-    /// regressions — this logs them for a human to clear when authoring the map,
-    /// without blocking the build. New road-under-building overlaps SHOULD be
-    /// cleaned up; tighten this into a hard `XCTAssertEqual(count, 0)` once the map
-    /// is clean.
-    func testWellesRoadOverlapsAreReported() {
-        let overlaps = WorldValidator.validate(.welles).buildingRoadOverlaps
-        let summary = overlaps.isEmpty
-            ? "No road-under-building overlaps. 🎉"
-            : "Road-under-building overlaps to clear (\(overlaps.count)):\n"
-                + overlaps.map { "  • " + $0.message }.joined(separator: "\n")
-        XCTContext.runActivity(named: "Welles road-overlap report") { activity in
-            activity.add(XCTAttachment(string: summary))
-        }
-        print("[WorldValidator] " + summary)
+    /// Every building — landmarks and streetwall — must sit in a block, never on a
+    /// road. The landmarks that used to straddle the grid stubs (school, church,
+    /// barber, corner restaurant) were moved into clear blocks; this keeps it that
+    /// way and fails the build if anything is ever dropped on a road again.
+    func testNoRoadRunsUnderAnyBuilding() {
+        let overlaps = WorldValidator.validate(.wellesComplete).buildingRoadOverlaps
+        XCTAssertTrue(overlaps.isEmpty,
+                      "A road runs under a building — move it into a block:\n"
+                        + overlaps.map { "  • " + $0.message }.joined(separator: "\n"))
     }
 }
