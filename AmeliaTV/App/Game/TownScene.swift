@@ -260,6 +260,9 @@ final class TownScene: SKScene, EpisodeWorld {
         // the walkways read as attached to the streets (not floating in the grass).
         for s in net.segments { addSidewalkStrip(s.a, s.b, width: s.width) }
 
+        // Bike + parking lanes on the four park avenues (the bus's loop).
+        for s in net.segments where isParkAvenue(s) { addAvenueLanes(s.a, s.b, width: s.width) }
+
         // Mid-block pedestrian crossings at the bus stop and the school.
         addCrosswalk(at: Vec2(-200, -700), along: Vec2(1, 0), roadWidth: 110)   // bus stop (north road)
         addCrosswalk(at: Vec2(-200, 700), along: Vec2(1, 0), roadWidth: 110)    // school (south road)
@@ -298,6 +301,75 @@ final class TownScene: SKScene, EpisodeWorld {
                                 color: SKColor(white: 0.72, alpha: 0.6), z: -0.05)
             worldNode.addChild(curb)
         }
+    }
+
+    /// How far the bus drives to the right of a road's centerline — the centre of
+    /// its travel lane, clear of the bike + parking lanes near the curb.
+    private let laneCenter = 14.0
+
+    /// True for the four park avenues (the wide perimeter streets the bus loops):
+    /// both endpoints are park corners.
+    private func isParkAvenue(_ s: RoadSegment) -> Bool {
+        let corners = RoadNetwork.wellesCorners
+        return corners.contains { $0.distance(to: s.a) < 1 } && corners.contains { $0.distance(to: s.b) < 1 }
+    }
+
+    /// Bike + parking lanes painted on both sides of a park avenue. The bus keeps
+    /// to the interior travel lane (`laneCenter`), so it never drives the bike or
+    /// parking lanes — which sit out toward the curbs.
+    private func addAvenueLanes(_ a: Vec2, _ b: Vec2, width: Double) {
+        let d = b - a; let len = d.length
+        guard len > 1e-6 else { return }
+        let dir = Vec2(d.x / len, d.z / len)
+        let perp = Vec2(-dir.z, dir.x)
+        let bikeFill = SKColor(red: 0.24, green: 0.46, blue: 0.40, alpha: 0.55)   // muted green
+        for side in [-1.0, 1.0] {
+            // bike lane: a green strip between the travel lane and the parking lane,
+            // with thin white boundary lines either side.
+            let bikeOff = perp * (side * 35)
+            let strip = roadLine(a + bikeOff, b + bikeOff, width: 10 * scale, color: bikeFill, z: 0.5)
+            strip.lineCap = .butt
+            worldNode.addChild(strip)
+            for edge in [30.0, 40.0] {
+                let o = perp * (side * edge)
+                let line = roadLine(a + o, b + o, width: 2, color: SKColor(white: 0.95, alpha: 0.5), z: 0.95)
+                line.lineCap = .butt
+                worldNode.addChild(line)
+            }
+            // bike glyphs spaced down the lane (kept clear of the junctions).
+            var t = 150.0
+            while t < len - 150 {
+                addBikeGlyph(at: a + dir * t + bikeOff, along: dir)
+                t += 260
+            }
+            // parking lane: stall ticks between the bike lane (40) and the curb edge
+            // line (48), out of the bus's interior travel lane. Reads as a parking
+            // lane without crowding the bus with cars (those line the side streets).
+            var p = 120.0
+            while p < len - 120 {
+                let base = a + dir * p
+                let tick = roadLine(base + perp * (side * 40), base + perp * (side * 48),
+                                    width: 2, color: SKColor(white: 0.95, alpha: 0.45), z: 0.9)
+                tick.lineCap = .butt
+                worldNode.addChild(tick)
+                p += 130
+            }
+        }
+    }
+
+    /// A small white bike symbol (two wheels + a bar), pointing along the lane.
+    private func addBikeGlyph(at v: Vec2, along dir: Vec2) {
+        let node = SKNode(); node.position = pt(v); node.zPosition = 0.6
+        node.zRotation = -CGFloat(atan2(dir.z, dir.x))
+        let col = SKColor(white: 0.96, alpha: 0.7)
+        for wx in [-7.0, 7.0] {
+            let wheel = SKShapeNode(circleOfRadius: 4)
+            wheel.strokeColor = col; wheel.lineWidth = 1.5; wheel.fillColor = .clear
+            wheel.position = CGPoint(x: wx, y: 0); node.addChild(wheel)
+        }
+        let bar = SKShapeNode(rectOf: CGSize(width: 12, height: 2))
+        bar.fillColor = col; bar.strokeColor = .clear; node.addChild(bar)
+        worldNode.addChild(node)
     }
 
     /// The street-facing edge distance from a road centerline out to the building
@@ -2361,7 +2433,8 @@ final class TownScene: SKScene, EpisodeWorld {
         // Home in on the active episode goal: once near, steer straight at it and
         // ease to a clean stop ON it (inside the arrival radius) so the pickup /
         // drop-off lands. While far, keep following the road loop toward it.
-        var steerTo = target
+        // Aim for the centre of the right-hand travel lane, not the centerline.
+        var steerTo = target + rightOf(bus.heading) * laneCenter
         if let goal = episodeTarget {
             let d = bus.position.distance(to: goal.position)
             if d < 300 { steerTo = goal.position }
@@ -2371,13 +2444,21 @@ final class TownScene: SKScene, EpisodeWorld {
         applyMove(&bus, throttle: throttle, steer: bus.steer(toward: steerTo), dt: dt)
     }
 
+    /// The unit vector to a vehicle's right, given its heading — used to keep each
+    /// vehicle in its own right-hand travel lane (so they pass on opposite sides).
+    private func rightOf(_ heading: Double) -> Vec2 {
+        let f = Vec2.fromHeading(heading)
+        return Vec2(-f.z, f.x)
+    }
+
     private func driveCar(dt: Double) {
         let target = carLoop[carTarget % carLoop.count]
         let dist = car.position.distance(to: target)
         if dist < 70 { carTarget = (carTarget + 1) % carLoop.count }
         var throttle = dist < 180 ? 0.4 : 1.0
         if shouldStop(car.position) { throttle = -1.0 }
-        applyMove(&car, throttle: throttle, steer: car.steer(toward: target), dt: dt)
+        let steerTo = target + rightOf(car.heading) * laneCenter
+        applyMove(&car, throttle: throttle, steer: car.steer(toward: steerTo), dt: dt)
     }
 
     /// True when a vehicle should hold at the red light's stop zone.
