@@ -24,23 +24,43 @@ final class TownScene: SKScene, EpisodeWorld {
     // Surrounding buildings (outside the park roads): apartments on Western (west),
     // restaurants/shops on Sunnyside (south). Church + library + school get their
     // own builders below.
-    private enum BuildingKind { case apartments, restaurant, shop, school, salon, barber }
+    private enum BuildingKind {
+        case apartments, restaurant, shop, school, salon, barber
+        /// Map a Core `BuildingKind` to a generically-drawn kind. Returns nil for
+        /// kinds that have their own dedicated builder (church, library), so they're
+        /// skipped by `buildBuildings()`.
+        init?(_ core: AmeliaCore.BuildingKind) {
+            switch core {
+            case .apartments: self = .apartments
+            case .restaurant: self = .restaurant
+            case .shop:       self = .shop
+            case .school:     self = .school
+            case .salon:      self = .salon
+            case .barber:     self = .barber
+            case .church, .library: return nil
+            }
+        }
+    }
     private struct Building { var center: Vec2; var size: CGSize; var height: CGFloat; var kind: BuildingKind }
     // The "charm anchor" buildings (awnings, signs, the school) sit on the street
     // frontage; the procedural streetwall (buildStreetwalls) fills in around them
     // with plain side-by-side blocks. Frontage lines sit one `buildingSetback` out
     // from each road (curb + parkway + wide sidewalk).
-    private let buildings: [Building] = [
-        // West of Western Ave: apartments along the frontage.
-        Building(center: Vec2(-1040, -360), size: CGSize(width: 220, height: 300), height: 150, kind: .apartments),
-        Building(center: Vec2(-1040, 60), size: CGSize(width: 220, height: 260), height: 120, kind: .apartments),
-        // South of the south road: the school + a restaurant.
-        Building(center: Vec2(-200, 975), size: CGSize(width: 280, height: 220), height: 100, kind: .school),
-        Building(center: Vec2(220, 960), size: CGSize(width: 200, height: 180), height: 90, kind: .restaurant),
-        // North of the north road: a barber + a salon (the church is its own builder).
-        Building(center: Vec2(-680, -940), size: CGSize(width: 150, height: 150), height: 80, kind: .barber),
-        Building(center: Vec2(-500, -940), size: CGSize(width: 150, height: 150), height: 80, kind: .salon),
-    ]
+    /// The authored town layout from the Game Core — the single source of truth for
+    /// where things are (`WorldLayout.welles`), validated on CI by `WorldValidator`.
+    private let layout = WorldLayout.welles
+    /// Landmark/charm-anchor buildings, derived from `layout` instead of duplicated
+    /// here. The church, library, and corner restaurant have their own builders
+    /// below, so their footprints are excluded; the rest are drawn generically by
+    /// `buildBuildings()`. Order matches `WorldLayout.welles` (palette assignment
+    /// keys off the index), so this is a visual no-op versus the old inline array.
+    private lazy var buildings: [Building] = layout.buildings.compactMap { f in
+        guard let kind = BuildingKind(f.kind) else { return nil }
+        return Building(center: f.center,
+                        size: CGSize(width: f.width, height: f.depth),
+                        height: CGFloat(f.height),
+                        kind: kind)
+    }
     /// Footprints (centre, half-width, half-depth) of everything already placed —
     /// the streetwall skips these, and trees avoid them.
     private var placedFootprints: [(c: Vec2, hw: Double, hd: Double)] = []
