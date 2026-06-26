@@ -104,7 +104,9 @@ final class WorldValidatorTests: XCTestCase {
         let a = WorldLayout.wellesStreetwall
         let b = WorldLayout.wellesStreetwall
         XCTAssertEqual(a, b, "streetwall must be reproducible (fixed data)")
-        XCTAssertGreaterThan(a.count, 8, "streetwall should actually fill the frontages")
+        // Deterministic, so the count is exact — gap-fill around the landmark
+        // anchors on the three frontages.
+        XCTAssertEqual(a.count, 10, "streetwall building count changed unexpectedly")
         // Ids are unique (the renderer/validator key off them).
         XCTAssertEqual(Set(a.map(\.id)).count, a.count)
     }

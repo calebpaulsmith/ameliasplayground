@@ -29,16 +29,19 @@ public extension WorldLayout {
     /// menu, cross-street gaps, and overlap-avoidance mirror the old `streetRow`.
     static var wellesStreetwall: [BuildingFootprint] {
         let setback = 55.0 + 46.0 + 40.0            // 141 (matches TownScene.buildingSetback)
-        let cross = [-800.0, -130.0, 550.0]         // cross streets cut the block — leave gaps
         let widths = [150.0, 170.0, 190.0, 210.0]
         let depths = [130.0, 140.0, 160.0]
         let heights = [70.0, 90.0, 110.0, 130.0]
         let gaps = [8.0, 10.0, 38.0]
+        // Clearance from a crossing road's centerline to the nearest building edge.
+        // Must exceed the widest crossing road's half-width (55) so the wall never
+        // sits on a junction — the WorldValidator enforces this.
+        let clearance = 64.0
 
         // Avoid the landmarks (anchors + church + corner restaurant). The library is
         // far east of every frontage, so it's irrelevant here.
         let avoid = welles.buildings.filter { $0.id != "library" }
-        var rng = DeterministicRNG(seed: 0x57_2EE7_5EED)   // "street seed"
+        var rng = DeterministicRNG(seed: 0x1121)
         var result: [BuildingFootprint] = []
 
         func free(_ c: Vec2, _ w: Double, _ d: Double) -> Bool {
@@ -48,13 +51,17 @@ public extension WorldLayout {
             return true
         }
 
-        func row(horizontal: Bool, frontEdge: Double, from: Double, to: Double, tag: String) {
+        // `cross` holds the positions (along the row's axis) of roads that cut this
+        // frontage, so the wall leaves a clean gap at each junction. The lists differ
+        // per frontage because different roads cross each one.
+        func row(horizontal: Bool, frontEdge: Double, from: Double, to: Double,
+                 tag: String, cross: [Double]) {
             var p = from
             var i = 0
             while p < to {
                 let w = rng.pick(widths), depth = rng.pick(depths)
                 let along = p + w / 2
-                if cross.contains(where: { abs($0 - along) < w / 2 + 70 }) { p += 90; continue }
+                if cross.contains(where: { abs($0 - along) < w / 2 + clearance }) { p += 90; continue }
                 let center = horizontal
                     ? Vec2(along, frontEdge < 0 ? frontEdge - depth / 2 : frontEdge + depth / 2)
                     : Vec2(frontEdge - depth / 2, along)
@@ -69,9 +76,15 @@ public extension WorldLayout {
             }
         }
 
-        row(horizontal: true,  frontEdge: -700 - setback, from: -1230, to: 470, tag: "n")  // north
-        row(horizontal: true,  frontEdge:  700 + setback, from: -1230, to: 720, tag: "s")  // south
-        row(horizontal: false, frontEdge: -800 - setback, from: -600,  to: 600, tag: "w")  // west
+        // North frontage is crossed by Western (-800), the middle avenue (-130), and
+        // the NE cross (550). South by Western (-800), the middle avenue (-130), and
+        // the SE cross (820). West by the two park-avenue continuations at z = ±700.
+        row(horizontal: true,  frontEdge: -700 - setback, from: -1230, to: 470, tag: "n",
+            cross: [-800, -130, 550])
+        row(horizontal: true,  frontEdge:  700 + setback, from: -1230, to: 720, tag: "s",
+            cross: [-800, -130, 820])
+        row(horizontal: false, frontEdge: -800 - setback, from: -600,  to: 600, tag: "w",
+            cross: [-700, 700])
         return result
     }
 
