@@ -89,18 +89,21 @@ public extension WorldLayout {
             // West of Western Ave: apartments along the frontage.
             .init(id: "apt-western-n", center: Vec2(-1040, -360), width: 220, depth: 300, height: 150, kind: .apartments),
             .init(id: "apt-western-s", center: Vec2(-1040, 60),  width: 220, depth: 260, height: 120, kind: .apartments),
-            // South of Sunnyside: the school + a restaurant.
-            .init(id: "school",        center: Vec2(-200, 975),  width: 280, depth: 220, height: 100, kind: .school),
+            // South of Sunnyside: the school (sits in the block, clear of the middle
+            // avenue at x=-130) + a restaurant.
+            .init(id: "school",        center: Vec2(-400, 975),  width: 280, depth: 220, height: 100, kind: .school),
             .init(id: "restaurant-sunnyside", center: Vec2(220, 960), width: 200, depth: 180, height: 90, kind: .restaurant),
-            // North of Montrose: a barber + a salon.
-            .init(id: "barber",        center: Vec2(-680, -940), width: 150, depth: 150, height: 80, kind: .barber),
+            // North of Montrose: a barber + a salon (barber clear of Western at x=-800).
+            .init(id: "barber",        center: Vec2(-660, -940), width: 150, depth: 150, height: 80, kind: .barber),
             .init(id: "salon",         center: Vec2(-500, -940), width: 150, depth: 150, height: 80, kind: .salon),
-            // North frontage: the church (its own renderer builder; footprint reserved).
-            .init(id: "church",        center: Vec2(-260, -945), width: 220, depth: 170, height: 90, kind: .church),
+            // North frontage: the church (its own renderer builder; footprint reserved),
+            // nudged clear of the middle avenue at x=-130.
+            .init(id: "church",        center: Vec2(-300, -945), width: 220, depth: 170, height: 90, kind: .church),
             // East across Lincoln Ave: the library (the re-projecting perspective landmark).
             .init(id: "library",       center: Vec2(1020, 300),  width: 230, depth: 200, height: 110, kind: .library),
-            // Corner restaurant (Montrose × Lincoln) with café seating.
-            .init(id: "restaurant-corner", center: Vec2(450, cornerRestaurantZ), width: 200, depth: 150, height: 85, kind: .restaurant),
+            // Restaurant on the north frontage near the corner, in the block west of
+            // the NE cross street at x=550, with café seating.
+            .init(id: "restaurant-corner", center: Vec2(390, cornerRestaurantZ), width: 200, depth: 150, height: 85, kind: .restaurant),
         ]
         return WorldLayout(roads: .welles, buildings: buildings, places: .demo)
     }
