@@ -85,6 +85,19 @@ final class WorldValidatorTests: XCTestCase {
                       "Story places off-road:\n" + issues.map(\.message).joined(separator: "\n"))
     }
 
+    /// The renderer looks these landmarks up by id (and force-unwraps), so a
+    /// renamed/missing id must fail here on CI rather than crash the app at launch.
+    func testWellesHasExpectedLandmarkIds() {
+        let ids = Set(WorldLayout.welles.buildings.map(\.id))
+        for required in ["apt-western-n", "apt-western-s", "school", "restaurant-sunnyside",
+                         "barber", "salon", "church", "library", "restaurant-corner"] {
+            XCTAssertTrue(ids.contains(required),
+                          "WorldLayout.welles is missing building id '\(required)'")
+        }
+        XCTAssertEqual(WorldLayout.welles.building(id: "library")?.center, Vec2(1020, 300))
+        XCTAssertNil(WorldLayout.welles.building(id: "does-not-exist"))
+    }
+
     // MARK: The authored Welles layout — report (informational, does not fail CI)
 
     /// The authored map currently has roads running under a couple of landmark

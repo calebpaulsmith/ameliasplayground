@@ -62,6 +62,13 @@ public struct WorldLayout: Sendable, Equatable {
         self.buildings = buildings
         self.places = places
     }
+
+    /// The authored footprint with this id, if any. The renderer looks landmarks
+    /// up by id so it reads position/size from this single source of truth rather
+    /// than hardcoding them.
+    public func building(id: String) -> BuildingFootprint? {
+        buildings.first { $0.id == id }
+    }
 }
 
 public extension WorldLayout {

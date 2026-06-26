@@ -69,8 +69,11 @@ final class TownScene: SKScene, EpisodeWorld {
     // frame, so it appears to change perspective (GTA-style) as the bus drives
     // around it. The logic underneath is still a flat top-down footprint.
     // The library, across Lincoln Ave on the east.
-    private let perspCenter = Vec2(1020, 300)
-    private let perspSize = CGSize(width: 230, height: 200)
+    private lazy var perspCenter: Vec2 = layout.building(id: "library")!.center
+    private lazy var perspSize: CGSize = {
+        let f = layout.building(id: "library")!
+        return CGSize(width: f.width, height: f.depth)
+    }()
     private let perspLean: CGFloat = 70
     private let perspNode = SKNode()
     private let perspWall = SKShapeNode()
@@ -673,7 +676,8 @@ final class TownScene: SKScene, EpisodeWorld {
     private func buildStreetwalls() {
         // reserve the church footprint (drawn later in buildScenery) so the row
         // leaves a gap for it on the north frontage
-        placedFootprints.append((Vec2(-260, -945), 110, 85))
+        let church = layout.building(id: "church")!
+        placedFootprints.append((church.center, church.halfWidth, church.halfDepth))
         addCornerRestaurant()   // place this special first so the row leaves room
         streetRow(horizontal: true, frontEdge: -700 - buildingSetback, from: -1230, to: 470)  // north
         streetRow(horizontal: true, frontEdge: 700 + buildingSetback, from: -1230, to: 720)   // south
@@ -706,9 +710,11 @@ final class TownScene: SKScene, EpisodeWorld {
     /// The corner restaurant (north road × Lincoln) with outdoor café seating set
     /// out on the wide sidewalk in front.
     private func addCornerRestaurant() {
-        let c = Vec2(450, -700 - buildingSetback - 75)
-        placedFootprints.append((c, 100, 75))
-        drawBuilding(Building(center: c, size: CGSize(width: 200, height: 150), height: 85, kind: .restaurant),
+        let f = layout.building(id: "restaurant-corner")!
+        let c = f.center
+        placedFootprints.append((c, f.halfWidth, f.halfDepth))
+        drawBuilding(Building(center: c, size: CGSize(width: f.width, height: f.depth),
+                              height: CGFloat(f.height), kind: .restaurant),
                      paletteIndex: 0)
         for dx in [-66.0, 0.0, 66.0] { addCafeTable(at: c + Vec2(dx, 122)) }   // on the sidewalk
     }
@@ -1161,7 +1167,7 @@ final class TownScene: SKScene, EpisodeWorld {
     private func buildScenery() {
         addParkSidewalk()                  // the paved walk up the middle of the park
         buildPark()
-        addChurch(at: Vec2(-260, -945))    // on the north frontage, left of the road's middle
+        addChurch(at: layout.building(id: "church")!.center)    // on the north frontage, left of the road's middle
         addBusStop(at: Vec2(-200, -600))   // on the Montrose curb, inside the park
         for f in [Vec2(-560, -430), Vec2(-150, 470), Vec2(60, 560), Vec2(-300, 130), Vec2(120, -250)] {
             addFlowers(at: f)
