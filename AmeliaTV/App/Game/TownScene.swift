@@ -661,49 +661,23 @@ final class TownScene: SKScene, EpisodeWorld {
         }
     }
 
-    /// True if a candidate footprint doesn't collide with anything already placed.
-    private func footprintFree(_ c: Vec2, w: Double, d: Double) -> Bool {
-        for f in placedFootprints
-        where abs(c.x - f.c.x) < f.hw + w / 2 + 12 && abs(c.z - f.c.z) < f.hd + d / 2 + 12 {
-            return false
-        }
-        return true
-    }
-
     /// Fill the street frontages with a streetwall of side-by-side buildings flush
-    /// to the wide sidewalk, leaving alleys here and there and gaps at the cross
-    /// streets. The hand-placed charm anchors are skipped (drawn already).
+    /// to the wide sidewalk, leaving gaps at the cross streets and skipping the
+    /// hand-placed charm anchors. The footprints come from the Game Core's
+    /// **deterministic** `WorldLayout.wellesStreetwall` (validated by
+    /// `WorldValidator`), so the wall is fixed/reproducible data — no longer the old
+    /// per-launch random fill that reshuffled every run and broke CI captures.
     private func buildStreetwalls() {
-        // reserve the church footprint (drawn later in buildScenery) so the row
-        // leaves a gap for it on the north frontage
+        // reserve the church footprint (drawn later in buildScenery)
         let church = layout.building(id: "church")!
         placedFootprints.append((church.center, church.halfWidth, church.halfDepth))
-        addCornerRestaurant()   // place this special first so the row leaves room
-        streetRow(horizontal: true, frontEdge: -700 - buildingSetback, from: -1230, to: 470)  // north
-        streetRow(horizontal: true, frontEdge: 700 + buildingSetback, from: -1230, to: 720)   // south
-        streetRow(horizontal: false, frontEdge: -800 - buildingSetback, from: -600, to: 600)  // west
-    }
-
-    private func streetRow(horizontal: Bool, frontEdge: Double, from: Double, to: Double) {
-        let cross = [-800.0, -130.0, 550.0]   // cross streets cut the block — leave gaps
-        let widths = [150.0, 170.0, 190.0, 210.0], depths = [130.0, 140.0, 160.0]
-        let heights: [CGFloat] = [70, 90, 110, 130], gaps = [8.0, 10.0, 38.0]
-        var p = from
-        while p < to {
-            let w = widths.randomElement()!, depth = depths.randomElement()!
-            let along = p + w / 2
-            if cross.contains(where: { abs($0 - along) < w / 2 + 70 }) { p += 90; continue }
-            let center = horizontal
-                ? Vec2(along, frontEdge < 0 ? frontEdge - depth / 2 : frontEdge + depth / 2)
-                : Vec2(frontEdge - depth / 2, along)
-            if footprintFree(center, w: w, d: depth) {
-                let kind: BuildingKind = Int.random(in: 0..<4) == 0 ? .shop : .apartments
-                let b = Building(center: center, size: CGSize(width: w, height: depth),
-                                 height: heights.randomElement()!, kind: kind)
-                drawBuilding(b, paletteIndex: Int(abs(along) / 57))
-                placedFootprints.append((center, w / 2, depth / 2))
-            }
-            p += w + gaps.randomElement()!
+        addCornerRestaurant()   // landmark with its own builder; footprint reserved
+        for f in WorldLayout.wellesStreetwall {
+            guard let kind = BuildingKind(f.kind) else { continue }
+            let b = Building(center: f.center, size: CGSize(width: f.width, height: f.depth),
+                             height: CGFloat(f.height), kind: kind)
+            drawBuilding(b, paletteIndex: Int((abs(f.center.x) + abs(f.center.z)) / 57))
+            placedFootprints.append((f.center, f.halfWidth, f.halfDepth))
         }
     }
 

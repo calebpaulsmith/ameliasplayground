@@ -98,6 +98,33 @@ final class WorldValidatorTests: XCTestCase {
         XCTAssertNil(WorldLayout.welles.building(id: "does-not-exist"))
     }
 
+    // MARK: The deterministic streetwall (CI gate)
+
+    func testStreetwallIsDeterministicAndFillsTheFrontages() {
+        let a = WorldLayout.wellesStreetwall
+        let b = WorldLayout.wellesStreetwall
+        XCTAssertEqual(a, b, "streetwall must be reproducible (fixed data)")
+        // Deterministic, so the count is exact — gap-fill around the landmark
+        // anchors on the three frontages.
+        XCTAssertEqual(a.count, 10, "streetwall building count changed unexpectedly")
+        // Ids are unique (the renderer/validator key off them).
+        XCTAssertEqual(Set(a.map(\.id)).count, a.count)
+    }
+
+    func testStreetwallIntroducesNoOverlaps() {
+        let issues = WorldValidator.validate(.wellesComplete)
+        // Landmarks were already overlap-free; the streetwall avoids them and itself.
+        XCTAssertTrue(issues.buildingBuildingOverlaps.isEmpty,
+                      "buildings overlap:\n" + issues.buildingBuildingOverlaps.map(\.message).joined(separator: "\n"))
+        // No streetwall building sits on a road (only the known landmark overlaps remain).
+        let wallOnRoad = issues.buildingRoadOverlaps.filter {
+            if case let .buildingOverlapsRoad(b, _) = $0.kind { return b.hasPrefix("wall-") }
+            return false
+        }
+        XCTAssertTrue(wallOnRoad.isEmpty,
+                      "streetwall on roads:\n" + wallOnRoad.map(\.message).joined(separator: "\n"))
+    }
+
     // MARK: The authored Welles layout — report (informational, does not fail CI)
 
     /// The authored map currently has roads running under a couple of landmark
