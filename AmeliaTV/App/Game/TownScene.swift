@@ -322,7 +322,7 @@ final class TownScene: SKScene, EpisodeWorld {
         guard len > 1e-6 else { return }
         let dir = Vec2(d.x / len, d.z / len)
         let perp = Vec2(-dir.z, dir.x)
-        let bikeFill = SKColor(red: 0.24, green: 0.46, blue: 0.40, alpha: 0.55)   // muted green
+        let bikeFill = SKColor(red: 0.22, green: 0.52, blue: 0.36, alpha: 0.9)   // clearer green
         for side in [-1.0, 1.0] {
             // bike lane: a green strip between the travel lane and the parking lane,
             // with thin white boundary lines either side.
@@ -332,7 +332,7 @@ final class TownScene: SKScene, EpisodeWorld {
             worldNode.addChild(strip)
             for edge in [30.0, 40.0] {
                 let o = perp * (side * edge)
-                let line = roadLine(a + o, b + o, width: 2, color: SKColor(white: 0.95, alpha: 0.5), z: 0.95)
+                let line = roadLine(a + o, b + o, width: 2, color: SKColor(white: 0.95, alpha: 0.7), z: 0.95)
                 line.lineCap = .butt
                 worldNode.addChild(line)
             }
@@ -349,7 +349,7 @@ final class TownScene: SKScene, EpisodeWorld {
             while p < len - 120 {
                 let base = a + dir * p
                 let tick = roadLine(base + perp * (side * 40), base + perp * (side * 48),
-                                    width: 2, color: SKColor(white: 0.95, alpha: 0.45), z: 0.9)
+                                    width: 2.5, color: SKColor(white: 0.95, alpha: 0.7), z: 0.9)
                 tick.lineCap = .butt
                 worldNode.addChild(tick)
                 p += 130
